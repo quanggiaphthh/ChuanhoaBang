@@ -1,0 +1,111 @@
+{
+  "project": "ChuanhoaBang",
+  "package_version": "V17.4",
+  "date": "2026-10-29",
+  "timezone": "Asia/Bangkok",
+  "status": {
+    "source_data": "VERIFIED_LOCAL",
+    "structural_QA": "PASS",
+    "model_judgment": "BLOCKED_NOT_RUN",
+    "independent_blind_validation": "BLOCKED",
+    "font_metrics": "NOT_RUN",
+    "render": "NOT_RUN",
+    "human_adjudication": "BLOCKED"
+  },
+  "method": "deterministic, standard-library structural QA; no model API, no renderer, no independent judge",
+  "source_records": 118,
+  "source_pairs": 64,
+  "prompt_variants": 128,
+  "ab_ba_checks": 64,
+  "recorded_checks": 13,
+  "all_structural_checks_pass": true,
+  "model_calls_executed": 0,
+  "cue_risk_prompts_heuristic": 32,
+  "files": [
+    {
+      "path": "docs/V17_4_PROTOCOL.md",
+      "bytes": 9865,
+      "sha256": "f2eb7e85507d6c2b8558edf414184f7ce5c467f158596c1b240023ad18f0a7e0"
+    },
+    {
+      "path": "docs/V17_4_QA_AND_BLOCKERS.md",
+      "bytes": 3643,
+      "sha256": "bf7200431f062f0bb7e773861406abedd96c83998c6d11265b1a9c4f44585cbe"
+    },
+    {
+      "path": "docs/V17_4_README.md",
+      "bytes": 3504,
+      "sha256": "16ca1e3d79207cb3331cf5156c4cff553ae0c3d603d7382795a9a8e5d6b9b86b"
+    },
+    {
+      "path": "docs/V17_4_WORKBOOK_PROFILE_INTEGRATION.md",
+      "bytes": 2553,
+      "sha256": "5fc8350c8b76443f70a4b21e0899511aa0cdf46255ad715a615f021040e23076"
+    },
+    {
+      "path": "inputs/prompts_128_blind_candidate.jsonl",
+      "bytes": 99868,
+      "sha256": "f908afb5a0e5be920b5b271c5bf01ff4d1b7c0043478c26265f5d43683088e87"
+    },
+    {
+      "path": "keys/independent_gold_64_REQUIRED_TEMPLATE.jsonl",
+      "bytes": 14528,
+      "sha256": "1677ccd094adba30d3fd623f3eacc5588fd7eaab7f1e98dce844874dea7fefb8"
+    },
+    {
+      "path": "keys/spec_answer_key_UNADJUDICATED_KEEP_SEPARATE.jsonl",
+      "bytes": 37832,
+      "sha256": "3da8eee62218222084838af98ff83fc37e0e87e30a01148b33422f639e2d9532"
+    },
+    {
+      "path": "results/MODEL_RESPONSES_NOT_RUN_TEMPLATE.jsonl",
+      "bytes": 19712,
+      "sha256": "f1099fe2bb4b898a40f12c7c3728e86f836b276f94a18ea83e065922a3e652be"
+    },
+    {
+      "path": "results/RUN_MANIFEST_NOT_RUN_TEMPLATE.json",
+      "bytes": 505,
+      "sha256": "a63bab8835f19b90227646b84f990639d8a25873792e3055b03be5bd9e3a6704"
+    },
+    {
+      "path": "results/structural_execution_128.jsonl",
+      "bytes": 47356,
+      "sha256": "995c37f6f618abc8845987954edabaf516006a701dd4a214e9fdd9a75b9bfda0"
+    },
+    {
+      "path": "results/structural_qa_summary.json",
+      "bytes": 2781,
+      "sha256": "08ce2825468896280f847ba8e3bbc7a3b3da34a94578cb633f5f855428889410"
+    },
+    {
+      "path": "source/ChuanhoaBang_V17_3_118_Case_Evidence_Audit.jsonl",
+      "bytes": 106461,
+      "sha256": "fee291086edb84cf6a934dfa08730f831d7cf4572814628701f68821c9d1920e"
+    },
+    {
+      "path": "source/ChuanhoaBang_V17_3_24_Design_Utility_Pairs.jsonl",
+      "bytes": 22161,
+      "sha256": "a43b2f8295909e597150aa017f96c9def02b2bc0fbc5fe1a328f02f4c7968125"
+    },
+    {
+      "path": "source/ChuanhoaBang_V17_3_40_Contrastive_Pairs.jsonl",
+      "bytes": 47310,
+      "sha256": "f9154d5d940a1891c98ff2fb3b43facee868562116c1bc2f6c6d5c9d1b3394f3"
+    },
+    {
+      "path": "source/ChuanhoaBang_V17_3_Blind_Test_48_Design_Prompts.jsonl",
+      "bytes": 28692,
+      "sha256": "9766527edf78d0e777a673d4f01bf6f2bf6e5f9f83a5a73414f50b26728e8758"
+    },
+    {
+      "path": "source/ChuanhoaBang_V17_3_Blind_Test_80_Prompts.jsonl",
+      "bytes": 55524,
+      "sha256": "229048f825b035e259dca5e163b204f10b34a8bdbeb694569cc012bc26ec3e7d"
+    },
+    {
+      "path": "v174_runner.py",
+      "bytes": 15165,
+      "sha256": "9315c9d562ed67d7eb867fc93a03490820148ebc217f1703af6610412ed005c2"
+    }
+  ]
+}
