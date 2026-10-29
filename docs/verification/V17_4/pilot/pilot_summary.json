@@ -1,0 +1,90 @@
+{
+  "pilot_version": "V17.4-PILOT-2026-10-29",
+  "mode": "SYNTHETIC_DETERMINISTIC_CONTROLS",
+  "input_source_file": "ChuanhoaBang_V17_4_Reproducible_Validation_Pack.zip",
+  "input_source_sha256": "759a90bf3fc1807726636f21d468988739a189397123e702d4b8f29d924386cf",
+  "prompt_count": 128,
+  "distinct_pairs": 64,
+  "ab_ba_reversals": 64,
+  "independent_model_calls": 0,
+  "expert_adjudications": 0,
+  "font_metric_runs": 0,
+  "Word_render_runs": 0,
+  "independent_blind_validation": "BLOCKED",
+  "LLM_judgment": "NOT_RUN",
+  "ground_truth": "V17.3_AUTHORED_SPEC_ONLY_NOT_INDEPENDENT_GOLD",
+  "not_a_model_benchmark": true,
+  "structural_qa_pass": true,
+  "spec_label_count": {
+    "ABSTAIN": 16,
+    "CONDITIONAL": 30,
+    "RECOMMENDED": 14,
+    "MANDATORY": 68
+  },
+  "simulated_controls": {
+    "control_always_option1": {
+      "status": "SPEC_CONCORDANCE_ONLY_NOT_VALIDATED_ACCURACY",
+      "response_count": 128,
+      "pair_consistent_numerator": 0,
+      "pair_consistent_denominator": 64,
+      "abstain_observed": 16,
+      "abstain_respected": 0,
+      "conditional_observed": 30,
+      "conditional_caution": 0,
+      "recommended_observed": 14,
+      "recommended_spec_preferred": 7,
+      "mandatory_observed": 68,
+      "mandatory_spec_concordant": 34
+    },
+    "control_always_abstain": {
+      "status": "SPEC_CONCORDANCE_ONLY_NOT_VALIDATED_ACCURACY",
+      "response_count": 128,
+      "pair_consistent_numerator": 64,
+      "pair_consistent_denominator": 64,
+      "abstain_observed": 16,
+      "abstain_respected": 16,
+      "conditional_observed": 30,
+      "conditional_caution": 30,
+      "recommended_observed": 14,
+      "recommended_spec_preferred": 0,
+      "mandatory_observed": 68,
+      "mandatory_spec_concordant": 0
+    },
+    "pilot_lexical_heuristic": {
+      "status": "SPEC_CONCORDANCE_ONLY_NOT_VALIDATED_ACCURACY",
+      "response_count": 128,
+      "pair_consistent_numerator": 63,
+      "pair_consistent_denominator": 64,
+      "abstain_observed": 16,
+      "abstain_respected": 4,
+      "conditional_observed": 30,
+      "conditional_caution": 28,
+      "recommended_observed": 14,
+      "recommended_spec_preferred": 0,
+      "mandatory_observed": 68,
+      "mandatory_spec_concordant": 42
+    },
+    "pilot_lexical_heuristic_v2_fixed": {
+      "status": "SPEC_CONCORDANCE_ONLY_NOT_VALIDATED_ACCURACY",
+      "response_count": 128,
+      "pair_consistent_numerator": 64,
+      "pair_consistent_denominator": 64,
+      "abstain_observed": 16,
+      "abstain_respected": 4,
+      "conditional_observed": 30,
+      "conditional_caution": 28,
+      "recommended_observed": 14,
+      "recommended_spec_preferred": 0,
+      "mandatory_observed": 68,
+      "mandatory_spec_concordant": 42
+    }
+  },
+  "known_pilot_bug": "DP06: version1 matched across option boundary, causing 63/64 order consistency; v2 scores options independently.",
+  "blocked_items": [
+    "Independent gold adjudication",
+    "Evaluator that has not seen answer keys",
+    "Neutralized option-language cues",
+    "Actual isolated LLM response logs",
+    "TNR font-fingerprint + geometry for width-dependent pairs"
+  ]
+}

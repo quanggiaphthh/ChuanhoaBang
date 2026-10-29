@@ -30,3 +30,13 @@ Kho tài liệu nghiên cứu/đặc tả về chuẩn hóa bảng Word trong v�
 
 ## Nguyên tắc hoàn thành
 Ghi rõ `PASS`, `FAIL`, `NOT_RUN`, `UNVERIFIED` và bộ công cụ thực hiện. Không khẳng định "đúng khi in Word" nếu chưa kiểm trên Microsoft Word/Print Layout phù hợp.
+
+## Policy ưu tiên — V17.5.1 / USER-ORIENTATION-001 (29/10/2026)
+
+- **Mọi bảng/tài liệu mới mặc định hướng trang DỌC (PORTRAIT)** nếu người dùng không chỉ định.
+- **Chỉ người dùng được yêu cầu chuyển hướng trang** (ngang hoặc dọc). Width overflow, nhiều cột, điểm thẩm mỹ, khuyến nghị AI hoặc rule offline **không được tự kích hoạt thay đổi orientation**.
+- DOCX hiện có, nếu không có yêu cầu đổi hướng, **giữ nguyên orientation của mọi section** (kể cả section đã ngang).
+- Nếu trang dọc quá hẹp: cảnh báo `PORTRAIT_WIDTH_RISK`/`REVIEW_REQUIRED`, tối ưu an toàn trong phạm vi quyền; nếu không thể bảo toàn thì `NO_SAFE_PORTRAIT_FIT`, không tự xoay trang.
+- Ngay cả khi có yêu cầu ngang, chỉ đánh giá/thực hiện trong phạm vi được phép sau khi kiểm tra form locks, chữ ký, track changes, section breaks, header/footer, số trang, lề, caption, hiệu ứng lên phần khác.
+- Times New Roman chỉ **13–14 pt** trong bảng nội dung, không tự giảm 14→13 khi không được phép; không biến nhãn SPEC hoặc case synthetic thành nghiệm thu Word.
+- Nguồn ưu tiên: [V17.5.1](docs/research/V17_5_1/V17_5_1_ADMIN_TABLES_USER_CONTROLLED_ORIENTATION_SPEC.md) thay thế nhánh đề xuất orientation trước đó trong [V17.5](docs/research/V17_5/V17_5_ADMIN_TABLES_LANDSCAPE_SPEC.md).

@@ -21,3 +21,13 @@ Kết quả kiểm tra cục bộ của gói đầy đủ trong phiên này: exi
 - `docs/V17_4_WORKBOOK_PROFILE_INTEGRATION.md`: cách dùng kết luận trong workbook/profile.
 
 Không thay đổi nội dung V15 hoặc lịch sử Git cũ.
+
+
+## Bổ sung sau ngày 29/10/2026
+
+- [Pilot mô phỏng và kết quả baseline](pilot/README_PILOT.md) — 128 đầu vào, không phải 128 model calls thật.
+- [Prompt Antigravity và hướng dẫn input-only](antigravity/MASTER_PROMPT_ANTIGRAVITY.md).
+- [Đối chiếu hậu kiểm](scoring/V17_4_INDEPENDENT_FILE_AUDIT_REPORT.md), [CSV 128 lượt](scoring/spec_scored_128.csv), [64 cặp đảo A/B](scoring/paired_order_64.csv), [reproduce script](scoring/reproduce_v174_audit.py).
+- [Danh mục QA và giới hạn lưu trữ](POSTPILOT_INDEX.md).
+
+Nhãn so sánh là SPEC-concordance; không công bố điểm thành độ chính xác pháp lý/thẩm mỹ/Word. File ZIP của raw mô hình và khóa private chỉ lưu tách biệt, không commit vào GitHub.

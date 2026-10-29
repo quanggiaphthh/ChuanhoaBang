@@ -1,0 +1,22 @@
+{
+  "version": "V17.5.1 GitHub snapshot",
+  "date": "2026-10-29",
+  "status": "PASS_STRUCTURAL_QA_ONLY",
+  "source": "orientation_cases_all_48.csv",
+  "total_cases": 48,
+  "base_cases": 32,
+  "variant_cases": 16,
+  "valid_font": "Times New Roman 13/14",
+  "unauthorized_landscape_decisions": 0,
+  "orientation_changes_performed": 0,
+  "derived_files": [
+    "orientation_cases_all_48.jsonl",
+    "orientation_cases_32_user_controlled.jsonl",
+    "orientation_user_request_variants_16.jsonl"
+  ],
+  "derived_content_note": "JSONL content is generated from canonical 48-case CSV; semantic fields preserved, byte hashes differ from original ZIP.",
+  "external_model_test": "NOT_RUN",
+  "expert_gold": "NOT_RUN",
+  "word_render": "NOT_RUN",
+  "private_keys_committed": false
+}

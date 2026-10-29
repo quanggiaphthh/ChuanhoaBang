@@ -42,3 +42,13 @@ Các gói DOCX/PDF thử nghiệm V10–V15 đã được tạo trong quá trìn
 **RESEARCH / SPECIFICATION — NOT IMPLEMENTED — WORD ACCEPTANCE PENDING**.
 
 Giữ một tài liệu hợp nhất làm nguồn tham chiếu thay vì sao chép các phiên bản cũ nhiều lần. Không nhầm 152 kịch bản được đặc tả với 152 test đã chạy PASS.
+
+## Cập nhật nghiên cứu 29/10/2026 — V17.4 → V17.5.1
+
+- **Bản đang áp dụng:** [V17.5.1 — Hướng trang do người dùng quyết định](docs/research/V17_5_1/README.md). Bảng/tài liệu mới mặc định **A4 DỌC**; chỉ xem xét đổi sang **A4 NGANG khi người dùng yêu cầu rõ**. Không tự đổi do bảng rộng/nhiều cột. DOCX hiện có thì giữ nguyên orientation nếu không yêu cầu sửa.
+- [V17.5 — nghiên cứu bảng hành chính và landscape](docs/research/V17_5/README.md) là tiền nhiệm lịch sử, phần quyền tự đổi orientation đã bị V17.5.1 thay thế.
+- [Pilot mô phỏng V17.4](docs/verification/V17_4/pilot/README_PILOT.md): 128 đầu vào, baseline tổng hợp, **không phải độ chính xác mô hình**.
+- [Hậu kiểm Antigravity V17.4](docs/verification/V17_4/scoring/V17_4_INDEPENDENT_FILE_AUDIT_REPORT.md): 128 phản hồi báo cáo, đối chiếu **SPEC**, blind/expert-gold vẫn BLOCKED; model provider chưa xác thực độc lập.
+- [Tình trạng dữ liệu và gói kết quả](docs/verification/V17_4/POSTPILOT_INDEX.md). Raw payload ZIP và khóa đáp án riêng không được đưa vào GitHub để hạn chế lộ private key và dữ liệu máy người dùng.
+
+**Phạm vi không đổi:** RESEARCH / SPEC ONLY; Times New Roman **13–14 pt**; không tự thay đổi dữ liệu, biểu mẫu khóa hoặc hướng trang; không tuyên bố đã nghiệm thu Microsoft Word.

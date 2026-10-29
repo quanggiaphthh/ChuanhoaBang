@@ -1,0 +1,33 @@
+case_id,old_label,new_label,reason
+ORI001,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI002,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI003,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI004,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI005,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI006,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI007,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI008,PORTRAIT_KEEP,KEEP_PORTRAIT_DEFAULT,"Mặc định giữ trang dọc theo chính sách người dùng, không tối ưu bằng đổi orientation."
+ORI009,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI010,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI011,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI012,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI013,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI014,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI015,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI016,LANDSCAPE_CANDIDATE,KEEP_PORTRAIT_WARN_WIDTH,Mặc định dọc; dữ liệu width giả định chỉ kích hoạt cảnh báo quá rộng và yêu cầu xử lý trong trang dọc; KHÔNG đề xuất hay thực hiện chuyển ngang nếu người dùng chưa yêu cầu.
+ORI017,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI018,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI019,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI020,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI021,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI022,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI023,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI024,REVIEW_REQUIRED,KEEP_PORTRAIT_REVIEW_GEOMETRY,"Giữ dọc khi chưa có yêu cầu chuyển; báo thiếu dữ liệu/không chắc chắn về bố cục, không tự chuyển ngang."
+ORI025,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI026,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI027,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI028,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI029,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI030,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI031,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
+ORI032,PRESERVE_LOCKED,PRESERVE_LOCKED_REVIEW_AUTHORITY,"Biểu mẫu hoặc hồ sơ đã khóa: giữ nguyên orientation hiện hữu, quyền sửa chưa được xác minh; không tự đổi dù khó đọc."
