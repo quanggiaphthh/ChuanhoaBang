@@ -25,6 +25,7 @@ POLICY_REGISTRY = json.loads(
 )
 POLICY_VERSION = POLICY_REGISTRY["version"]
 MAX_UNCOMPRESSED = 60 * 1024 * 1024
+MAX_COMPRESSED_DOCX_BYTES = 64 * 1024 * 1024
 MAX_ENTRY = 25 * 1024 * 1024
 MAX_RATIO = 150
 HEADER_HINTS = ("stt", "họ tên", "họ và tên", "nội dung", "nhiệm vụ", "đơn vị", "chỉ tiêu",
@@ -77,6 +78,8 @@ def _package(path: str | Path):
     if path.suffix.lower() != ".docx" or not path.is_file():
         raise TableError("INPUT_MUST_BE_EXISTING_DOCX")
     try:
+        if path.stat().st_size > MAX_COMPRESSED_DOCX_BYTES:
+            raise TableError("COMPRESSED_DOCX_SIZE_LIMIT")
         with ZipFile(path) as z:
             items = z.infolist()
             names = [x.filename for x in items]

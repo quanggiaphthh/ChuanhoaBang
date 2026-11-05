@@ -10,8 +10,8 @@
 
 | Gate | Yêu cầu để v1.0 | Trạng thái ở technical preview |
 |---|---|---|
-| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset (43 pytest, 05/11/2026) |
-| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset (43 pytest, 05/11/2026) |
+| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset (64/64 GitHub Actions; 65/65 local after archive guard, 05/11/2026) |
+| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset (65 local pytest, 05/11/2026); latest compressed-archive size-guard change awaits CI |
 | AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset (43 pytest, 05/11/2026) |
 | GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset (43 pytest, 05/11/2026); Word not verified |
 | FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |
@@ -20,7 +20,7 @@
 | L2-WORD | Print Layout Word không tràn/cắt | NOT_RUN |
 | WPS/LO | Renderer đối chứng | NOT_RUN; tùy môi trường test |
 | WORDVN | Adapter, preview, Undo | Source repo `quanggiaphthh/WordVN` hiện chỉ có README (05/11/2026); editor/API/Undo NOT_IMPLEMENTED, adapter BLOCKED |
-| RELEASE | Clean install, pin dependencies, reproducible binary + rollback | NOT_RUN |
+| RELEASE | Clean install, pin dependencies, reproducible binary + rollback | PARTIAL: wheel build/install/package-data/CLI smoke PASS in [CI run 42075178243](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42075178243); exact dependency pinning, reproducible build, and rollback NOT_RUN |
 
 **Nguyên tắc:** Có thể dùng CLI thử nghiệm cho phạm vi đã chứng minh; không đóng issue #7, #8, #11–#16 khi thiếu acceptance theo body issue. Không đóng những issue chỉ có tài liệu một phần.
 

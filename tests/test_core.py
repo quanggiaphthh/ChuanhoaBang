@@ -60,6 +60,16 @@ def test_audit_read_only_and_header(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_oversized_compressed_docx_is_rejected_before_archive_read(tmp_path, monkeypatch):
+    path = fixture_docx(tmp_path)
+    assert core.MAX_COMPRESSED_DOCX_BYTES == 64 * 1024 * 1024
+    monkeypatch.setattr(core, "MAX_COMPRESSED_DOCX_BYTES", path.stat().st_size - 1, raising=False)
+    monkeypatch.setattr(core, "ZipFile", lambda *_args, **_kwargs: pytest.fail("ZIP opened before size guard"))
+
+    with pytest.raises(TableError, match="COMPRESSED_DOCX_SIZE_LIMIT"):
+        audit(path)
+
+
 def test_unknown_data_table_review(tmp_path):
     path = fixture_docx(tmp_path, header=False)
     result = audit(path)

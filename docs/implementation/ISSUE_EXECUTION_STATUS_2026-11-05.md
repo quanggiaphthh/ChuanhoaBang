@@ -13,7 +13,7 @@
 | [#1](https://github.com/quanggiaphthh/ChuanhoaBang/issues/1) ADR/capability | ADR evaluates Python OOXML / WordVN / .NET; WordVN repo inspected | Review/update final integration choice when editor exists | PARTIAL |
 | [#2](https://github.com/quanggiaphthh/ChuanhoaBang/issues/2) policies | Packaged runtime registry; ND30/HD05 selection and proposal binding; orientation safety | Verified legal presets and profile-specific executable rules | PARTIAL |
 | [#3](https://github.com/quanggiaphthh/ChuanhoaBang/issues/3) fixtures | Fixture inventory and provenance notes; local/Drive search did not locate originals; 118-case synthetic evidence contains 0 DOCX fixtures | Obtain original checksum-verified F01–F08 & V15 binaries | BLOCKED_PARTIAL |
-| [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only audit and table inventory; ZIP safety guards | Broader document fixtures and source validation | PARTIAL |
+| [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only audit and table inventory; uncompressed-entry, ratio, and compressed-archive size guards | Broader document fixtures and source validation | PARTIAL |
 | [#5](https://github.com/quanggiaphthh/ChuanhoaBang/issues/5) classification | Layout/lock/complex refusal and 7 extra negative markup cases | Formal sample corpus, robust table semantics, authority validation | PARTIAL |
 | [#6](https://github.com/quanggiaphthh/ChuanhoaBang/issues/6) geometry | Single-section geometry, orientation declaration consistency, diagnostics and explicit paragraph-style chains rooted at default Normal/docDefaults | Full style cascade/gutter/columns/nested context | PARTIAL |
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
@@ -22,10 +22,10 @@
 | [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; CI wheel/install smoke | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 49 PASS, incl 6 invariant-scope and 4 gridSpan cases | Original F01–F08/V15 plus target renderer cases | PARTIAL |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 64 PASS (latest prior code) and 65 local PASS incl archive-size guard | Original F01–F08/V15 plus target renderer cases; CI for latest guard pending | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LO secondary smoke documents | Independent Microsoft Word and WPS evidence | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
-| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Release gate document, CI | Clean package and Word acceptance, security/compatibility gates | NOT_READY |
+| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Release gates; CI test and wheel-install smoke | Dependency pinning, reproducible build/rollback, Word acceptance, remaining security/compatibility gates | NOT_READY |
 
 ## Delivered changes beyond original PR bootstrap
 
@@ -93,3 +93,8 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 - CI now builds the project wheel, installs it with `--no-deps --no-index` into a separate target, then imports from that target outside the checkout.
 - The smoke checks that the packaged `POLICY_REGISTRY.json` is present, the public profiles are `('ND30', 'HD05')`, and `python -m chuanhoabang --help` runs from the installed wheel.
 - Manual local wheel build/install smoke passed, and GitHub Actions run [42074935268](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42074935268) completed **PASS** for build, isolated install, packaged policy/profile assertions, CLI help, and the full **64-test** suite. This does not replace end-to-end acceptance on a user document or Word rendering.
+
+## CB-04/16 follow-up — compressed archive size guard
+
+- `_package` rejects a DOCX archive larger than 64 MiB before opening it with `ZipFile`; existing entry-size, total-uncompressed-size, entry-count, duplicate-name, and compression-ratio checks remain in place.
+- A synthetic regression lowers the configured limit and asserts the ZIP reader is never invoked. Targeted test **1 PASS** and full local suite **65 PASS** on Python 3.12. The latest GitHub run predates this code change; CI verification is pending.
