@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified:** commit `73864814500308e59a6c85dea61bcd3a83df4be4`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42071774558): **57/57 PASS** on Python 3.11 and synthetic DOCX fixtures.
+**Latest verified:** commit `9581b4a489804b34b149a8612ef5311c3b2f5ff9`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42072958614): **58/58 PASS** on Python 3.11 and synthetic DOCX fixtures.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -16,7 +16,7 @@
 | [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only audit and table inventory; ZIP safety guards | Broader document fixtures and source validation | PARTIAL |
 | [#5](https://github.com/quanggiaphthh/ChuanhoaBang/issues/5) classification | Layout/lock/complex refusal and 7 extra negative markup cases | Formal sample corpus, robust table semantics, authority validation | PARTIAL |
 | [#6](https://github.com/quanggiaphthh/ChuanhoaBang/issues/6) geometry | Single-section geometry, orientation declaration consistency, diagnostics and explicit paragraph-style chains rooted at default Normal/docDefaults | Full style cascade/gutter/columns/nested context | PARTIAL |
-| [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; direct, Normal/docDefaults, or supported paragraph-style chain; blocks unresolved styles | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
+| [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
 | [#8](https://github.com/quanggiaphthh/ChuanhoaBang/issues/8) width | Bounded optimizer on rectangular tables; no automatic landscape | Real font/renderer validation and historical fixture comparison | PARTIAL |
 | [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist (width vs header vs row height); stale proposal guard, non-target parts, path safety | Edge DOCX interoperability and merge/review | PARTIAL |
 | [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite | Clean packaging/install and end-to-end user document acceptance | PARTIAL |
@@ -81,4 +81,9 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 ## CB-06 follow-up — page orientation declaration consistency
 
 - Geometry audit now checks explicit `w:pgSz/@w:orient` against the page dimensions. Invalid or conflicting declarations produce `GEOMETRY_UNKNOWN` and leave optimization at `REVIEW_REQUIRED`.
-- Regression: portrait dimensions declared as landscape fail closed. Full local suite `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/` — **58 PASS** on Python 3.12; GitHub CI for this follow-up is pending.
+- Regression: portrait dimensions declared as landscape fail closed. Full local suite `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/` — **58 PASS** on Python 3.12; GitHub Actions run [42072958614](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42072958614) completed **58 PASS** on Python 3.11.
+
+## CB-07 follow-up — font-face metadata gate
+
+- `_load_fonts` now rejects a bold/italic face in the regular slot and requires a bold, non-italic face in the bold slot. Family/style metadata is a guard only; it does not establish font licensing or authenticity.
+- Six synthetic metadata regressions and full local suite: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/` — **64 PASS** on Python 3.12. Genuine licensed TNR shaping and Word rendering remain **NOT_RUN**; GitHub CI for this follow-up is pending.

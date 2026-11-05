@@ -236,15 +236,25 @@ def _load_fonts(regular_file, bold_file):
         if not features.check("raqm"):
             raise TableError("LIBRAQM_SHAPING_UNAVAILABLE")
         regular = ImageFont.truetype(str(regular_file), 100, layout_engine=ImageFont.Layout.RAQM)
-        if regular.getname()[0].casefold() != "times new roman":
+        regular_family, regular_style = regular.getname()
+        if regular_family.casefold() != "times new roman":
             raise TableError("FONT_IS_NOT_TIMES_NEW_ROMAN")
+        regular_style_tokens = set(re.findall(r"[a-z]+", regular_style.casefold()))
+        if not regular_style_tokens or {"bold", "italic"} & regular_style_tokens:
+            raise TableError("TNR_REGULAR_FACE_REQUIRED")
         bold = None
         if bold_file:
             bold = ImageFont.truetype(str(bold_file), 100, layout_engine=ImageFont.Layout.RAQM)
-            if bold.getname()[0].casefold() != "times new roman":
+            bold_family, bold_style = bold.getname()
+            if bold_family.casefold() != "times new roman":
                 raise TableError("BOLD_FONT_IS_NOT_TIMES_NEW_ROMAN")
+            bold_style_tokens = set(re.findall(r"[a-z]+", bold_style.casefold()))
+            if "bold" not in bold_style_tokens or "italic" in bold_style_tokens:
+                raise TableError("TNR_BOLD_FACE_REQUIRED")
         return regular, bold
-    except (OSError, AttributeError) as exc:
+    except TableError:
+        raise
+    except (OSError, AttributeError, TypeError, ValueError) as exc:
         raise TableError("UNREADABLE_TNR_FONT") from exc
 
 
