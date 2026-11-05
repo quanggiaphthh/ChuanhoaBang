@@ -5,7 +5,8 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from .core import TableError, audit, propose, propose_header, propose_unclip_row_height, apply
+from .core import (TableError, audit, propose, propose_header, propose_unclip_row_height,
+                   apply, available_profiles)
 
 
 def render_markdown(result: dict) -> str:
@@ -18,6 +19,7 @@ def render_markdown(result: dict) -> str:
              f"**Kết xuất Microsoft Word:** `{safe(result.get('word_render', 'NOT_RUN'))}`",
              "", "## Thông tin xử lý", "", "| Thuộc tính | Giá trị |", "|---|---|"]
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
+                "profile", "profile_status", "profile_rules_applied",
                 "table_index", "table_count", "operation", "evidence",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
@@ -47,6 +49,8 @@ def main(argv=None):
     p_audit = sub.add_parser("audit", help="Read-only inspection of all body tables")
     p_audit.add_argument("input")
     p_audit.add_argument("--report-md", help="Write a Markdown QA report to a new file")
+    p_audit.add_argument("--profile", choices=available_profiles(),
+                         help="Record ND30/HD05 context; profile rules remain reference-only")
     p_prop = sub.add_parser("propose", help="Generate a deterministic width proposal")
     p_prop.add_argument("input")
     p_prop.add_argument("--table", type=int, required=True, help="0-based table index from audit")
@@ -54,16 +58,22 @@ def main(argv=None):
     p_prop.add_argument("--font-bold", help="Installed, licensed Times New Roman bold TTF/OTF")
     p_prop.add_argument("--output", help="Save JSON proposal to this new file")
     p_prop.add_argument("--report-md", help="Write a Markdown QA report to a new file")
+    p_prop.add_argument("--profile", choices=available_profiles(),
+                        help="Record ND30/HD05 context; profile rules remain reference-only")
     p_header = sub.add_parser("propose-header", help="Propose repeat-header for an eligible data table")
     p_header.add_argument("input")
     p_header.add_argument("--table", type=int, required=True, help="0-based table index from audit")
     p_header.add_argument("--output", help="Save JSON header proposal to this new file")
     p_header.add_argument("--report-md", help="Write a Markdown QA report to a new file")
+    p_header.add_argument("--profile", choices=available_profiles(),
+                          help="Record ND30/HD05 context; profile rules remain reference-only")
     p_unclip = sub.add_parser("propose-unclip", help="Propose safe exact→atLeast row-height relaxation")
     p_unclip.add_argument("input")
     p_unclip.add_argument("--table", type=int, required=True)
     p_unclip.add_argument("--output", help="Save JSON proposal to this new file")
     p_unclip.add_argument("--report-md", help="Write a Markdown QA report to a new file")
+    p_unclip.add_argument("--profile", choices=available_profiles(),
+                          help="Record ND30/HD05 context; profile rules remain reference-only")
     p_apply = sub.add_parser("apply", help="Explicitly apply an unmodified proposal to a new DOCX")
     p_apply.add_argument("input")
     p_apply.add_argument("--proposal", required=True)
@@ -71,6 +81,8 @@ def main(argv=None):
     p_apply.add_argument("--font-regular")
     p_apply.add_argument("--font-bold")
     p_apply.add_argument("--report-md", help="Write a Markdown QA report to a new file")
+    p_apply.add_argument("--profile", choices=available_profiles(),
+                         help="Verify the proposal's ND30/HD05 context before applying")
     args = parser.parse_args(argv)
     try:
         if args.report_md:
@@ -84,16 +96,18 @@ def main(argv=None):
             if getattr(args, "proposal", None) and report_path == Path(args.proposal).resolve():
                 raise TableError("REPORT_OUTPUT_CONFLICT")
         if args.command == "audit":
-            result = audit(args.input)
+            result = audit(args.input, profile=args.profile)
         elif args.command == "propose":
-            result = propose(args.input, args.table, args.font_regular, args.font_bold)
+            result = propose(args.input, args.table, args.font_regular, args.font_bold,
+                             profile=args.profile)
         elif args.command == "propose-header":
-            result = propose_header(args.input, args.table)
+            result = propose_header(args.input, args.table, profile=args.profile)
         elif args.command == "propose-unclip":
-            result = propose_unclip_row_height(args.input, args.table)
+            result = propose_unclip_row_height(args.input, args.table, profile=args.profile)
         else:
             data = json.loads(Path(args.proposal).read_text(encoding="utf-8"))
-            result = apply(args.input, data, args.output, args.font_regular, args.font_bold)
+            result = apply(args.input, data, args.output, args.font_regular, args.font_bold,
+                           profile=args.profile)
         serialized = json.dumps(result, indent=2, ensure_ascii=False)
         if args.command in ("propose", "propose-header", "propose-unclip") and args.output:
             dest = Path(args.output)

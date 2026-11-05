@@ -13,8 +13,8 @@ python -m pytest -q
 ## Sử dụng
 
 ```bash
-chuanhoabang audit INPUT.docx --report-md AUDIT_REPORT.md
-chuanhoabang propose INPUT.docx --table 0 --font-regular /path/to/TimesNewRoman.ttf --font-bold /path/to/TimesNewRoman-Bold.ttf --output proposal.json
+chuanhoabang audit INPUT.docx --profile ND30 --report-md AUDIT_REPORT.md
+chuanhoabang propose INPUT.docx --table 0 --profile HD05 --font-regular /path/to/TimesNewRoman.ttf --font-bold /path/to/TimesNewRoman-Bold.ttf --output proposal.json
 chuanhoabang apply INPUT.docx --proposal proposal.json --output INPUT_DINHDANG.docx --font-regular /path/to/TimesNewRoman.ttf --font-bold /path/to/TimesNewRoman-Bold.ttf
 
 # Độc lập với đo chữ: đề xuất lặp hàng tiêu đề đầu tiên của bảng nội dung
@@ -27,6 +27,7 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 ```
 
 - `--table` lấy index 0-based từ `audit`. `propose` không sửa DOCX; `apply` cần đề xuất `PROPOSE_APPLY` chưa bị chỉnh và đầu vào **chưa đổi**.
+- `--profile ND30|HD05` ghi profile được chọn vào báo cáo/đề xuất. Registry chưa xác minh preset pháp lý và runtime chưa áp dụng quy tắc riêng cho profile; kết quả vẫn là `REFERENCE_ONLY`, không phải chứng nhận tuân thủ.
 - Phông chữ phải là file Times New Roman hợp pháp có trên máy. **Không sử dụng Tinos/Liberation Serif như Times New Roman**. Nếu không có font, lệnh trả `REVIEW_REQUIRED`; không tạo giả phép đo.
 - Để tránh sửa nhầm, AutoFit bản thử nghiệm chỉ xử lý bảng dữ liệu phẳng, một section, với các run khai báo trực tiếp TNR 13/14. Ngoại lệ hạn chế: `gridSpan` gộp ngang hợp lệ được phép lặp header hoặc nới chiều cao hàng (không đổi width); gộp dọc, bảng lồng hoặc bảng khóa vẫn bị chặn.
 - Lệnh `propose` (width) chỉ sửa width của bảng được chọn; không thay font, số liệu, orientation, header/footer hoặc height. Điểm width chưa chứng minh độ vừa trang trong Word.

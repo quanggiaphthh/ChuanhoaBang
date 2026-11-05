@@ -1,10 +1,11 @@
 """Policy-file syntax and obvious authority/format safety assertions."""
 import json
-from pathlib import Path
+from importlib.resources import files
 
 
 def test_policy_machine_readable():
-    policy = json.loads((Path(__file__).resolve().parents[1] / "docs/implementation/POLICY_REGISTRY.json").read_text("utf-8"))
+    policy_file = files("chuanhoabang").joinpath("POLICY_REGISTRY.json")
+    policy = json.loads(policy_file.read_text(encoding="utf-8"))
     rules = policy["rules"]
     ids = [r["id"] for r in rules]
     assert len(ids) == len(set(ids))

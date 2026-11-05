@@ -12,6 +12,7 @@ import math
 import os
 import re
 import tempfile
+from importlib.resources import files as package_files
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
 
@@ -19,7 +20,10 @@ from lxml import etree
 
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 W = "{" + NS["w"] + "}"
-POLICY_VERSION = "V17.5.1/USER-ORIENTATION-001"
+POLICY_REGISTRY = json.loads(
+    package_files(__package__).joinpath("POLICY_REGISTRY.json").read_text(encoding="utf-8")
+)
+POLICY_VERSION = POLICY_REGISTRY["version"]
 MAX_UNCOMPRESSED = 60 * 1024 * 1024
 MAX_ENTRY = 25 * 1024 * 1024
 MAX_RATIO = 150
@@ -39,6 +43,19 @@ DANGEROUS_IN_TABLE = [".//w:sdt", ".//w:ins", ".//w:del", ".//w:moveFrom", ".//w
 
 class TableError(ValueError):
     """Unsafe or unsupported document/table operation."""
+
+
+def available_profiles():
+    """Return profile identifiers defined by the packaged policy registry."""
+    return tuple(POLICY_REGISTRY["profiles"])
+
+
+def _profile_context(profile):
+    if profile is None:
+        return {"profile": None, "profile_status": "NOT_SELECTED", "profile_rules_applied": False}
+    if not isinstance(profile, str) or profile not in POLICY_REGISTRY["profiles"]:
+        raise TableError("UNKNOWN_PROFILE")
+    return {"profile": profile, "profile_status": "REFERENCE_ONLY", "profile_rules_applied": False}
 
 
 def digest(data: bytes) -> str:
@@ -191,15 +208,17 @@ def _details(tbl, idx, geom, locks):
                 sum(widths) > geom["available_twips"])}
 
 
-def audit(path):
+def audit(path, profile=None):
+    profile_context = _profile_context(profile)
     raw, settings, names = _package(path)
     root = _xml(raw)
     geometry = _geometry(root)
     locks = _protected(settings, names, root)
     tables = [_details(tbl, i, geometry, locks) for i, tbl in enumerate(_tables(root))]
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
-            "policy": POLICY_VERSION, "geometry": geometry, "global_locks": locks,
-            "table_count": len(tables), "tables": tables, "word_render": "NOT_RUN"}
+            "policy": POLICY_VERSION, **profile_context, "geometry": geometry,
+            "global_locks": locks, "table_count": len(tables), "tables": tables,
+            "word_render": "NOT_RUN"}
 
 
 def _load_fonts(regular_file, bold_file):
@@ -354,13 +373,15 @@ def _estimate_lines(chunks, inner_twips):
     return count
 
 
-def propose(path, table_index, font_regular=None, font_bold=None):
-    base = audit(path)
+def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
+    base = audit(path, profile=profile)
     if not isinstance(table_index, int) or table_index < 0 or table_index >= base["table_count"]:
         raise TableError("TABLE_INDEX_OUT_OF_RANGE")
     info = base["tables"][table_index]
     result = {"input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
+              "profile": base["profile"], "profile_status": base["profile_status"],
+              "profile_rules_applied": base["profile_rules_applied"],
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
               "word_render": "NOT_RUN", "content_modified": False}
@@ -586,17 +607,19 @@ def _allow_paging_only(path, table_index, info, result):
     return True
 
 
-def propose_header(path, table_index):
+def propose_header(path, table_index, profile=None):
     """Propose repeating an existing, clearly identified first data-table row.
 
     This is opt-in. It never adds or changes text and never claims the renderer
     actually repeated the row. It declines manual page breaks and complex tables.
     """
-    base = audit(path)
+    base = audit(path, profile=profile)
     if not isinstance(table_index, int) or not 0 <= table_index < base["table_count"]:
         raise TableError("TABLE_INDEX_OUT_OF_RANGE")
     table = base["tables"][table_index]
     result = {"operation": "SET_REPEAT_HEADER_FIRST_ROW", "policy": POLICY_VERSION,
+              "profile": base["profile"], "profile_status": base["profile_status"],
+              "profile_rules_applied": base["profile_rules_applied"],
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
@@ -641,17 +664,19 @@ def _apply_header(root, index):
     rowpr.insert(position, header)
 
 
-def propose_unclip_row_height(path, table_index):
+def propose_unclip_row_height(path, table_index, profile=None):
     """Explicit, auditable exact-to-atLeast row-height proposal.
 
     A structural risk mitigation, NOT proof of clipping or improved pages.
     Other paragraph line spacing and row split properties are untouched.
     """
-    base = audit(path)
+    base = audit(path, profile=profile)
     if not isinstance(table_index, int) or not 0 <= table_index < base["table_count"]:
         raise TableError("TABLE_INDEX_OUT_OF_RANGE")
     table = base["tables"][table_index]
     result = {"operation": "EXACT_ROW_HEIGHT_TO_AT_LEAST", "policy": POLICY_VERSION,
+              "profile": base["profile"], "profile_status": base["profile_status"],
+              "profile_rules_applied": base["profile_rules_applied"],
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
@@ -693,24 +718,29 @@ def _apply_unclip_row_heights(root, index, row_indices):
         matches[0].set(W + "hRule", "atLeast")
 
 
-def apply(path, proposal, output, font_regular=None, font_bold=None):
+def apply(path, proposal, output, font_regular=None, font_bold=None, profile=None):
     src = Path(path)
     dst = Path(output)
     if src.resolve() == dst.resolve() or dst.exists():
         raise TableError("OUTPUT_MUST_BE_NEW_PATH")
     if not isinstance(proposal, dict) or proposal.get("decision") != "PROPOSE_APPLY":
         raise TableError("PROPOSAL_NOT_APPLICABLE")
+    selected_profile = proposal.get("profile") if profile is None else profile
+    profile_context = _profile_context(selected_profile)
+    if "profile" in proposal and proposal["profile"] != selected_profile:
+        raise TableError("STALE_OR_MODIFIED_PROPOSAL")
     operation = proposal.get("operation") or "OPTIMIZE_WIDTH"
     if operation not in ("OPTIMIZE_WIDTH", "SET_REPEAT_HEADER_FIRST_ROW", "EXACT_ROW_HEIGHT_TO_AT_LEAST"):
         raise TableError("UNSUPPORTED_PROPOSAL_OPERATION")
     header_operation = operation == "SET_REPEAT_HEADER_FIRST_ROW"
     height_operation = operation == "EXACT_ROW_HEIGHT_TO_AT_LEAST"
     if header_operation:
-        actual = propose_header(src, proposal.get("table_index"))
+        actual = propose_header(src, proposal.get("table_index"), profile=selected_profile)
     elif height_operation:
-        actual = propose_unclip_row_height(src, proposal.get("table_index"))
+        actual = propose_unclip_row_height(src, proposal.get("table_index"), profile=selected_profile)
     else:
-        actual = propose(src, proposal.get("table_index"), font_regular, font_bold)
+        actual = propose(src, proposal.get("table_index"), font_regular, font_bold,
+                         profile=selected_profile)
     compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons")
     if header_operation:
         compare += ("operation",)
@@ -718,6 +748,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         compare += ("operation", "row_indices")
     else:
         compare += ("candidate_twips",)
+    if "profile" in proposal:
+        compare += ("profile", "profile_status", "profile_rules_applied")
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
     raw, settings, names = _package(src)
@@ -756,6 +788,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
             os.unlink(temp_path)
     return {"decision": "APPLIED", "output": str(dst), "output_sha256": digest(dst.read_bytes()),
             "input_sha256": actual["input_sha256"],
+            **profile_context,
             "operation": operation,
             "changed_properties": (["tblHeader"] if header_operation else ["trHeight.hRule"]
                                    if height_operation else ["tblGrid", "tblW", "tblLayout", "tcW"]),
