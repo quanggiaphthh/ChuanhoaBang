@@ -150,6 +150,7 @@ def _build_bundle(candidate_dir: Path, output_dir: Path) -> None:
     wheelhouse = output_dir / "wheelhouse"
     wheelhouse.mkdir()
     requirements = output_dir / "requirements.txt"
+    offline_install_requirements = output_dir / "offline-install-requirements.txt"
 
     _run([
         "uv", "export", "--locked", "--format", "requirements.txt", "--no-dev",
@@ -162,6 +163,15 @@ def _build_bundle(candidate_dir: Path, output_dir: Path) -> None:
 
     bundled_app_wheel = wheelhouse / wheel.name
     shutil.copyfile(wheel, bundled_app_wheel)
+    offline_install_requirements.write_text(
+        requirements.read_text(encoding="utf-8").rstrip()
+        + "\n\n"
+        + _wheel_requirement(bundled_app_wheel)
+        + " \\\n    --hash=sha256:"
+        + _sha256(bundled_app_wheel)
+        + "\n",
+        encoding="utf-8",
+    )
 
     with tempfile.TemporaryDirectory(prefix="chuanhoabang-offline-") as temp_dir:
         temp = Path(temp_dir)
@@ -179,7 +189,8 @@ def _build_bundle(candidate_dir: Path, output_dir: Path) -> None:
 
         _run([
             str(_venv_python(venv)), "-m", "pip", "install", "--no-index",
-            "--find-links", str(wheelhouse), _wheel_requirement(bundled_app_wheel),
+            "--find-links", str(wheelhouse), "--require-hashes", "--only-binary=:all:",
+            "-r", str(offline_install_requirements),
         ], cwd=temp, env=offline_env)
 
         entrypoint = (
@@ -229,11 +240,13 @@ def _build_bundle(candidate_dir: Path, output_dir: Path) -> None:
             "sha256": _sha256(requirements),
             "export": "uv export --locked --no-dev --no-emit-project",
             "hash_checked_binary_wheels_only": True,
+            "offline_install_filename": offline_install_requirements.name,
+            "offline_install_sha256": _sha256(offline_install_requirements),
         },
         "wheelhouse": wheel_entries,
         "checks": {
             "fresh_virtual_environment": "PASS",
-            "install_with_pip_no_index": "PASS",
+            "install_with_pip_no_index_and_require_hashes": "PASS",
             "console_entrypoint_help": "PASS",
             "vietnamese_docx_audit_and_markdown_report": "PASS",
             "microsoft_word_acceptance": "NOT_RUN",

@@ -21,11 +21,11 @@ python -m pip install .
 CI tạo wheelhouse riêng theo hệ điều hành, kiến trúc và phiên bản Python. Tải artifact `chuanhoabang-offline-<OS>-py<Python>-<commit>` khớp với máy đích; artifact gồm `wheelhouse/`, `requirements.txt` có hash và `offline-bundle-manifest.json`. Trên máy đích, từ thư mục artifact:
 
 ```bash
-python -m pip install --no-index --find-links ./wheelhouse chuanhoabang==0.1.0.dev0
+python -m pip install --no-index --find-links ./wheelhouse --require-hashes -r ./offline-install-requirements.txt
 chuanhoabang --help
 ```
 
-Wheelhouse chỉ dùng cho đúng OS/kiến trúc/Python minor ghi trong manifest. Nó chứa wheel runtime và wheel preview của ứng dụng, không chứa bộ test hoặc Times New Roman. Lệnh cài đặt đặt `--no-index`, nên pip chỉ tìm package trong thư mục nội bộ.
+Wheelhouse chỉ dùng cho đúng OS/kiến trúc/Python minor ghi trong manifest. `offline-install-requirements.txt` pin và kiểm tra SHA-256 cho dependency wheels và wheel preview của ứng dụng. Bundle không chứa bộ test hoặc Times New Roman. Lệnh cài đặt đặt `--no-index`, nên pip chỉ tìm package trong thư mục nội bộ.
 
 ## Sử dụng
 
