@@ -42,14 +42,17 @@ def document_fixture(tmp_path, *, normal_font="Times New Roman", named_style=Fal
 
 
 @pytest.fixture
-def fake_metrics(monkeypatch):
+def fake_metrics(tmp_path, monkeypatch):
+    synthetic_data = tmp_path / "synthetic-test-only-not-a-font.bin"
+    synthetic_data.write_bytes(b"SYNTHETIC_NON_FONT_TEST_DATA")
     monkeypatch.setattr(core, "_load_fonts",
                         lambda *args: (SyntheticMetricFont(), SyntheticMetricFont()))
+    return str(synthetic_data)
 
 
 def test_normal_style_inheritance_enables_measured_candidate_path(tmp_path, fake_metrics):
     source = document_fixture(tmp_path)
-    p = propose(source, 0, font_regular="/not/real/tnr.ttf", font_bold="/not/real/bold.ttf")
+    p = propose(source, 0, font_regular=fake_metrics, font_bold=fake_metrics)
     assert p["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
     assert p["evidence"] == "FONT_METRIC_ESTIMATE"
     assert "UNRESOLVED_EFFECTIVE_FONT" not in p["reasons"]
@@ -58,7 +61,7 @@ def test_normal_style_inheritance_enables_measured_candidate_path(tmp_path, fake
 
 def test_non_tnr_normal_style_still_rejected(tmp_path, fake_metrics):
     source = document_fixture(tmp_path, normal_font="Arial")
-    p = propose(source, 0, font_regular="/not/real/tnr.ttf")
+    p = propose(source, 0, font_regular=fake_metrics)
     assert p["decision"] == "REVIEW_REQUIRED"
     assert "UNRESOLVED_EFFECTIVE_FONT" in p["reasons"]
 
@@ -66,13 +69,13 @@ def test_non_tnr_normal_style_still_rejected(tmp_path, fake_metrics):
 @pytest.mark.parametrize("override", ["named_style", "character_style", "table_style"])
 def test_unsupported_style_cascade_fails_closed(tmp_path, fake_metrics, override):
     source = document_fixture(tmp_path, **{override: True})
-    p = propose(source, 0, font_regular="/not/real/tnr.ttf")
+    p = propose(source, 0, font_regular=fake_metrics)
     assert p["decision"] == "REVIEW_REQUIRED"
     assert "STYLE" in " ".join(p["reasons"])
 
 
 def test_run_level_tnr_overrides_non_tnr_normal(tmp_path, fake_metrics):
     source = document_fixture(tmp_path, normal_font="Arial", direct=True)
-    p = propose(source, 0, font_regular="/not/real/tnr.ttf")
+    p = propose(source, 0, font_regular=fake_metrics)
     assert p["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
     assert p["evidence"] == "FONT_METRIC_ESTIMATE"
