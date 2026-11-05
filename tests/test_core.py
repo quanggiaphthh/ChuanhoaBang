@@ -77,6 +77,18 @@ def test_unknown_data_table_review(tmp_path):
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+def test_layout_marker_anywhere_in_table_forces_review(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(2, 2).text = "Nơi nhận: Lưu hồ sơ"
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+    assert table["status"] == "REVIEW_REQUIRED"
+    assert "POSSIBLE_LAYOUT_TABLE" in table["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
 def test_merged_is_not_auto_formatted(tmp_path):
     path = fixture_docx(tmp_path, merged=True)
     result = audit(path)

@@ -225,7 +225,13 @@ def _details(tbl, idx, geom, locks):
         reasons.append("NON_RECTANGULAR_OR_MISSING_GRID")
     header = [_text(c) for c in rows[0].xpath("./w:tc", namespaces=NS)] if rows else []
     header_str = " ".join(header).casefold()
-    if any(x in header_str for x in LAYOUT_HINTS):
+    # Layout and signature markers often occur in trailing rows or the body,
+    # after a plausible data-looking first row. Scan the whole table before
+    # allowing any operation that assumes this is an ordinary data table.
+    table_text = " ".join(
+        _text(cell) for row in rows for cell in row.xpath("./w:tc", namespaces=NS)
+    ).casefold()
+    if any(x in table_text for x in LAYOUT_HINTS):
         reasons.append("POSSIBLE_LAYOUT_TABLE")
     elif len(rows) < 2 or sum(bool(x) for x in header) < 2 or not any(x in header_str for x in HEADER_HINTS):
         reasons.append("UNCONFIRMED_DATA_TABLE")
