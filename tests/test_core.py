@@ -329,6 +329,31 @@ def test_linked_default_story_reports_inheritance_candidate_until_overridden(tmp
     assert path.read_bytes() == source_before
 
 
+def test_first_page_header_is_direct_only_without_inheritance_candidate(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    section = doc.sections[0]
+    section.different_first_page_header_footer = True
+    section.first_page_header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.add_section()
+    doc.save(path)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    first_page = next(
+        entry for entry in report["non_body_story_tables"]
+        if any(reference["reference_type"] == "first"
+               for reference in entry["section_references"])
+    )
+
+    assert first_page["section_references"] == [
+        {"section_index": 0, "story_type": "header", "reference_type": "first"},
+    ]
+    assert first_page["default_inheritance_candidates"] == []
+    assert first_page["status"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == source_before
+
+
 @pytest.mark.parametrize("scope", ["body", "header"])
 def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path, scope):
     path = fixture_docx(tmp_path)
