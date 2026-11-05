@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified code:** commit `98214688fcb70ed25b7c2bd7de6dcf21f0e2426e`, [GitHub Actions run 42082752442](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082752442): **74/74 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. Wheel build/install, packaged registry checks, CLI help, and Vietnamese DOCX audit smoke passed in all five environments. Local core/CLI/profile groups: **41 PASS** on Python 3.12. DOCX/font fixtures remain synthetic.
+**Latest verified code:** PR head `57d7eeecea316d254dd02fe468d7e1257c8e367f`, [GitHub Actions run 42086960094](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42086960094): **74/74 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Wheel SHA-256: `dae3b95213860ea238dca079dfdee55ee00d1fff2234405deca04cfd3254f189`. Word/WPS and source fixtures remain unverified.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -19,13 +19,13 @@
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
 | [#8](https://github.com/quanggiaphthh/ChuanhoaBang/issues/8) width | Bounded optimizer on rectangular tables; no automatic landscape | Real font/renderer validation and historical fixture comparison | PARTIAL |
 | [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist (width vs header vs row height); stale proposal guard, non-target parts, path safety | Edge DOCX interoperability and merge/review | PARTIAL |
-| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; five-environment wheel/install and UTF-8 CLI smoke | End-to-end user document acceptance | PARTIAL |
+| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; canonical wheel and manifest installed/smoke-tested across five environments | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 74 PASS across 5 environments incl archive/profile/geometry guards | Original F01–F08/V15 plus target renderer cases | PARTIAL |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 74 PASS across 5 environments incl archive/profile/geometry guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LibreOffice secondary smoke; [repeatable Microsoft Word protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) | Independent Microsoft Word and WPS evidence on supported fixtures | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
-| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Release gates; CI test and wheel-install smoke | Dependency pinning, reproducible build/rollback, Word acceptance, remaining security/compatibility gates | NOT_READY |
+| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Locked runtime/test dependencies; exact build backend pins; same-run repeat-build hash and manifest; canonical wheel install verified across 5 environments | Independent-builder reproducibility, rollback, Word/WPS acceptance, original fixtures, remaining security/compatibility gates | PARTIAL |
 
 ## Delivered changes beyond original PR bootstrap
 
@@ -34,6 +34,7 @@
 - Added human-readable Markdown reports to CLI, with strict collision checks for DOCX, proposal JSON, input and Markdown report paths.
 - Added negative regression coverage for report conflicts; **49 focused tests PASS**.
 - Reduced CI duplication: push main / PR / optional manual dispatch, rather than double-running push and PR on a feature branch.
+- Added a locked runtime/test graph and a canonical preview-wheel build. CI repeats the build, records a SHA-256 manifest, and tests the same artifact on all supported environments.
 
 ## Release decision
 
@@ -117,9 +118,16 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 
 - CI now runs all 74 tests and builds/installs the wheel on Ubuntu with Python 3.10–3.13 and Windows with Python 3.12. The isolated-wheel smoke checks packaged profile data and runs both CLI help and a Vietnamese DOCX audit.
 - First Windows attempt [42082268672](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082268672) **FAIL**: the CLI wrote a Unicode arrow through a non-UTF-8 Windows console. `cli.main` now configures UTF-8 output; rerun [42082752442](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082752442) passed all 5 environments, **74/74** each.
-- This adds packaging/runtime evidence only. Exact dependency pinning, reproducible release artifacts, rollback, original DOCX fixtures, genuine licensed TNR, Microsoft Word, and WPS acceptance remain **NOT_RUN / UNAVAILABLE**. CB-10, CB-13, and CB-16 remain **PARTIAL**.
+- Runtime/test dependencies are locked, build backend versions are exact, and the CI preview artifact passed a same-run repeat-build hash check. Independent-builder reproducibility, rollback, original DOCX fixtures, genuine licensed TNR, Microsoft Word, and WPS acceptance remain **NOT_RUN / UNAVAILABLE**. CB-10, CB-13, and CB-16 remain **PARTIAL**.
 
 ## CB-14 follow-up — Microsoft Word manual protocol
 
 - Added [WORD_ACCEPTANCE_PROTOCOL.md](../verification/WORD_ACCEPTANCE_PROTOCOL.md) with the required Word/build/font/fixture record, per-gate visual checks, evidence bundle, and report template.
 - The protocol is **NOT_RUN** evidence. The current executor is Linux, has no `winword` executable, and cannot produce Microsoft Word Print Layout proof. LibreOffice evidence remains a separate renderer result.
+
+## CB-10/13/16 follow-up — canonical preview artifact (05/11/2026)
+
+- CI run [42086960094](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42086960094) built the preview wheel on Ubuntu/Python 3.12 with uv 0.13.4, `setuptools==80.9.0`, and `wheel==0.45.1`. Two builds from the same commit and `SOURCE_DATE_EPOCH` matched byte-for-byte.
+- The build job wrote a manifest with source/lock hashes, tool versions, wheel SHA-256, smoke checks, and `microsoft_word_acceptance: NOT_RUN`; the wheel and manifest are retained as Actions artifact `chuanhoabang-preview-959f62b0a72b96c55f65f21e29cafd372978cbda` until 19/11/2026. Wheel SHA-256: `dae3b95213860ea238dca079dfdee55ee00d1fff2234405deca04cfd3254f189`.
+- All five matrix environments downloaded and verified that exact wheel against the manifest, installed it without network/dependency resolution, and passed the packaged registry, CLI help, Vietnamese DOCX audit smoke, and **74/74 tests**.
+- This proves same-job rebuild repeatability and cross-platform use of one candidate. Independent clean-builder reproducibility, rollback, Microsoft Word/WPS, and original-fixture acceptance remain **NOT_RUN**. Issues remain open and PR #17 remains draft.
