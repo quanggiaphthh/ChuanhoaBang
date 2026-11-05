@@ -13,12 +13,12 @@ python -m pytest -q
 ## Sử dụng
 
 ```bash
-chuanhoabang audit INPUT.docx
+chuanhoabang audit INPUT.docx --report-md AUDIT_REPORT.md
 chuanhoabang propose INPUT.docx --table 0 --font-regular /path/to/TimesNewRoman.ttf --font-bold /path/to/TimesNewRoman-Bold.ttf --output proposal.json
 chuanhoabang apply INPUT.docx --proposal proposal.json --output INPUT_DINHDANG.docx --font-regular /path/to/TimesNewRoman.ttf --font-bold /path/to/TimesNewRoman-Bold.ttf
 
 # Độc lập với đo chữ: đề xuất lặp hàng tiêu đề đầu tiên của bảng nội dung
-chuanhoabang propose-header INPUT.docx --table 0 --output repeat-header.json
+chuanhoabang propose-header INPUT.docx --table 0 --output repeat-header.json --report-md HEADER_PROPOSAL.md
 chuanhoabang apply INPUT.docx --proposal repeat-header.json --output INPUT_HEADER.docx
 
 # Xử lý nguy cơ chữ bị che bởi hàng cố định Exactly, chỉ khi người dùng chọn
@@ -48,3 +48,11 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 - Không được hiểu kết quả LibreOffice là chính xác Microsoft Word; cần xác minh bản in Word và font Times New Roman có bản quyền trên máy mục tiêu.
 - Smoke `Exactly 6 pt` → `At least 6 pt` trên LibreOffice: trước khi sửa một phần nội dung hàng bị che; sau khi sửa các dòng nhìn thấy đầy đủ. Đây là kết quả riêng trên LO, không phải Word.
 - Xem `docs/verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md` và `ROW_HEIGHT_LO_SMOKE_2026-11-05.md`.
+
+
+## Báo cáo Markdown và giới hạn
+
+- `--report-md PATH.md` tạo báo cáo đọc được cho `audit`, `propose`, `propose-header`, `propose-unclip` và `apply`.
+- Đường dẫn Markdown phải mới, không được trùng nguồn DOCX, JSON proposal hoặc DOCX output. Xung đột bị chặn **trước khi áp dụng**.
+- Báo cáo ghi quyết định, bằng chứng, bảng, cảnh báo và thuộc tính thay đổi; **không thay thế** kiểm chứng hiển thị Microsoft Word.
+- Kiểm thử GitHub Actions gồm toàn bộ `tests/`, không bỏ qua các kiểm thử an toàn bổ sung.
