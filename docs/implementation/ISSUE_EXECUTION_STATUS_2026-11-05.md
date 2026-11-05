@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified code:** commit `bac4cd4b5ae9f4b30924f4dec93d35f46ba8043c`, [GitHub Actions run 42080478277](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42080478277): **74/74 PASS** on Python 3.11; wheel build, isolated install, packaged registry/profile check, and installed CLI smoke also **PASS**. Latest geometry/profile groups: **39/39 PASS** locally on Python 3.12. DOCX/font fixtures remain synthetic.
+**Latest verified code:** commit `98214688fcb70ed25b7c2bd7de6dcf21f0e2426e`, [GitHub Actions run 42082752442](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082752442): **74/74 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. Wheel build/install, packaged registry checks, CLI help, and Vietnamese DOCX audit smoke passed in all five environments. Local core/CLI/profile groups: **41 PASS** on Python 3.12. DOCX/font fixtures remain synthetic.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -19,11 +19,11 @@
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
 | [#8](https://github.com/quanggiaphthh/ChuanhoaBang/issues/8) width | Bounded optimizer on rectangular tables; no automatic landscape | Real font/renderer validation and historical fixture comparison | PARTIAL |
 | [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist (width vs header vs row height); stale proposal guard, non-target parts, path safety | Edge DOCX interoperability and merge/review | PARTIAL |
-| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; CI wheel/install smoke | End-to-end user document acceptance | PARTIAL |
+| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; five-environment wheel/install and UTF-8 CLI smoke | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 65 PASS incl archive-size guard | Original F01–F08/V15 plus target renderer cases | PARTIAL |
-| [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LO secondary smoke documents | Independent Microsoft Word and WPS evidence | NOT_RUN |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 74 PASS across 5 environments incl archive/profile/geometry guards | Original F01–F08/V15 plus target renderer cases | PARTIAL |
+| [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LibreOffice secondary smoke; [repeatable Microsoft Word protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) | Independent Microsoft Word and WPS evidence on supported fixtures | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
 | [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Release gates; CI test and wheel-install smoke | Dependency pinning, reproducible build/rollback, Word acceptance, remaining security/compatibility gates | NOT_READY |
 
@@ -112,3 +112,14 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 - Regressions cover multi-column, explicit one-column width, malformed equal-width declarations, and orientation conflicts. Focused local core/policy/profile groups: **39 PASS** on Python 3.12.
 - GitHub Actions run [42080478277](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42080478277) on commit `bac4cd4`: **74/74 PASS** on Python 3.11; wheel build/install and packaged-registry/CLI smoke **PASS**.
 - This is a structural geometry gate, not a resolved column-width measurement. Microsoft Word rendering remains **NOT_RUN**; CB-06 remains **PARTIAL**.
+
+## CB-10/13/16 follow-up — cross-platform package smoke
+
+- CI now runs all 74 tests and builds/installs the wheel on Ubuntu with Python 3.10–3.13 and Windows with Python 3.12. The isolated-wheel smoke checks packaged profile data and runs both CLI help and a Vietnamese DOCX audit.
+- First Windows attempt [42082268672](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082268672) **FAIL**: the CLI wrote a Unicode arrow through a non-UTF-8 Windows console. `cli.main` now configures UTF-8 output; rerun [42082752442](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082752442) passed all 5 environments, **74/74** each.
+- This adds packaging/runtime evidence only. Exact dependency pinning, reproducible release artifacts, rollback, original DOCX fixtures, genuine licensed TNR, Microsoft Word, and WPS acceptance remain **NOT_RUN / UNAVAILABLE**. CB-10, CB-13, and CB-16 remain **PARTIAL**.
+
+## CB-14 follow-up — Microsoft Word manual protocol
+
+- Added [WORD_ACCEPTANCE_PROTOCOL.md](../verification/WORD_ACCEPTANCE_PROTOCOL.md) with the required Word/build/font/fixture record, per-gate visual checks, evidence bundle, and report template.
+- The protocol is **NOT_RUN** evidence. The current executor is Linux, has no `winword` executable, and cannot produce Microsoft Word Print Layout proof. LibreOffice evidence remains a separate renderer result.

@@ -45,7 +45,8 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 
 ## Bằng chứng hiện có (05/11/2026)
 
-- GitHub Actions Python 3.11: **43 PASS** (bảng tự tạo; khẳng định structural/integrity only).
+- GitHub Actions [run 42082752442](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42082752442): **74/74 tests PASS** trên Ubuntu/Python 3.10, 3.11, 3.12, 3.13 và Windows/Python 3.12. Mỗi job build/install wheel, kiểm tra registry đóng gói và chạy CLI help cùng audit DOCX có tiếng Việt.
+- Đây là kiểm thử cấu trúc trên DOCX tổng hợp với metric font giả lập; không đo TNR có bản quyền, không phải Microsoft Word acceptance.
 - Kiểm chứng LibreOffice 25.x tại bảng 90 dòng (không phải Word acceptance): header ở trang 2 có sau patch; số trang thay đổi 12 → 13 do chi phí chiều cao hàng tiêu đề.
 - Không được hiểu kết quả LibreOffice là chính xác Microsoft Word; cần xác minh bản in Word và font Times New Roman có bản quyền trên máy mục tiêu.
 - Smoke `Exactly 6 pt` → `At least 6 pt` trên LibreOffice: trước khi sửa một phần nội dung hàng bị che; sau khi sửa các dòng nhìn thấy đầy đủ. Đây là kết quả riêng trên LO, không phải Word.
