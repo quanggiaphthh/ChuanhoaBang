@@ -19,10 +19,20 @@ scope. HD05 lists 14–15 pt for document text, while project rule `V16-FONT-02`
 selects 14 pt for table width measurement and forbids automatically lowering it.
 These are eligibility limits for measurement, not font-size corrections.
 
-Rule `TEXT-COLUMN-GEOMETRY-001` (registry revision `TEXT-COLUMN-GEOMETRY-002`)
-uses the section text width as a conservative lower
-bound for equal-width columns only when the column count and nonnegative spacing
-are explicit in source XML. Missing spacing, unequal/custom columns, ambiguous
-sections, and explicit one-column overrides remain `GEOMETRY_UNKNOWN` and keep
-width proposals in review. The source-derived bound is not a Word-rendered
+Rule `TEXT-COLUMN-GEOMETRY-001` (registry revision `TEXT-COLUMN-GEOMETRY-003`)
+supports explicit equal-width columns and explicit `equalWidth=0` custom
+columns. Custom columns require a matching count, positive `w:w` values,
+explicit nonnegative spacing between adjacent columns, and a combined width
+within the section text area. When the table's column placement is unknown,
+`available_twips` uses the narrowest declared column as a conservative bound
+for any possible placement; the report also retains each source width and
+spacing. Missing or malformed values and ambiguous sections remain
+`GEOMETRY_UNKNOWN`. None of these source-derived bounds is a Word-rendered
 measurement.
+
+The custom-column interpretation follows Microsoft's
+[equalWidth](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1)
+and [column spacing](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1)
+documentation. Microsoft documents Word's default of `equalWidth=true` when
+omitted and its requirement that a false `equalWidth` column count match the
+child `col` count in [MS-OI29500](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935).
