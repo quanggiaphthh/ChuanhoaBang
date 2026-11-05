@@ -292,6 +292,41 @@ def test_multiple_sections_map_direct_story_references_to_correct_owner(tmp_path
     ]
 
 
+def test_linked_default_header_reports_inheritance_candidate_until_overridden(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.add_section()
+    doc.add_section()
+    doc.sections[2].header.is_linked_to_previous = False
+    doc.sections[2].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    headers = {entry["part"]: entry for entry in report["non_body_story_tables"]
+               if entry["part"].startswith("word/header")}
+
+    assert headers["word/header1.xml"]["section_references"] == [
+        {"section_index": 0, "story_type": "header", "reference_type": "default"},
+    ]
+    assert headers["word/header1.xml"]["default_inheritance_candidates"] == [
+        {"section_index": 1, "story_type": "header", "reference_type": "default",
+         "inherited_from_section_index": 0},
+    ]
+    assert headers["word/header1.xml"]["owner_status"] == \
+        "DIRECT_AND_INHERITED_DEFAULT_CANDIDATES"
+    assert headers["word/header2.xml"]["section_references"] == [
+        {"section_index": 2, "story_type": "header", "reference_type": "default"},
+    ]
+    assert headers["word/header2.xml"]["default_inheritance_candidates"] == []
+    assert all(entry["status"] == "REVIEW_REQUIRED" for entry in headers.values())
+    from chuanhoabang.cli import render_markdown
+    markdown = render_markdown(report)
+    assert "possible inherited section 1 header/default from section 0" in markdown
+    assert path.read_bytes() == source_before
+
+
 @pytest.mark.parametrize("scope", ["body", "header"])
 def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path, scope):
     path = fixture_docx(tmp_path)

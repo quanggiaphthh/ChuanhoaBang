@@ -126,7 +126,7 @@ def _tables(root):
 
 def _section_story_references(root, document_rels, story_parts):
     if not document_rels:
-        return {}
+        return {}, {}
     relationship_root = _xml(document_rels)
     relationships = {}
     ambiguous_ids = set()
@@ -154,27 +154,66 @@ def _section_story_references(root, document_rels, story_parts):
             targets[relationship_id] = (part, story_type)
 
     owners = {}
+    inheritance_candidates = {}
+    active_default = {}
     sections = root.xpath(".//w:body/w:sectPr | .//w:body//w:pPr/w:sectPr", namespaces=NS)
     for section_index, section in enumerate(sections):
-        for reference in section.xpath("./w:headerReference | ./w:footerReference", namespaces=NS):
+        references = section.xpath("./w:headerReference | ./w:footerReference", namespaces=NS)
+        defaults = {"header": [], "footer": []}
+        for reference in references:
+            tag_name = reference.tag.rsplit("}", 1)[-1]
+            expected_story_type = tag_name.removesuffix("Reference")
+            if expected_story_type not in defaults:
+                continue
+            reference_type = reference.get(W + "type", "default")
             relationship_id = reference.get(R + "id")
             relationship = targets.get(relationship_id) if relationship_id else None
+            if relationship is not None and relationship[1] != expected_story_type:
+                relationship = None
+            if reference_type == "default":
+                defaults[expected_story_type].append(relationship)
+                continue
             if relationship is None:
                 continue
             part, story_type = relationship
             owners.setdefault(part, []).append({
                 "section_index": section_index,
                 "story_type": story_type,
-                "reference_type": reference.get(W + "type", "default"),
+                "reference_type": reference_type,
             })
-    return owners
+
+        for story_type, section_defaults in defaults.items():
+            if not section_defaults:
+                active = active_default.get(story_type)
+                if active is not None:
+                    part, source_section_index = active
+                    inheritance_candidates.setdefault(part, []).append({
+                        "section_index": section_index,
+                        "story_type": story_type,
+                        "reference_type": "default",
+                        "inherited_from_section_index": source_section_index,
+                    })
+                continue
+            if len(section_defaults) != 1 or section_defaults[0] is None:
+                active_default.pop(story_type, None)
+                continue
+            part, resolved_story_type = section_defaults[0]
+            owner = {
+                "section_index": section_index,
+                "story_type": resolved_story_type,
+                "reference_type": "default",
+            }
+            owners.setdefault(part, []).append(owner)
+            active_default[story_type] = (part, section_index)
+    return owners, inheritance_candidates
 
 
-def _non_body_story_tables(story_parts, section_references):
+def _non_body_story_tables(story_parts, section_references, inheritance_candidates):
     inventory = []
     for part, data in sorted(story_parts.items()):
         root = _xml(data)
         owners = section_references.get(part, [])
+        candidates = inheritance_candidates.get(part, [])
         tables = root.xpath(".//w:tbl", namespaces=NS)
         table_hashes = [digest(etree.tostring(table, method="c14n")) for table in tables]
         table_ids = {
@@ -190,9 +229,12 @@ def _non_body_story_tables(story_parts, section_references):
                 "table_id": table_ids[table],
                 "parent_table_id": parent_id,
                 "table_sha256": table_hashes[index],
-                "owner_status": ("DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
+                "owner_status": ("DIRECT_AND_INHERITED_DEFAULT_CANDIDATES" if owners and candidates else
+                                 "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
+                                 "INHERITED_DEFAULT_CANDIDATES_ONLY" if candidates else
                                  "SECTION_RELATIONSHIP_NOT_RESOLVED"),
                 "section_references": owners,
+                "default_inheritance_candidates": candidates,
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             })
@@ -510,8 +552,10 @@ def audit(path, profile=None):
         parent_id = table_ids.get(ancestors[-1]) if ancestors else None
         tables.append(_details(table, index, geometry, locks, table_ids[table], parent_id,
                                table_hashes[index]))
-    section_references = _section_story_references(root, document_rels, story_parts)
-    story_tables = _non_body_story_tables(story_parts, section_references)
+    section_references, inheritance_candidates = _section_story_references(
+        root, document_rels, story_parts
+    )
+    story_tables = _non_body_story_tables(story_parts, section_references, inheritance_candidates)
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
             "policy": POLICY_VERSION, **profile_context, "geometry": geometry,
             "global_locks": locks, "table_count": len(tables), "tables": tables,

@@ -83,8 +83,9 @@ def render_markdown(result: dict) -> str:
                              f"{safe(evidence.get('word_rendered', 'NOT_RUN'))} |")
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
-                  "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp; "
-                  "kế thừa header/footer giữa section chưa được phân giải.", "",
+                  "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp "
+                  "và ứng viên kế thừa cùng loại cho header/footer mặc định. Ứng viên không xác "
+                  "nhận quyền sở hữu trong Word; kế thừa kiểu first/even chưa được phân giải.", "",
                   "| Part | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
                   "|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
@@ -92,7 +93,14 @@ def render_markdown(result: dict) -> str:
                 f"section {ref.get('section_index', '?')} "
                 f"{ref.get('story_type', '?')}/{ref.get('reference_type', '?')}"
                 for ref in table.get("section_references", [])
-            ) or "unresolved"
+            )
+            candidates = "; ".join(
+                f"possible inherited section {candidate.get('section_index', '?')} "
+                f"{candidate.get('story_type', '?')}/{candidate.get('reference_type', '?')} "
+                f"from section {candidate.get('inherited_from_section_index', '?')}"
+                for candidate in table.get("default_inheritance_candidates", [])
+            )
+            references = "; ".join(value for value in (references, candidates) if value) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
                          f"`{safe(table.get('table_id', '?'))}` | "
                          f"`{safe(table.get('parent_table_id') or '—')}` | "
