@@ -34,6 +34,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 ### `0.1.0.dev0` — technical preview trên PR #17, chưa phát hành
 
 - Cung cấp CLI/API offline để audit, lập proposal và apply có xác nhận cho tập bảng DOCX giới hạn; ND30/HD05 được ghi nhận là `REFERENCE_ONLY`, chưa áp dụng preset pháp lý đầy đủ.
-- CI tạo wheelhouse theo Linux/Python 3.10–3.13 và Windows/Python 3.12. `offline-install-requirements.txt` pin SHA-256 của ứng dụng và runtime dependencies; cài sạch với `pip --no-index --require-hashes` và audit DOCX tiếng Việt PASS trên cả năm target trong [run 42099184995](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42099184995).
-- Runner Ubuntu/Python 3.12 độc lập tái tạo canonical wheel cùng SHA-256 `87905000018f721ebf85952021c8a91d86edc0e373e1e6abc10e6c8f55c94282`. Artifacts preview được giữ đến 19/11/2026.
+- Audit gán ID xác định theo phạm vi/chỉ số/hash và liên kết bảng lồng với ID của bảng cha trong body lẫn header/footer story; các chỉ số body dùng cho `--table` vẫn giữ nguyên.
+- CI tạo wheelhouse theo Linux/Python 3.10–3.13 và Windows/Python 3.12. `offline-install-requirements.txt` pin SHA-256 của ứng dụng và runtime dependencies; cài sạch với `pip --no-index --require-hashes` và audit DOCX tiếng Việt PASS trên cả năm target trong [run 42101113025](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42101113025), với **90/90 tests PASS** mỗi target.
+- Runner Ubuntu/Python 3.12 độc lập tái tạo canonical wheel cùng SHA-256 `bf59e7578dfddb071419de1c8b5440cc5b6415f30bd245b33e002301924353b2`. Artifacts `chuanhoabang-preview-197668f6abb2c7fc5c5db14b1a481c7f00739fcf` và `chuanhoabang-offline-*` được giữ đến 19/11/2026.
 - Chưa là bản phát hành/tag. Microsoft Word/WPS, TNR có bản quyền, fixture gốc, full profile conformance và rollback/update release vẫn `NOT_RUN` hoặc chưa khả dụng; xem [release gates](docs/implementation/RELEASE_GATES.md).
