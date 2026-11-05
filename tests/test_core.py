@@ -213,6 +213,40 @@ def test_conflicting_declared_page_orientation_requires_review(tmp_path):
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+@pytest.mark.parametrize(("column_count", "explicit_width", "equal_width", "reason"), [
+    (1, True, None, "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED"),
+    (2, False, None, "MULTICOLUMN_SECTION"),
+    (1, False, "maybe", "INVALID_TEXT_COLUMNS"),
+])
+def test_non_default_text_column_geometry_requires_review(
+        tmp_path, column_count, explicit_width, equal_width, reason):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename)) for item in package.infolist()}
+    info, xml = data["word/document.xml"]
+    root = core._xml(xml)
+    section = root.xpath(".//w:sectPr", namespaces=core.NS)[0]
+    columns = section.find(core.W + "cols")
+    if columns is None:
+        columns = etree.SubElement(section, core.W + "cols")
+    columns.set(core.W + "num", str(column_count))
+    if equal_width is not None:
+        columns.set(core.W + "equalWidth", equal_width)
+    if explicit_width:
+        etree.SubElement(columns, core.W + "col",
+                         {core.W + "w": "7000", core.W + "space": "300"})
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for info, content in data.values():
+            package.writestr(info, content)
+
+    report = audit(path)
+
+    assert report["geometry"]["status"] == "GEOMETRY_UNKNOWN"
+    assert report["geometry"]["reason"] == reason
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
 def test_header_repeat_proposal_applies_only_to_first_row(tmp_path):
     from chuanhoabang import propose_header
     path = fixture_docx(tmp_path)

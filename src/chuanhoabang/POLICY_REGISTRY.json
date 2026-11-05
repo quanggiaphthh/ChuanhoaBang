@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -51,6 +51,17 @@
       "requires_approval": false,
       "evidence_level": "DECLARED_EFFECTIVE_RUN_SIZE",
       "postconditions": ["font properties not modified", "no legal compliance conclusion"]
+    },
+    {
+      "id": "TEXT-COLUMN-GEOMETRY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "available width for body tables in sections with explicit text-column geometry",
+      "preconditions": ["width optimization requested", "section text-column geometry is not a default single column"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_CUSTOM_OR_MULTICOLUMN_GEOMETRY",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["optimizer does not treat page text width as a column's available width"]
     },
     {
       "id": "TABLE-SCOPE-001",

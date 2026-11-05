@@ -136,8 +136,19 @@ def _geometry(root):
             return {"status": "GEOMETRY_UNKNOWN", "reason": "PAGE_ORIENTATION_CONFLICT", "sections": 1}
     cols = sect.find(W + "cols")
     try:
-        if cols is not None and int(cols.get(W + "num", "1")) != 1:
-            return {"status": "GEOMETRY_UNKNOWN", "reason": "MULTICOLUMN_SECTION", "sections": 1}
+        if cols is not None:
+            column_count = int(cols.get(W + "num", "1"))
+            if column_count < 1:
+                return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
+            if column_count > 1:
+                return {"status": "GEOMETRY_UNKNOWN", "reason": "MULTICOLUMN_SECTION", "sections": 1}
+            equal_width = cols.get(W + "equalWidth", "1")
+            if equal_width is None or equal_width.casefold() not in (
+                    "1", "true", "on", "0", "false", "off"):
+                return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
+            if cols.findall(W + "col") or equal_width.casefold() in ("0", "false", "off"):
+                return {"status": "GEOMETRY_UNKNOWN",
+                        "reason": "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED", "sections": 1}
     except (ValueError, TypeError):
         return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
     return {"status": "STRUCTURAL", "available_twips": width, "page_width_twips": page_width,

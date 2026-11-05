@@ -18,3 +18,8 @@ the narrow size policy. ND30 permits 13 or 14 pt for this project measurement
 scope. HD05 lists 14–15 pt for document text, while project rule `V16-FONT-02`
 selects 14 pt for table width measurement and forbids automatically lowering it.
 These are eligibility limits for measurement, not font-size corrections.
+
+`TEXT-COLUMN-GEOMETRY-001` keeps width optimization in review when section XML
+contains multiple columns or an explicit single-column width override. In those
+cases the page text width is not a safe substitute for the table's actual column
+width.
