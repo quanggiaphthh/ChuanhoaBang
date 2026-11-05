@@ -461,8 +461,12 @@ def _declared_width(parent, tag):
 
 
 def _cell_padding(tbl, rows):
-    """Resolve simple direct dxa horizontal margins; assume 150 twips otherwise."""
-    default_padding = 150
+    """Resolve simple direct dxa horizontal margins; otherwise use the versioned estimate."""
+    default_padding = next(
+        rule["default_padding_twips"]
+        for rule in POLICY_REGISTRY["rules"]
+        if rule["id"] == "CELL-MARGIN-DEFAULT-BUDGET-001"
+    )
 
     def margin_pair(node):
         allowed = {W + "top", W + "bottom", W + "left", W + "right"}
@@ -497,6 +501,7 @@ def _cell_padding(tbl, rows):
 
     padding_rows = []
     has_explicit_horizontal_margin = bool(table_pair)
+    uses_default_assumption = False
     for row in rows:
         padding_row = []
         for cell in row.xpath("./w:tc", namespaces=NS):
@@ -517,12 +522,14 @@ def _cell_padding(tbl, rows):
             elif table_pair:
                 padding_row.append(table_pair["left"] + table_pair["right"])
             else:
+                uses_default_assumption = True
                 padding_row.append(default_padding)
         padding_rows.append(padding_row)
     return {
         "status": "RESOLVED",
-        "basis": "EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION" if has_explicit_horizontal_margin
-                 else "ASSUMED_DEFAULT",
+        "basis": ("EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION"
+                  if has_explicit_horizontal_margin and uses_default_assumption else
+                  "EXPLICIT_DXA" if has_explicit_horizontal_margin else "ASSUMED_DEFAULT"),
         "assumed_default_twips": default_padding,
         "twips_by_row": padding_rows,
     }

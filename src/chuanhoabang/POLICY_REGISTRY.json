@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-DEFAULT-BUDGET-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -125,6 +125,19 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
       "postconditions": ["valid left/right dxa margins feed per-cell width estimates", "unsupported, partial, duplicate, or malformed declarations keep the target REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
+    },
+    {
+      "id": "CELL-MARGIN-DEFAULT-BUDGET-001",
+      "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
+      "scope": "fallback horizontal cell-padding budget for width metrics without resolved direct margins",
+      "preconditions": ["metric width estimate", "no resolved direct left/right dxa margin pair for the cell"],
+      "severity": "HARD",
+      "safe_action": "USE_RECORDED_ESTIMATOR_ASSUMPTION",
+      "requires_approval": false,
+      "evidence_level": "PROJECT_ESTIMATOR_ASSUMPTION",
+      "default_padding_twips": 240,
+      "rationale": "Rounded above V15's internal 2 mm-per-side horizontal-padding suggestion; not a Word default or verified rendered margin.",
+      "postconditions": ["the assumed budget is reported in audit/proposal evidence", "Word-effective margins and rendered fit are not claimed"]
     },
     {
       "id": "TABLE-SCOPE-001",
