@@ -245,6 +245,59 @@ def test_unreferenced_story_part_has_unresolved_owner(tmp_path):
     assert entry["section_references"] == []
 
 
+@pytest.mark.parametrize("story_name", ["header", "footer"])
+def test_custom_named_related_story_part_is_inventoried_read_only(tmp_path, story_name):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    story = getattr(doc.sections[0], story_name)
+    story.add_table(rows=1, cols=1, width=Cm(10)).cell(0, 0).text = "Custom story table"
+    doc.save(path)
+
+    with ZipFile(path) as source_zip:
+        entries = {item.filename: source_zip.read(item.filename) for item in source_zip.infolist()}
+    original_part = f"word/{story_name}1.xml"
+    custom_part = f"word/stories/custom-{story_name}.xml"
+    entries[custom_part] = entries.pop(original_part)
+
+    rels = core._xml(entries["word/_rels/document.xml.rels"])
+    relationship = next(
+        rel for rel in rels.xpath("./rel:Relationship", namespaces=core.REL_NS)
+        if rel.get("Type", "").endswith(f"/{story_name}")
+    )
+    relationship.set("Target", f"stories/custom-{story_name}.xml")
+    entries["word/_rels/document.xml.rels"] = etree.tostring(
+        rels, xml_declaration=True, encoding="UTF-8"
+    )
+
+    content_types = core._xml(entries["[Content_Types].xml"])
+    override = content_types.xpath(
+        "./*[local-name()='Override' and @PartName=$name]", name=f"/{original_part}"
+    )[0]
+    override.set("PartName", f"/{custom_part}")
+    entries["[Content_Types].xml"] = etree.tostring(
+        content_types, xml_declaration=True, encoding="UTF-8"
+    )
+    with ZipFile(path, "w") as target_zip:
+        for name, data in entries.items():
+            target_zip.writestr(name, data)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+
+    assert report["non_body_story_tables"][0]["part"] == custom_part
+    assert report["non_body_story_tables"][0]["section_references"] == [{
+        "section_index": 0,
+        "story_type": story_name,
+        "reference_type": "default",
+    }]
+    assert report["non_body_story_tables"][0]["status"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == source_before
+
+
+def test_malformed_internal_relationship_target_is_unresolved():
+    assert core._relationship_target_part("//[") is None
+
+
 def test_ambiguous_document_relationship_id_does_not_assign_story_owner(tmp_path):
     path = fixture_docx(tmp_path)
     doc = Document(path)
@@ -268,6 +321,31 @@ def test_ambiguous_document_relationship_id_does_not_assign_story_owner(tmp_path
             target_zip.writestr(info, data)
 
     entry = audit(path)["non_body_story_tables"][0]
+    assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
+    assert entry["section_references"] == []
+
+
+def test_unknown_relationship_target_mode_does_not_assign_story_owner(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    with ZipFile(path) as source_zip:
+        entries = [(item, source_zip.read(item.filename)) for item in source_zip.infolist()]
+    with ZipFile(path, "w") as target_zip:
+        for item, data in entries:
+            if item.filename == "word/_rels/document.xml.rels":
+                root = core._xml(data)
+                header_rel = next(
+                    rel for rel in root.xpath("./rel:Relationship", namespaces=core.REL_NS)
+                    if rel.get("Type", "").endswith("/header")
+                )
+                header_rel.set("TargetMode", "Unexpected")
+                data = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+            target_zip.writestr(item, data)
+
+    entry = audit(path)["non_body_story_tables"][0]
+
     assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
     assert entry["section_references"] == []
 

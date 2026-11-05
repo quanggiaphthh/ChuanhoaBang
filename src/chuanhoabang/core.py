@@ -16,6 +16,7 @@ import tempfile
 import unicodedata
 from importlib.resources import files as package_files
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from zipfile import BadZipFile, ZipFile
 
 from lxml import etree
@@ -85,6 +86,48 @@ def _xml(data: bytes):
         raise TableError("INVALID_XML") from exc
 
 
+def _relationship_target_part(target, source_part="word/document.xml"):
+    """Resolve a basic internal OPC relationship target without leaving the package."""
+    if not target or "\\" in target:
+        return None
+    try:
+        uri = urlsplit(target)
+    except ValueError:
+        return None
+    if uri.scheme or uri.netloc or uri.query or uri.fragment:
+        return None
+    try:
+        path = unquote(uri.path, errors="strict")
+    except UnicodeDecodeError:
+        return None
+    if not path or "\\" in path or "\x00" in path:
+        return None
+    if path.startswith("/"):
+        path = path.lstrip("/")
+    else:
+        path = posixpath.join(posixpath.dirname(source_part), path)
+    part = posixpath.normpath(path)
+    if part in ("", ".", "..") or part.startswith("../"):
+        return None
+    return part
+
+
+def _related_header_footer_parts(document_rels, package_names):
+    if not document_rels:
+        return set()
+    root = _xml(document_rels)
+    parts = set()
+    for rel in root.xpath("./rel:Relationship", namespaces=REL_NS):
+        if rel.get("Type", "").rsplit("/", 1)[-1] not in ("header", "footer"):
+            continue
+        if rel.get("TargetMode", "Internal").casefold() not in ("", "internal"):
+            continue
+        part = _relationship_target_part(rel.get("Target"))
+        if part in package_names:
+            parts.add(part)
+    return parts
+
+
 def _package(path: str | Path):
     path = Path(path)
     if path.suffix.lower() != ".docx" or not path.is_file():
@@ -110,10 +153,12 @@ def _package(path: str | Path):
                 raise TableError("INCOMPLETE_OPC_PACKAGE")
             raw = z.read("word/document.xml")
             settings = z.read("word/settings.xml") if "word/settings.xml" in names else b""
-            story_parts = {item.filename: z.read(item.filename) for item in items
-                           if NON_BODY_STORY_PART.fullmatch(item.filename)}
             document_rels_name = "word/_rels/document.xml.rels"
             document_rels = z.read(document_rels_name) if document_rels_name in names else b""
+            story_part_names = {item.filename for item in items
+                                if NON_BODY_STORY_PART.fullmatch(item.filename)}
+            story_part_names.update(_related_header_footer_parts(document_rels, set(names)))
+            story_parts = {name: z.read(name) for name in story_part_names}
             return raw, settings, names, story_parts, document_rels
     except (BadZipFile, OSError, RuntimeError) as exc:
         raise TableError("INVALID_OR_UNREADABLE_ZIP") from exc
@@ -144,12 +189,10 @@ def _section_story_references(root, document_rels, story_parts):
         if relationship_id in ambiguous_ids:
             continue
         story_type = rel.get("Type", "").rsplit("/", 1)[-1]
-        external = rel.get("TargetMode", "Internal").casefold() == "external"
-        if story_type not in ("header", "footer") or external:
+        target_mode = rel.get("TargetMode", "Internal").casefold()
+        if story_type not in ("header", "footer") or target_mode not in ("", "internal"):
             continue
-        target = rel.get("Target", "")
-        part = (posixpath.normpath(target.lstrip("/")) if target.startswith("/") else
-                posixpath.normpath(posixpath.join("word", target)))
+        part = _relationship_target_part(rel.get("Target", ""))
         if part in story_parts:
             targets[relationship_id] = (part, story_type)
 
