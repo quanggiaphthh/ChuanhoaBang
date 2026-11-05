@@ -4,7 +4,8 @@ from lxml import etree
 from docx import Document
 from docx.shared import Pt
 import pytest
-from chuanhoabang import audit, propose, propose_header, propose_unclip_row_height
+from chuanhoabang import audit, apply, propose, propose_header, propose_unclip_row_height
+from chuanhoabang import TableError
 from chuanhoabang import core
 
 MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -106,6 +107,8 @@ def test_signed_or_macro_package_fails_closed(tmp_path, part_name, reason):
             run.font.name = "Times New Roman"
             run.font.size = Pt(14)
     doc.save(source)
+    original_proposal = propose_header(source, 0)
+    assert original_proposal["decision"] == "PROPOSE_APPLY"
     with ZipFile(source) as package:
         entries = [(info, package.read(info.filename)) for info in package.infolist()]
     with ZipFile(source, "w") as package:
@@ -122,6 +125,10 @@ def test_signed_or_macro_package_fails_closed(tmp_path, part_name, reason):
     assert propose(source, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_header(source, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_unclip_row_height(source, 0)["decision"] == "REVIEW_REQUIRED"
+    output = tmp_path / "must-not-be-published.docx"
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(source, original_proposal, output)
+    assert not output.exists()
     assert source.read_bytes() == original
 
 
