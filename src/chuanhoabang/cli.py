@@ -5,7 +5,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from .core import TableError, audit, propose, apply
+from .core import TableError, audit, propose, propose_header, apply
 
 
 def main(argv=None):
@@ -19,6 +19,10 @@ def main(argv=None):
     p_prop.add_argument("--font-regular", help="Installed, licensed Times New Roman regular TTF/OTF")
     p_prop.add_argument("--font-bold", help="Installed, licensed Times New Roman bold TTF/OTF")
     p_prop.add_argument("--output", help="Save JSON proposal to this new file")
+    p_header = sub.add_parser("propose-header", help="Propose repeat-header for an eligible data table")
+    p_header.add_argument("input")
+    p_header.add_argument("--table", type=int, required=True, help="0-based table index from audit")
+    p_header.add_argument("--output", help="Save JSON header proposal to this new file")
     p_apply = sub.add_parser("apply", help="Explicitly apply an unmodified proposal to a new DOCX")
     p_apply.add_argument("input")
     p_apply.add_argument("--proposal", required=True)
@@ -31,11 +35,13 @@ def main(argv=None):
             result = audit(args.input)
         elif args.command == "propose":
             result = propose(args.input, args.table, args.font_regular, args.font_bold)
+        elif args.command == "propose-header":
+            result = propose_header(args.input, args.table)
         else:
             data = json.loads(Path(args.proposal).read_text(encoding="utf-8"))
             result = apply(args.input, data, args.output, args.font_regular, args.font_bold)
         serialized = json.dumps(result, indent=2, ensure_ascii=False)
-        if args.command == "propose" and args.output:
+        if args.command in ("propose", "propose-header") and args.output:
             dest = Path(args.output)
             if dest.exists():
                 raise TableError("OUTPUT_MUST_BE_NEW_PATH")

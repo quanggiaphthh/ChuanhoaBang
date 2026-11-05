@@ -10,12 +10,12 @@
 
 | Gate | Yêu cầu để v1.0 | Trạng thái ở technical preview |
 |---|---|---|
-| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset |
-| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset |
-| AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset |
-| GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset; Word not verified |
+| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset (19 pytest, 05/11/2026) |
+| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset (19 pytest, 05/11/2026) |
+| AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset (19 pytest, 05/11/2026) |
+| GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset (19 pytest, 05/11/2026); Word not verified |
 | FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |
-| PAGING | Header repeat/row split/trHeight xử lý theo quyền | DIAGNOSTICS_ONLY |
+| PAGING | Header repeat/row split/trHeight xử lý theo quyền | First-row repeat opt-in structural PASS; row split/trHeight DIAGNOSTICS_ONLY; Word NOT_RUN |
 | COMPLEX | Merged/nested controlled support | NOT_IMPLEMENTED (PRESERVE) |
 | L2-WORD | Print Layout Word không tràn/cắt | NOT_RUN |
 | WPS/LO | Renderer đối chứng | NOT_RUN; tùy môi trường test |

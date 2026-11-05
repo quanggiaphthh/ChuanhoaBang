@@ -181,3 +181,110 @@ def test_no_automatic_landscape_from_overflow(tmp_path):
     assert result["tables"][0]["overflow_declared"] is True
     assert result["geometry"]["orientation"] == "PORTRAIT"
     assert propose(path, 0)["candidate_twips"] is None
+
+
+def test_header_repeat_proposal_applies_only_to_first_row(tmp_path):
+    from chuanhoabang import propose_header
+    path = fixture_docx(tmp_path)
+    initial = path.read_bytes()
+    prop = propose_header(path, 0)
+    assert prop["decision"] == "PROPOSE_APPLY"
+    assert prop["operation"] == "SET_REPEAT_HEADER_FIRST_ROW"
+    result_file = tmp_path / "with-header.docx"
+    applied = apply(path, prop, result_file)
+    assert applied["changed_properties"] == ["tblHeader"]
+    assert applied["word_render"] == "NOT_RUN"
+    assert path.read_bytes() == initial
+    parsed = core._xml(ZipFile(result_file).read("word/document.xml"))
+    rows = parsed.xpath(".//w:body/w:tbl/w:tr", namespaces=core.NS)
+    assert len(rows) == 3
+    assert len(rows[0].xpath("./w:trPr/w:tblHeader[@w:val='1']", namespaces=core.NS)) == 1
+    assert not rows[1].xpath("./w:trPr/w:tblHeader", namespaces=core.NS)
+    assert audit(result_file)["tables"][0]["pagination_diagnostics"]["header_repeat_first_row"]
+    assert propose_header(result_file, 0)["decision"] == "NO_OP_VALID"
+    assert [[c.text for c in r.cells] for r in Document(path).tables[0].rows] == \
+           [[c.text for c in r.cells] for r in Document(result_file).tables[0].rows]
+
+
+def test_header_repeat_requires_known_data_table_unlocked(tmp_path):
+    from chuanhoabang import propose_header
+    assert propose_header(fixture_docx(tmp_path, header=False), 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(fixture_docx(tmp_path, protected=True), 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(fixture_docx(tmp_path, merged=True), 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_header_repeat_tampered_and_stale_rejected(tmp_path):
+    from chuanhoabang import propose_header
+    doc = fixture_docx(tmp_path)
+    proposal = propose_header(doc, 0)
+    altered = dict(proposal, reasons=["POSSIBLE_LAYOUT_TABLE"])
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(doc, altered, tmp_path / "bad.docx")
+    docx = Document(doc)
+    docx.add_paragraph("changed after proposal")
+    docx.save(doc)
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(doc, proposal, tmp_path / "stale.docx")
+
+
+def test_cli_propose_header_and_apply(tmp_path, capsys):
+    from chuanhoabang.cli import main
+    source = fixture_docx(tmp_path)
+    prop = tmp_path / "head-proposal.json"
+    assert main(["propose-header", str(source), "--table", "0", "--output", str(prop)]) == 0
+    assert json.loads(capsys.readouterr().out)["decision"] == "PROPOSE_APPLY"
+    target = tmp_path / "result.docx"
+    assert main(["apply", str(source), "--proposal", str(prop), "--output", str(target)]) == 0
+    assert json.loads(capsys.readouterr().out)["changed_properties"] == ["tblHeader"]
+
+
+def test_multiline_cell_does_not_enter_width_optimization_without_evidence(tmp_path, monkeypatch):
+    doc = fixture_docx(tmp_path)
+    word = Document(doc)
+    word.tables[0].cell(1, 1).add_paragraph("another paragraph")
+    word.save(doc)
+    class FakeFont:
+        def getlength(self, text):
+            return len(text) * 4
+    monkeypatch.setattr(core, "_load_fonts", lambda *args: (FakeFont(), FakeFont()))
+    result = propose(doc, 0, font_regular="/dev/null", font_bold="/dev/null")
+    assert result["decision"] == "REVIEW_REQUIRED"
+    assert "MULTI_PARAGRAPH_CELL_REQUIRES_REVIEW" in result["reasons"]
+
+
+def test_header_disabled_val_zero_can_be_enabled_without_duplicate(tmp_path):
+    from chuanhoabang import propose_header
+    doc = fixture_docx(tmp_path)
+    with ZipFile(doc) as z:
+        data = {i.filename: (i, z.read(i.filename)) for i in z.infolist()}
+    info, xml = data["word/document.xml"]
+    root = core._xml(xml)
+    row = root.xpath(".//w:body/w:tbl/w:tr[1]", namespaces=core.NS)[0]
+    trpr = etree.Element(core.W + "trPr")
+    row.insert(0, trpr)
+    etree.SubElement(trpr, core.W + "tblHeader", {core.W + "val": "0"})
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(doc, "w") as z:
+        for entry, blob in data.values():
+            z.writestr(entry, blob)
+    assert not audit(doc)["tables"][0]["pagination_diagnostics"]["header_repeat_first_row"]
+    proposal = propose_header(doc, 0)
+    assert proposal["decision"] == "PROPOSE_APPLY"
+    dest = tmp_path / "header-true.docx"
+    apply(doc, proposal, dest)
+    root_after = core._xml(ZipFile(dest).read("word/document.xml"))
+    nodes = root_after.xpath(".//w:body/w:tbl/w:tr[1]/w:trPr/w:tblHeader", namespaces=core.NS)
+    assert len(nodes) == 1 and nodes[0].get(core.W + "val") == "1"
+
+
+def test_width_proposal_does_not_reject_harmless_empty_runs(tmp_path, monkeypatch):
+    path = fixture_docx(tmp_path)
+    class FakeFont:
+        def getlength(self, text):
+            return len(text) * 4
+    monkeypatch.setattr(core, "_load_fonts", lambda *args: (FakeFont(), FakeFont()))
+    result = propose(path, 0, font_regular="/etc/hosts", font_bold="/etc/hosts")
+    # This tests only the token/structure path; /etc/hosts is not a font.
+    assert result["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
+    assert "NON_PLAIN_RUN" not in result["reasons"]
+    assert result["word_render"] == "NOT_RUN"

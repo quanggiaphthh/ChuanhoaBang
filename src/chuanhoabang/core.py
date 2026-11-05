@@ -170,7 +170,10 @@ def _details(tbl, idx, geom, locks):
     ind = tblpr.find(W + "tblInd") if tblpr is not None else None
     if ind is not None and ind.get(W + "w", "0") not in ("0", None):
         reasons.append("TABLE_INDENT_REQUIRES_REVIEW")
-    pagination = {"header_repeat_first_row": bool(rows and rows[0].xpath("./w:trPr/w:tblHeader", namespaces=NS)),
+    header_nodes = rows[0].xpath("./w:trPr/w:tblHeader", namespaces=NS) if rows else []
+    header_enabled = bool(header_nodes and header_nodes[0].get(W + "val", "1") not in
+                          ("0", "false", "off"))
+    pagination = {"header_repeat_first_row": header_enabled,
                   "exact_height_rows": len(tbl.xpath("./w:tr/w:trPr/w:trHeight[@w:hRule='exact']", namespaces=NS)),
                   "exact_line_spacing_paragraphs": len(tbl.xpath(".//w:pPr/w:spacing[@w:lineRule='exact']", namespaces=NS)),
                   "split_prevention_rows": len(tbl.xpath("./w:tr/w:trPr/w:cantSplit", namespaces=NS))}
@@ -215,6 +218,8 @@ def _load_fonts(regular_file, bold_file):
 
 
 def _runs(cell):
+    if len(cell.xpath("./w:p", namespaces=NS)) != 1:
+        raise TableError("MULTI_PARAGRAPH_CELL_REQUIRES_REVIEW")
     all_runs = cell.xpath("./w:p/w:r", namespaces=NS)
     if not all_runs:
         raise TableError("NON_PLAIN_TEXT_OR_EMPTY_CELL")
@@ -224,7 +229,11 @@ def _runs(cell):
             raise TableError("NON_PLAIN_RUN")
         runtext = "".join(run.xpath("./w:t/text()", namespaces=NS))
         if not runtext:
-            raise TableError("NON_PLAIN_RUN")
+            # python-docx and Word often keep harmless empty w:r elements.
+            # Ignore those, but not runs containing unsupported non-text data.
+            if any(child.tag != W + "rPr" for child in run):
+                raise TableError("NON_PLAIN_RUN")
+            continue
         rpr = run.find(W + "rPr")
         fonts = rpr.find(W + "rFonts") if rpr is not None else None
         size = rpr.find(W + "sz") if rpr is not None else None
@@ -239,6 +248,8 @@ def _runs(cell):
             raise TableError("ITALIC_FACE_NOT_IMPLEMENTED")
         bold = b is not None and b.get(W + "val", "1") not in ("0", "false", "off")
         normalized.append((runtext, int(size.get(W + "val")) / 2, bold))
+    if not normalized:
+        raise TableError("EMPTY_CELL_REQUIRES_REVIEW")
     return normalized
 
 
@@ -371,11 +382,18 @@ def propose(path, table_index, font_regular=None, font_bold=None):
     return result
 
 
-def _without_width(tbl):
+def _without_width(tbl, *, allow_first_row_header=False):
     node = copy.deepcopy(tbl)
     for xp in ("./w:tblGrid", "./w:tblPr/w:tblW", "./w:tblPr/w:tblLayout", ".//w:tcPr/w:tcW"):
         for e in node.xpath(xp, namespaces=NS):
             e.getparent().remove(e)
+    if allow_first_row_header:
+        # Only the first physical row is whitelisted for this operation.
+        for h in node.xpath("./w:tr[1]/w:trPr/w:tblHeader", namespaces=NS):
+            h.getparent().remove(h)
+        for trpr in node.xpath("./w:tr[1]/w:trPr", namespaces=NS):
+            if len(trpr) == 0 and not trpr.attrib and not (trpr.text or "").strip():
+                trpr.getparent().remove(trpr)
     for e in node.xpath(".//w:tcPr | ./w:tblPr", namespaces=NS):
         if len(e) == 0 and not e.attrib and not (e.text or "").strip():
             e.getparent().remove(e)
@@ -416,19 +434,75 @@ def _apply_widths(root, idx, widths):
             tcw.set(W + "w", str(width))
 
 
-def _assert_safe(old_data, new_data, index):
+def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False):
     old = _xml(old_data)
     new = _xml(new_data)
     ot, nt = _tables(old), _tables(new)
     if len(ot) != len(nt) or not 0 <= index < len(ot):
         raise TableError("TABLE_INVENTORY_CHANGED")
-    if _without_width(ot[index]) != _without_width(nt[index]):
+    if _without_width(ot[index], allow_first_row_header=allow_first_row_header) != \
+            _without_width(nt[index], allow_first_row_header=allow_first_row_header):
         raise TableError("TARGET_NON_WIDTH_CONTENT_CHANGED")
     # Replace the same target table in both trees and compare the entire rest of the XML.
     for root, tbl in ((old, ot[index]), (new, nt[index])):
         tbl.getparent().replace(tbl, etree.Element(W + "tbl"))
     if etree.tostring(old, method="c14n") != etree.tostring(new, method="c14n"):
         raise TableError("NON_TARGET_DOC_CHANGED")
+
+
+def propose_header(path, table_index):
+    """Propose repeating an existing, clearly identified first data-table row.
+
+    This is opt-in. It never adds or changes text and never claims the renderer
+    actually repeated the row. It declines manual page breaks and complex tables.
+    """
+    base = audit(path)
+    if not isinstance(table_index, int) or not 0 <= table_index < base["table_count"]:
+        raise TableError("TABLE_INDEX_OUT_OF_RANGE")
+    table = base["tables"][table_index]
+    result = {"operation": "SET_REPEAT_HEADER_FIRST_ROW", "policy": POLICY_VERSION,
+              "input_sha256": base["input_sha256"], "table_index": table_index,
+              "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
+              "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "word_render": "NOT_RUN", "content_modified": False}
+    if table["status"] != "SUPPORTED":
+        return result
+    raw, _, _ = _package(path)
+    target = _tables(_xml(raw))[table_index]
+    if target.xpath(".//w:br[@w:type='page'] | .//w:lastRenderedPageBreak", namespaces=NS):
+        result["reasons"].append("MANUAL_OR_RENDERED_PAGE_BREAK_REVIEW")
+        return result
+    if table["pagination_diagnostics"]["header_repeat_first_row"]:
+        result["decision"] = "NO_OP_VALID"
+        result["reasons"].append("FIRST_HEADER_ALREADY_REPEATED")
+        return result
+    result["decision"] = "PROPOSE_APPLY"
+    result["reasons"].append("EXPLICIT_HEADER_REPEAT_FOR_RECOGNIZED_DATA_TABLE")
+    return result
+
+
+def _apply_header(root, index):
+    table = _tables(root)[index]
+    first = table.find(W + "tr")
+    if first is None:
+        raise TableError("MISSING_HEADER_ROW")
+    rowpr = first.find(W + "trPr")
+    if rowpr is None:
+        rowpr = etree.Element(W + "trPr")
+        first.insert(0, rowpr)
+    existing = rowpr.find(W + "tblHeader")
+    if existing is not None:
+        if existing.get(W + "val", "1") not in ("0", "false", "off"):
+            raise TableError("FIRST_HEADER_ALREADY_REPEATED")
+        existing.set(W + "val", "1")
+        return
+    header = etree.Element(W + "tblHeader")
+    header.set(W + "val", "1")
+    # WordprocessingML row-properties sequence: tblHeader follows trHeight
+    # and precedes tblCellSpacing, jc, hidden. Do not reorder other properties.
+    later = {W + "tblCellSpacing", W + "jc", W + "hidden", W + "tblHeader"}
+    position = next((i for i, child in enumerate(rowpr) if child.tag in later), len(rowpr))
+    rowpr.insert(position, header)
 
 
 def apply(path, proposal, output, font_regular=None, font_bold=None):
@@ -438,17 +512,27 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         raise TableError("OUTPUT_MUST_BE_NEW_PATH")
     if not isinstance(proposal, dict) or proposal.get("decision") != "PROPOSE_APPLY":
         raise TableError("PROPOSAL_NOT_APPLICABLE")
-    actual = propose(src, proposal.get("table_index"), font_regular, font_bold)
-    compare = ("input_sha256", "table_sha256", "table_index", "policy", "candidate_twips", "decision")
+    header_operation = proposal.get("operation") == "SET_REPEAT_HEADER_FIRST_ROW"
+    if proposal.get("operation") not in (None, "SET_REPEAT_HEADER_FIRST_ROW"):
+        raise TableError("UNSUPPORTED_PROPOSAL_OPERATION")
+    actual = (propose_header(src, proposal.get("table_index")) if header_operation else
+              propose(src, proposal.get("table_index"), font_regular, font_bold))
+    compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons")
+    if not header_operation:
+        compare += ("candidate_twips",)
+    else:
+        compare += ("operation",)
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
     raw, settings, names = _package(src)
     old_root = _xml(raw)
     new_root = copy.deepcopy(old_root)
-    widths = actual["candidate_twips"]
-    _apply_widths(new_root, actual["table_index"], widths)
+    if header_operation:
+        _apply_header(new_root, actual["table_index"])
+    else:
+        _apply_widths(new_root, actual["table_index"], actual["candidate_twips"])
     new_raw = etree.tostring(new_root, xml_declaration=True, encoding="UTF-8", standalone=True)
-    _assert_safe(raw, new_raw, actual["table_index"])
+    _assert_safe(raw, new_raw, actual["table_index"], allow_first_row_header=header_operation)
     dst.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(suffix=".docx", prefix=".chuanhoabang-", dir=str(dst.parent))
     os.close(fd)
@@ -460,7 +544,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         out_raw, out_settings, out_names = _package(temp_path)
         if names != out_names or settings != out_settings:
             raise TableError("OPC_PACKAGE_CHANGED")
-        _assert_safe(raw, out_raw, actual["table_index"])
+        _assert_safe(raw, out_raw, actual["table_index"], allow_first_row_header=header_operation)
         with ZipFile(src) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
@@ -469,6 +553,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         if os.path.exists(temp_path):
             os.unlink(temp_path)
     return {"decision": "APPLIED", "output": str(dst), "output_sha256": digest(dst.read_bytes()),
-            "input_sha256": actual["input_sha256"], "changed_properties": ["tblGrid", "tblW", "tblLayout", "tcW"],
+            "input_sha256": actual["input_sha256"],
+            "operation": "SET_REPEAT_HEADER_FIRST_ROW" if header_operation else "OPTIMIZE_WIDTH",
+            "changed_properties": ["tblHeader"] if header_operation else ["tblGrid", "tblW", "tblLayout", "tcW"],
             "content_integrity": "PASS", "non_target_package_parts": "PASS", "word_render": "NOT_RUN",
             "width_proposal_evidence": actual["evidence"], "table_index": actual["table_index"]}
