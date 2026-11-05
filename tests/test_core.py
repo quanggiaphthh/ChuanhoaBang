@@ -168,6 +168,26 @@ def test_ambiguous_document_relationship_id_does_not_assign_story_owner(tmp_path
     assert entry["section_references"] == []
 
 
+def test_multiple_sections_map_direct_story_references_to_correct_owner(tmp_path):
+    from docx.enum.section import WD_SECTION
+
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.add_section(WD_SECTION.NEW_PAGE)
+    doc.sections[1].header.is_linked_to_previous = False
+    doc.sections[1].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+
+    report = audit(path)
+
+    assert report["table_count"] == 1
+    assert [(entry["part"], entry["section_references"]) for entry in report["non_body_story_tables"]] == [
+        ("word/header1.xml", [{"section_index": 0, "story_type": "header", "reference_type": "default"}]),
+        ("word/header2.xml", [{"section_index": 1, "story_type": "header", "reference_type": "default"}]),
+    ]
+
+
 def test_merged_is_not_auto_formatted(tmp_path):
     path = fixture_docx(tmp_path, merged=True)
     result = audit(path)
