@@ -76,6 +76,24 @@ jobs:
         run: uv run --locked python .github/scripts/wheel_smoke.py --candidate-dir work/release-candidate
       - name: Build and verify a target-specific offline wheelhouse
         run: python .github/scripts/offline_bundle_smoke.py --candidate-dir work/release-candidate --output-dir work/offline-bundle
+      - name: Rebuild canonical wheel on an independent runner
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        run: uv run --locked python .github/scripts/wheel_smoke.py --output-dir work/independent-rebuild
+      - name: Compare independent wheel build with canonical artifact
+        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          canonical = json.loads(Path("work/release-candidate/release-manifest.json").read_text())
+          rebuilt = json.loads(Path("work/independent-rebuild/release-manifest.json").read_text())
+          assert canonical["source"]["commit"] == rebuilt["source"]["commit"]
+          assert canonical["source"]["uv_lock_sha256"] == rebuilt["source"]["uv_lock_sha256"]
+          assert canonical["artifact"]["filename"] == rebuilt["artifact"]["filename"]
+          assert canonical["artifact"]["sha256"] == rebuilt["artifact"]["sha256"]
+          print("Independent runner wheel SHA-256 matches canonical artifact:", canonical["artifact"]["sha256"])
+          PY
       - name: Preserve offline wheelhouse and install manifest
         uses: actions/upload-artifact@v4
         with:
