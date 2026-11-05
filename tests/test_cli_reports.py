@@ -124,6 +124,29 @@ def test_markdown_render_exposes_conservative_column_width_bound():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_custom_column_geometry():
+    report = render_markdown({
+        "geometry": {
+            "status": "STRUCTURAL",
+            "orientation": "PORTRAIT",
+            "sections": 1,
+            "page_text_width_twips": 16000,
+            "column_count": 3,
+            "custom_column_widths_twips": [6000, 3500, 5000],
+            "custom_column_spacing_after_twips": [500, 700, None],
+            "available_width_scope": "CUSTOM_COLUMN_MINIMUM_LOWER_BOUND",
+            "available_twips": 3500,
+        },
+        "word_render": "NOT_RUN",
+    })
+
+    assert "CUSTOM_COLUMN_MINIMUM_LOWER_BOUND" in report
+    assert "6000 twips, 3500 twips, 5000 twips" in report
+    assert "500 twips, 700 twips, UNSPECIFIED" in report
+    assert "3500 twips" in report
+    assert "NOT_RUN" in report
+
+
 def test_cli_audit_report_md_is_created_and_never_overwritten(tmp_path, capsys):
     source = tmp_path / "test.docx"
     doc = Document()

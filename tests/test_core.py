@@ -619,6 +619,114 @@ def test_equal_width_columns_use_column_width_for_overflow_diagnostic(tmp_path):
     assert path.read_bytes() == before
 
 
+def configure_text_columns(path, *, num, equal_width, columns, parent_space=None):
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    section = root.xpath(".//w:sectPr", namespaces=core.NS)[0]
+    section.find(core.W + "pgSz").set(core.W + "w", "18000")
+    section.find(core.W + "pgSz").set(core.W + "h", "24000")
+    margins = section.find(core.W + "pgMar")
+    margins.set(core.W + "left", "1000")
+    margins.set(core.W + "right", "1000")
+    margins.set(core.W + "gutter", "0")
+    settings = section.find(core.W + "cols")
+    if settings is None:
+        settings = etree.SubElement(section, core.W + "cols")
+    settings.set(core.W + "num", str(num))
+    if equal_width is None:
+        settings.attrib.pop(core.W + "equalWidth", None)
+    else:
+        settings.set(core.W + "equalWidth", equal_width)
+    if parent_space is None:
+        settings.attrib.pop(core.W + "space", None)
+    else:
+        settings.set(core.W + "space", str(parent_space))
+    for child in settings.findall(core.W + "col"):
+        settings.remove(child)
+    for column_width, spacing_after in columns:
+        attrs = {}
+        if column_width is not None:
+            attrs[core.W + "w"] = str(column_width)
+        if spacing_after is not None:
+            attrs[core.W + "space"] = str(spacing_after)
+        etree.SubElement(settings, core.W + "col", attrs)
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+
+def test_explicit_unequal_columns_use_minimum_declared_width_as_safe_bound(tmp_path):
+    path = fixture_docx(tmp_path)
+    configure_text_columns(
+        path, num=3, equal_width="0",
+        columns=[(6000, 500), (3500, 700), (5000, None)], parent_space=12000)
+    before = path.read_bytes()
+
+    report = audit(path)
+
+    geometry = report["geometry"]
+    assert geometry["status"] == "STRUCTURAL"
+    assert geometry["available_twips"] == 3500
+    assert geometry["available_width_scope"] == "CUSTOM_COLUMN_MINIMUM_LOWER_BOUND"
+    assert geometry["column_count"] == 3
+    assert geometry["custom_column_widths_twips"] == [6000, 3500, 5000]
+    assert geometry["custom_column_spacing_after_twips"] == [500, 700, None]
+    assert report["tables"][0]["overflow_declared"] is True
+    assert report["word_render"] == "NOT_RUN"
+    assert path.read_bytes() == before
+
+
+def test_explicit_single_column_width_is_a_source_derived_bound(tmp_path):
+    path = fixture_docx(tmp_path)
+    configure_text_columns(path, num=1, equal_width="0", columns=[(7000, None)])
+
+    geometry = audit(path)["geometry"]
+
+    assert geometry["status"] == "STRUCTURAL"
+    assert geometry["available_twips"] == 7000
+    assert geometry["available_width_scope"] == "CUSTOM_COLUMN_MINIMUM_LOWER_BOUND"
+    assert geometry["custom_column_widths_twips"] == [7000]
+    assert geometry["custom_column_spacing_after_twips"] == [None]
+
+
+@pytest.mark.parametrize(("num", "columns", "reason"), [
+    (2, [(6000, None), (3000, 0)], "CUSTOM_COLUMN_SPACING_UNSPECIFIED"),
+    (2, [(None, 500), (3000, 0)], "CUSTOM_COLUMN_WIDTH_UNSPECIFIED"),
+    (2, [(0, 500), (3000, 0)], "INVALID_CUSTOM_COLUMN_WIDTH"),
+    (2, [("bad", 500), (3000, 0)], "INVALID_CUSTOM_COLUMN_WIDTH"),
+    (2, [(6000, "bad"), (3000, 0)], "INVALID_CUSTOM_COLUMN_SPACING"),
+    (2, [(6000, -1), (3000, 0)], "INVALID_CUSTOM_COLUMN_SPACING"),
+    (2, [(9000, 500), (8000, 0)], "CUSTOM_TEXT_COLUMNS_EXCEED_PAGE_TEXT_WIDTH"),
+    (3, [(6000, 500), (3000, 0)], "TEXT_COLUMN_COUNT_MISMATCH"),
+])
+def test_explicit_unequal_columns_fail_closed_on_incomplete_geometry(
+        tmp_path, num, columns, reason):
+    path = fixture_docx(tmp_path)
+    configure_text_columns(path, num=num, equal_width="0", columns=columns)
+
+    geometry = audit(path)["geometry"]
+
+    assert geometry["status"] == "GEOMETRY_UNKNOWN"
+    assert geometry["reason"] == reason
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_implicit_equal_width_does_not_interpret_custom_column_children(tmp_path):
+    path = fixture_docx(tmp_path)
+    configure_text_columns(
+        path, num=2, equal_width=None,
+        columns=[(6000, 500), (3000, 0)], parent_space=500)
+
+    geometry = audit(path)["geometry"]
+
+    assert geometry["status"] == "GEOMETRY_UNKNOWN"
+    assert geometry["reason"] == "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED"
+
+
 @pytest.mark.parametrize(("mirror_value", "expected_reason"), [
     (None, "MIRRORED_GUTTER_GEOMETRY_UNSUPPORTED"),
     ("0", None),

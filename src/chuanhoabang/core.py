@@ -249,6 +249,8 @@ def _geometry(root, settings=b""):
     column_gap = 0
     available_width = width
     width_scope = "PAGE_TEXT_AREA"
+    custom_column_widths = None
+    custom_column_spacing = None
     try:
         if cols is not None:
             column_count = int(cols.get(W + "num", "1"))
@@ -260,37 +262,89 @@ def _geometry(root, settings=b""):
                 return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
             has_explicit_columns = bool(cols.findall(W + "col"))
             equal_width_enabled = equal_width.casefold() in ("1", "true", "on")
-            if column_count > 1 and not equal_width_enabled:
+            if not equal_width_enabled and has_explicit_columns:
+                explicit_columns = cols.findall(W + "col")
+                if len(explicit_columns) > 45:
+                    return {"status": "GEOMETRY_UNKNOWN",
+                            "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
+                if len(explicit_columns) != column_count:
+                    return {"status": "GEOMETRY_UNKNOWN",
+                            "reason": "TEXT_COLUMN_COUNT_MISMATCH", "sections": 1}
+                custom_column_widths = []
+                custom_column_spacing = []
+                for column_index, column in enumerate(explicit_columns):
+                    raw_column_width = column.get(W + "w")
+                    if raw_column_width is None:
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "CUSTOM_COLUMN_WIDTH_UNSPECIFIED", "sections": 1}
+                    try:
+                        column_width = int(raw_column_width)
+                    except (TypeError, ValueError):
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "INVALID_CUSTOM_COLUMN_WIDTH", "sections": 1}
+                    if column_width <= 0:
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "INVALID_CUSTOM_COLUMN_WIDTH", "sections": 1}
+                    raw_spacing = column.get(W + "space")
+                    if raw_spacing is None:
+                        if column_index < len(explicit_columns) - 1:
+                            return {"status": "GEOMETRY_UNKNOWN",
+                                    "reason": "CUSTOM_COLUMN_SPACING_UNSPECIFIED", "sections": 1}
+                        column_spacing = None
+                    else:
+                        try:
+                            column_spacing = int(raw_spacing)
+                        except (TypeError, ValueError):
+                            return {"status": "GEOMETRY_UNKNOWN",
+                                    "reason": "INVALID_CUSTOM_COLUMN_SPACING", "sections": 1}
+                        if column_spacing < 0:
+                            return {"status": "GEOMETRY_UNKNOWN",
+                                    "reason": "INVALID_CUSTOM_COLUMN_SPACING", "sections": 1}
+                    custom_column_widths.append(column_width)
+                    custom_column_spacing.append(column_spacing)
+                if sum(custom_column_widths) + sum(
+                        gap or 0 for gap in custom_column_spacing[:-1]) > width:
+                    return {"status": "GEOMETRY_UNKNOWN",
+                            "reason": "CUSTOM_TEXT_COLUMNS_EXCEED_PAGE_TEXT_WIDTH", "sections": 1}
+                column_count = len(explicit_columns)
+                available_width = min(custom_column_widths)
+                width_scope = "CUSTOM_COLUMN_MINIMUM_LOWER_BOUND"
+            elif not equal_width_enabled:
                 return {"status": "GEOMETRY_UNKNOWN",
                         "reason": "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED", "sections": 1}
-            if has_explicit_columns or (column_count == 1 and not equal_width_enabled):
+            elif has_explicit_columns:
                 return {"status": "GEOMETRY_UNKNOWN",
                         "reason": "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED", "sections": 1}
             if column_count > 1:
-                raw_space = cols.get(W + "space")
-                if raw_space is None:
-                    return {"status": "GEOMETRY_UNKNOWN",
-                            "reason": "COLUMN_SPACING_UNSPECIFIED", "sections": 1}
-                try:
-                    column_gap = int(raw_space)
-                except (TypeError, ValueError):
-                    return {"status": "GEOMETRY_UNKNOWN",
-                            "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
-                if column_gap < 0:
-                    return {"status": "GEOMETRY_UNKNOWN",
-                            "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
-                columns_width = width - column_gap * (column_count - 1)
-                available_width = columns_width // column_count
-                if columns_width <= 0 or available_width <= 0:
-                    return {"status": "GEOMETRY_UNKNOWN",
-                            "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
-                width_scope = "EQUAL_WIDTH_COLUMN_LOWER_BOUND"
+                if equal_width_enabled:
+                    raw_space = cols.get(W + "space")
+                    if raw_space is None:
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "COLUMN_SPACING_UNSPECIFIED", "sections": 1}
+                    try:
+                        column_gap = int(raw_space)
+                    except (TypeError, ValueError):
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
+                    if column_gap < 0:
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
+                    columns_width = width - column_gap * (column_count - 1)
+                    available_width = columns_width // column_count
+                    if columns_width <= 0 or available_width <= 0:
+                        return {"status": "GEOMETRY_UNKNOWN",
+                                "reason": "INVALID_TEXT_COLUMN_SPACING", "sections": 1}
+                    width_scope = "EQUAL_WIDTH_COLUMN_LOWER_BOUND"
     except (ValueError, TypeError):
         return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
-    return {"status": "STRUCTURAL", "available_twips": available_width,
-            "page_width_twips": page_width, "page_text_width_twips": width,
-            "column_count": column_count, "column_gap_twips": column_gap,
-            "available_width_scope": width_scope, "orientation": orientation, "sections": 1}
+    geometry = {"status": "STRUCTURAL", "available_twips": available_width,
+                "page_width_twips": page_width, "page_text_width_twips": width,
+                "column_count": column_count, "column_gap_twips": column_gap,
+                "available_width_scope": width_scope, "orientation": orientation, "sections": 1}
+    if custom_column_widths is not None:
+        geometry["custom_column_widths_twips"] = custom_column_widths
+        geometry["custom_column_spacing_after_twips"] = custom_column_spacing
+    return geometry
 
 
 def _protected(settings: bytes, names: list[str], root):

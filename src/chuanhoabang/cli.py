@@ -39,12 +39,15 @@ def render_markdown(result: dict) -> str:
         lines += ["", "## Geometry evidence", "", "| Field | Value |", "|---|---|"]
         for key in ("status", "reason", "orientation", "sections", "page_width_twips",
                     "page_text_width_twips", "column_count", "column_gap_twips",
+                    "custom_column_widths_twips", "custom_column_spacing_after_twips",
                     "available_width_scope", "available_twips"):
             if key not in geometry:
                 continue
             value = geometry[key]
             if key.endswith("_twips") and value is not None:
-                value = f"{value} twips"
+                value = (", ".join(f"{item} twips" if item is not None else "UNSPECIFIED"
+                                    for item in value)
+                         if isinstance(value, list) else f"{value} twips")
             lines.append(f"| {safe(key)} | {safe(value)} |")
         lines.append(f"| word_rendered_width | {safe(result.get('word_render', 'NOT_RUN'))} |")
     if isinstance(result.get("tables"), list):
