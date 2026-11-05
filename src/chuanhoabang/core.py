@@ -30,7 +30,11 @@ LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng ủy
 DANGEROUS_IN_TABLE = [".//w:sdt", ".//w:ins", ".//w:del", ".//w:moveFrom", ".//w:moveTo",
                       ".//w:fldChar", ".//w:instrText", ".//w:drawing", ".//w:pict",
                       ".//w:object", ".//w:altChunk", ".//w:hyperlink",
-                      ".//w:trPrChange", ".//w:tcPrChange", ".//w:tblPrChange"]
+                      ".//w:trPrChange", ".//w:tcPrChange", ".//w:tblPrChange",
+                      ".//w:fldSimple", ".//w:commentReference", ".//w:commentRangeStart",
+                      ".//w:commentRangeEnd", ".//w:customXml", ".//w:smartTag",
+                      ".//w:subDoc", ".//w:contentPart", ".//w:bookmarkStart",
+                      ".//w:bookmarkEnd", ".//w:permStart", ".//w:permEnd"]
 
 
 class TableError(ValueError):
