@@ -51,6 +51,45 @@ def test_alternate_content_around_table_fails_closed(tmp_path):
     assert source.read_bytes() == original
 
 
+def test_permission_range_outside_table_forces_review(tmp_path):
+    source = tmp_path / "permission-range.docx"
+    doc = Document()
+    table = doc.add_table(rows=2, cols=3)
+    for row, values in zip(table.rows, [("STT", "Nội dung", "Ghi chú"),
+                                        ("0012", "Nội dung bảo toàn", "Hoàn thành")]):
+        for cell, value in zip(row.cells, values):
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(value)
+            run.font.name = "Times New Roman"
+            run.font.size = Pt(14)
+    doc.save(source)
+    with ZipFile(source) as package:
+        entries = [(info, package.read(info.filename)) for info in package.infolist()]
+    with ZipFile(source, "w") as package:
+        for info, data in entries:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+                body = table.getparent()
+                index = body.index(table)
+                start_paragraph = etree.Element(core.W + "p")
+                etree.SubElement(start_paragraph, core.W + "permStart", {core.W + "id": "7"})
+                end_paragraph = etree.Element(core.W + "p")
+                etree.SubElement(end_paragraph, core.W + "permEnd", {core.W + "id": "7"})
+                body.insert(index, start_paragraph)
+                body.insert(body.index(table) + 1, end_paragraph)
+                data = etree.tostring(root, encoding="UTF-8", xml_declaration=True)
+            package.writestr(info, data)
+    original = source.read_bytes()
+
+    report = audit(source)
+
+    assert "RANGE_PERMISSIONS_UNRESOLVED" in report["global_locks"]
+    assert report["tables"][0]["status"] == "REVIEW_REQUIRED"
+    assert propose_header(source, 0)["decision"] == "REVIEW_REQUIRED"
+    assert source.read_bytes() == original
+
+
 @pytest.mark.parametrize("element,container", [
     ("fldSimple", "tc"),
     ("commentReference", "r"),

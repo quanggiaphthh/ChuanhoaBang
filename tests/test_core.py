@@ -340,6 +340,32 @@ def test_protected_document_blocks(tmp_path):
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+@pytest.mark.parametrize(("enforcements", "expected_reason"), [
+    (["maybe"], "INVALID_DOCUMENT_PROTECTION_ENFORCEMENT"),
+    (["0", "1"], "AMBIGUOUS_DOCUMENT_PROTECTION_SETTINGS"),
+])
+def test_invalid_or_ambiguous_document_protection_fails_closed(
+        tmp_path, enforcements, expected_reason):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, settings_xml = data["word/settings.xml"]
+    root = core._xml(settings_xml)
+    for enforcement in enforcements:
+        etree.SubElement(root, core.W + "documentProtection",
+                         {core.W + "enforcement": enforcement})
+    data["word/settings.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    report = audit(path)
+
+    assert expected_reason in report["global_locks"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
 def test_multi_section_review(tmp_path):
     path = fixture_docx(tmp_path, multi_section=True)
     assert audit(path)["geometry"]["status"] == "GEOMETRY_UNKNOWN"

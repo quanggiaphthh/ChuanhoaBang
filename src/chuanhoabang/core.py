@@ -354,15 +354,23 @@ def _protected(settings: bytes, names: list[str], root):
     reasons = []
     if root.xpath(".//mc:AlternateContent", namespaces=NS):
         reasons.append("ALTERNATE_CONTENT_NOT_SUPPORTED")
+    if root.xpath(".//w:permStart | .//w:permEnd", namespaces=NS):
+        reasons.append("RANGE_PERMISSIONS_UNRESOLVED")
     if any(n.startswith("_xmlsignatures/") for n in names):
         reasons.append("SIGNED_OPC_PACKAGE")
     if "word/vbaProject.bin" in names:
         reasons.append("MACRO_CONTENT_NOT_SUPPORTED")
     if settings:
         s = _xml(settings)
-        p = s.find(".//" + W + "documentProtection")
-        if p is not None and p.get(W + "enforcement", "0") in ("1", "true", "on"):
-            reasons.append("DOCUMENT_PROTECTED")
+        protections = s.findall(".//" + W + "documentProtection")
+        if len(protections) > 1:
+            reasons.append("AMBIGUOUS_DOCUMENT_PROTECTION_SETTINGS")
+        elif protections:
+            enforcement = protections[0].get(W + "enforcement", "0").casefold()
+            if enforcement in ("1", "true", "on"):
+                reasons.append("DOCUMENT_PROTECTED")
+            elif enforcement not in ("0", "false", "off"):
+                reasons.append("INVALID_DOCUMENT_PROTECTION_ENFORCEMENT")
         if s.find(".//" + W + "trackRevisions") is not None:
             reasons.append("TRACK_CHANGES_ENABLED")
     if root.xpath(".//w:ins | .//w:del | .//w:moveFrom | .//w:moveTo", namespaces=NS):

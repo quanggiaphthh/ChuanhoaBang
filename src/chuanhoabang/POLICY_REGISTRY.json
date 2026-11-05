@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -9,7 +9,10 @@
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935",
-    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245"
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permstart?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permend?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d"
   ],
   "rules": [
     {
@@ -44,6 +47,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
       "postconditions": ["body tables remain REVIEW_REQUIRED", "no Choice/Fallback branch is silently selected or discarded"]
+    },
+    {
+      "id": "PROTECTION-STATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables in documents with range permissions or unresolved document-protection state",
+      "preconditions": ["target permission scope cannot be resolved against the caller's editing identity", "protection declarations must be unambiguous to permit edits"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["any permStart/permEnd markers block body-table proposals", "enabled documentProtection blocks proposals", "invalid or duplicate documentProtection declarations block proposals"]
     },
     {
       "id": "FONT-PROFILE-001",
