@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import posixpath
 import re
 import tempfile
 from importlib.resources import files as package_files
@@ -20,6 +21,8 @@ from lxml import etree
 
 NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 W = "{" + NS["w"] + "}"
+R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+REL_NS = {"rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
 POLICY_REGISTRY = json.loads(
     package_files(__package__).joinpath("POLICY_REGISTRY.json").read_text(encoding="utf-8")
 )
@@ -101,7 +104,9 @@ def _package(path: str | Path):
             settings = z.read("word/settings.xml") if "word/settings.xml" in names else b""
             story_parts = {item.filename: z.read(item.filename) for item in items
                            if NON_BODY_STORY_PART.fullmatch(item.filename)}
-            return raw, settings, names, story_parts
+            document_rels_name = "word/_rels/document.xml.rels"
+            document_rels = z.read(document_rels_name) if document_rels_name in names else b""
+            return raw, settings, names, story_parts, document_rels
     except (BadZipFile, OSError, RuntimeError) as exc:
         raise TableError("INVALID_OR_UNREADABLE_ZIP") from exc
 
@@ -111,16 +116,65 @@ def _tables(root):
     return root.xpath(".//w:body//w:tbl", namespaces=NS)
 
 
-def _non_body_story_tables(story_parts):
+def _section_story_references(root, document_rels, story_parts):
+    if not document_rels:
+        return {}
+    relationship_root = _xml(document_rels)
+    relationships = {}
+    ambiguous_ids = set()
+    for rel in relationship_root.xpath("./rel:Relationship", namespaces=REL_NS):
+        relationship_id = rel.get("Id")
+        if not relationship_id:
+            continue
+        if relationship_id in relationships:
+            ambiguous_ids.add(relationship_id)
+        else:
+            relationships[relationship_id] = rel
+
+    targets = {}
+    for relationship_id, rel in relationships.items():
+        if relationship_id in ambiguous_ids:
+            continue
+        story_type = rel.get("Type", "").rsplit("/", 1)[-1]
+        external = rel.get("TargetMode", "Internal").casefold() == "external"
+        if story_type not in ("header", "footer") or external:
+            continue
+        target = rel.get("Target", "")
+        part = (posixpath.normpath(target.lstrip("/")) if target.startswith("/") else
+                posixpath.normpath(posixpath.join("word", target)))
+        if part in story_parts:
+            targets[relationship_id] = (part, story_type)
+
+    owners = {}
+    sections = root.xpath(".//w:body/w:sectPr | .//w:body//w:pPr/w:sectPr", namespaces=NS)
+    for section_index, section in enumerate(sections):
+        for reference in section.xpath("./w:headerReference | ./w:footerReference", namespaces=NS):
+            relationship_id = reference.get(R + "id")
+            relationship = targets.get(relationship_id) if relationship_id else None
+            if relationship is None:
+                continue
+            part, story_type = relationship
+            owners.setdefault(part, []).append({
+                "section_index": section_index,
+                "story_type": story_type,
+                "reference_type": reference.get(W + "type", "default"),
+            })
+    return owners
+
+
+def _non_body_story_tables(story_parts, section_references):
     inventory = []
     for part, data in sorted(story_parts.items()):
         root = _xml(data)
+        owners = section_references.get(part, [])
         for index, table in enumerate(root.xpath(".//w:tbl", namespaces=NS)):
             inventory.append({
                 "part": part,
                 "story_table_index": index,
                 "table_sha256": digest(etree.tostring(table, method="c14n")),
-                "owner_status": "SECTION_RELATIONSHIP_NOT_RESOLVED",
+                "owner_status": ("DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
+                                 "SECTION_RELATIONSHIP_NOT_RESOLVED"),
+                "section_references": owners,
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             })
@@ -276,12 +330,13 @@ def _details(tbl, idx, geom, locks):
 
 def audit(path, profile=None):
     profile_context = _profile_context(profile)
-    raw, settings, names, story_parts = _package(path)
+    raw, settings, names, story_parts, document_rels = _package(path)
     root = _xml(raw)
     geometry = _geometry(root, settings)
     locks = _protected(settings, names, root)
     tables = [_details(tbl, i, geometry, locks) for i, tbl in enumerate(_tables(root))]
-    story_tables = _non_body_story_tables(story_parts)
+    section_references = _section_story_references(root, document_rels, story_parts)
+    story_tables = _non_body_story_tables(story_parts, section_references)
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
             "policy": POLICY_VERSION, **profile_context, "geometry": geometry,
             "global_locks": locks, "table_count": len(tables), "tables": tables,
@@ -744,7 +799,7 @@ def _allow_paging_only(path, table_index, info, result):
     """Restrict horizontal-merge override to operation-specific safe proposals."""
     if info["status"] == "SUPPORTED":
         return True
-    raw, _, _, _ = _package(path)
+    raw, _, _, _, _ = _package(path)
     if not _paging_horizontal_span_only(raw, table_index, info):
         return False
     result["reasons"] = ["HORIZONTAL_GRIDSPAN_PAGING_ONLY"]
@@ -770,7 +825,7 @@ def propose_header(path, table_index, profile=None):
               "word_render": "NOT_RUN", "content_modified": False}
     if not _allow_paging_only(path, table_index, table, result):
         return result
-    raw, _, _, _ = _package(path)
+    raw, _, _, _, _ = _package(path)
     target = _tables(_xml(raw))[table_index]
     if target.xpath(".//w:br[@w:type='page'] | .//w:lastRenderedPageBreak", namespaces=NS):
         result["reasons"].append("MANUAL_OR_RENDERED_PAGE_BREAK_REVIEW")
@@ -827,7 +882,7 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if not _allow_paging_only(path, table_index, table, result):
         return result
-    raw, _, _, _ = _package(path)
+    raw, _, _, _, _ = _package(path)
     tbl = _tables(_xml(raw))[table_index]
     rows = tbl.xpath("./w:tr", namespaces=NS)
     for ri, row in enumerate(rows):
@@ -909,7 +964,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             compare += ("profile_constraints",)
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
-    raw, settings, names, _ = _package(src)
+    raw, settings, names, _, _ = _package(src)
     old_root = _xml(raw)
     new_root = copy.deepcopy(old_root)
     if header_operation:
@@ -930,7 +985,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             for entry in zin.infolist():
                 data = new_raw if entry.filename == "word/document.xml" else zin.read(entry.filename)
                 zout.writestr(entry, data)
-        out_raw, out_settings, out_names, _ = _package(temp_path)
+        out_raw, out_settings, out_names, _, _ = _package(temp_path)
         if names != out_names or settings != out_settings:
             raise TableError("OPC_PACKAGE_CHANGED")
         _assert_safe(raw, out_raw, actual["table_index"],

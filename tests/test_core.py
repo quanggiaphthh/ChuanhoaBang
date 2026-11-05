@@ -108,10 +108,64 @@ def test_audit_reports_story_tables_without_body_indices(tmp_path, story_name):
     assert entry["part"] == f"word/{story_name}1.xml"
     assert entry["story_table_index"] == 0
     assert len(entry["table_sha256"]) == 64
-    assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
+    assert entry["owner_status"] == "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED"
+    assert entry["section_references"] == [{
+        "section_index": 0,
+        "story_type": story_name,
+        "reference_type": "default",
+    }]
     assert entry["status"] == "REVIEW_REQUIRED"
     assert entry["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
     assert path.read_bytes() == source_before
+
+
+def test_unreferenced_story_part_has_unresolved_owner(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    with ZipFile(path) as source_zip:
+        entries = [(info, source_zip.read(info.filename)) for info in source_zip.infolist()]
+    with ZipFile(path, "w") as target_zip:
+        for info, data in entries:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                reference = root.xpath(".//w:sectPr/w:headerReference", namespaces=core.NS)[0]
+                reference.getparent().remove(reference)
+                data = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+            target_zip.writestr(info, data)
+
+    entry = audit(path)["non_body_story_tables"][0]
+    assert entry["part"] == "word/header1.xml"
+    assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
+    assert entry["section_references"] == []
+
+
+def test_ambiguous_document_relationship_id_does_not_assign_story_owner(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    with ZipFile(path) as source_zip:
+        entries = [(info, source_zip.read(info.filename)) for info in source_zip.infolist()]
+    with ZipFile(path, "w") as target_zip:
+        for info, data in entries:
+            if info.filename == "word/_rels/document.xml.rels":
+                root = core._xml(data)
+                header_rel = root.xpath(
+                    "./rel:Relationship[substring(@Type, string-length(@Type) - 5) = 'header']",
+                    namespaces=core.REL_NS,
+                )[0]
+                duplicate = etree.Element(header_rel.tag, header_rel.attrib)
+                duplicate.set("Type", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer")
+                duplicate.set("Target", "footer-missing.xml")
+                root.append(duplicate)
+                data = etree.tostring(root, xml_declaration=True, encoding="UTF-8")
+            target_zip.writestr(info, data)
+
+    entry = audit(path)["non_body_story_tables"][0]
+    assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
+    assert entry["section_references"] == []
 
 
 def test_merged_is_not_auto_formatted(tmp_path):

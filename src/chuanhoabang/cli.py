@@ -33,19 +33,25 @@ def render_markdown(result: dict) -> str:
                          f"{safe(', '.join(table.get('reasons', [])))} |")
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
-                  "Các chỉ số này không dùng làm `--table`; chủ sở hữu section chưa được phân giải "
-                  "và các bảng ngoài body chỉ được kiểm kê để xem xét.", "",
-                  "| Part | Chỉ số trong part | SHA-256 | Trạng thái owner | Trạng thái | Lý do |",
-                  "|---|---:|---|---|---|---|"]
+                  "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp; "
+                  "kế thừa header/footer giữa section chưa được phân giải.", "",
+                  "| Part | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
+                  "|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
+            references = "; ".join(
+                f"section {ref.get('section_index', '?')} "
+                f"{ref.get('story_type', '?')}/{ref.get('reference_type', '?')}"
+                for ref in table.get("section_references", [])
+            ) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
                          f"{table.get('story_table_index', '?')} | "
                          f"`{safe(table.get('table_sha256', '?'))}` | "
                          f"{safe(table.get('owner_status', 'UNKNOWN'))} | "
+                         f"{safe(references)} | "
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
-            lines.append("| — | — | — | — | — | Không phát hiện bảng ngoài body |")
+            lines.append("| — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])
