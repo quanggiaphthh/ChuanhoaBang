@@ -28,6 +28,11 @@ def _source_commit() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 
 
+def _tracked_file_sha256(path: Path) -> str:
+    content = subprocess.check_output(["git", "show", f"HEAD:{path.as_posix()}"])
+    return hashlib.sha256(content).hexdigest()
+
+
 def _wheel_requirement(wheel: Path) -> str:
     with zipfile.ZipFile(wheel) as package:
         metadata_files = [
@@ -72,7 +77,7 @@ def _verify_candidate(candidate_dir: Path) -> Path:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest["source"]["commit"] != _source_commit():
         raise RuntimeError("candidate wheel was built from a different source commit")
-    if manifest["source"]["uv_lock_sha256"] != _sha256(Path("uv.lock")):
+    if manifest["source"]["uv_lock_sha256"] != _tracked_file_sha256(Path("uv.lock")):
         raise RuntimeError("candidate manifest does not match the current uv.lock")
     if manifest["artifact"]["filename"] != wheel.name:
         raise RuntimeError("candidate wheel filename does not match its manifest")
@@ -205,7 +210,7 @@ def _build_bundle(candidate_dir: Path, output_dir: Path) -> None:
         "bundle_status": "OFFLINE_INSTALL_SMOKE_PASS_WORD_ACCEPTANCE_NOT_RUN",
         "source": {
             "commit": _source_commit(),
-            "uv_lock_sha256": _sha256(Path("uv.lock")),
+            "uv_lock_sha256": _tracked_file_sha256(Path("uv.lock")),
             "preview_wheel": {
                 "filename": wheel.name,
                 "sha256": _sha256(wheel),
