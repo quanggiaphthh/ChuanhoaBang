@@ -379,6 +379,19 @@ def test_propose_requires_actual_tnr_font(tmp_path):
     assert result["candidate_twips"] is None
 
 
+@pytest.mark.parametrize("no_break_space", ["\u00a0", "\u180e", "\u2007", "\u202f"])
+def test_line_estimate_does_not_break_nonbreaking_spaces(no_break_space):
+    class FakeFont:
+        def getlength(self, text):
+            return len(text)
+
+    face = FakeFont()
+
+    bound_word = f"ab{no_break_space}cd"
+    assert core._estimate_lines([(bound_word, 5, face)], 3) == 999999
+    assert core._estimate_lines([("ab cd", 5, face)], 3) == 2
+
+
 def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     path = fixture_docx(tmp_path)
     meta = audit(path)["tables"][0]

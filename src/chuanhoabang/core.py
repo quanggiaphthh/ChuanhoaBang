@@ -39,6 +39,7 @@ HEADER_HINTS = ("stt", "họ tên", "họ và tên", "nội dung", "nhiệm vụ
                 "kết quả", "thời gian", "ngày", "số", "kinh phí", "ghi chú", "trách nhiệm",
                 "tiến độ", "sản phẩm", "chủ trì", "phối hợp", "tên", "thành tiền")
 LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng ủy", "đảng bộ", "nơi nhận", "người ký", "tổng giám đốc")
+NO_BREAK_SPACE_CHARACTERS = frozenset(("\u00a0", "\u180e", "\u2007", "\u202f"))
 LAYOUT_DASH_TRANSLATION = str.maketrans({
     char: "-" for char in "\u2010\u2011\u2012\u2013\u2014\u2212"
 })
@@ -710,14 +711,30 @@ def _width(text, pt, face):
     return int(math.ceil(float(face.getlength(text)) * pt / 100 * 20))
 
 
+def _line_tokens(content):
+    """Split at breakable Unicode whitespace, keeping glue spaces with adjacent text."""
+    tokens = []
+    current = []
+    is_breakable_space = None
+    for character in content:
+        breakable = character.isspace() and character not in NO_BREAK_SPACE_CHARACTERS
+        if current and breakable != is_breakable_space:
+            tokens.append("".join(current))
+            current = []
+        current.append(character)
+        is_breakable_space = breakable
+    if current:
+        tokens.append("".join(current))
+    return tokens
+
+
 def _estimate_lines(chunks, inner_twips):
     if inner_twips < 1:
         return 999999
     count = 1
     used = 0
     for content, pt, face in chunks:
-        tokens = re.findall(r"\S+|\s+", content)
-        for token in tokens:
+        for token in _line_tokens(content):
             if token.isspace() and used == 0:
                 continue
             size = _width(token, pt, face)

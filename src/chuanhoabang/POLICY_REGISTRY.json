@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNICODE-LINEBREAK-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -12,7 +12,8 @@
     "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permstart?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permend?view=openxml-3.0.1",
-    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d"
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d",
+    "https://unicode.org/reports/tr14/"
   ],
   "rules": [
     {
@@ -58,6 +59,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
       "postconditions": ["any permStart/permEnd markers block body-table proposals", "enabled documentProtection blocks proposals", "invalid or duplicate documentProtection declarations block proposals"]
+    },
+    {
+      "id": "UNICODE-LINEBREAK-001",
+      "authority": "UNICODE_STANDARD",
+      "scope": "offline width-estimate tokenization for nonbreaking Unicode spaces",
+      "preconditions": ["metric-based width proposal", "synthetic or local font metrics are used for a line-count estimate"],
+      "severity": "HARD",
+      "safe_action": "KEEP_GLUE_SPACES_WITH_ADJACENT_TEXT_OR_REVIEW",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_AND_UNICODE_LINE_BREAK_CLASS",
+      "postconditions": ["U+00A0, U+180E, U+2007, and U+202F are not treated as line-break opportunities", "partial tokenization does not claim full UAX #14 or Word-rendered layout"]
     },
     {
       "id": "FONT-PROFILE-001",
