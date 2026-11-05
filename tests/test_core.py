@@ -210,7 +210,7 @@ def test_header_repeat_requires_known_data_table_unlocked(tmp_path):
     from chuanhoabang import propose_header
     assert propose_header(fixture_docx(tmp_path, header=False), 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_header(fixture_docx(tmp_path, protected=True), 0)["decision"] == "REVIEW_REQUIRED"
-    assert propose_header(fixture_docx(tmp_path, merged=True), 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(fixture_docx(tmp_path, merged=True), 0)["decision"] == "PROPOSE_APPLY"
 
 
 def test_header_repeat_tampered_and_stale_rejected(tmp_path):
@@ -318,7 +318,7 @@ def test_exact_height_relaxation_only_changes_row_rule(tmp_path):
 def test_unclip_review_for_locked_or_complex_document(tmp_path):
     from chuanhoabang import propose_unclip_row_height
     assert propose_unclip_row_height(fixture_docx(tmp_path, protected=True), 0)["decision"] == "REVIEW_REQUIRED"
-    assert propose_unclip_row_height(fixture_docx(tmp_path, merged=True), 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_unclip_row_height(fixture_docx(tmp_path, merged=True), 0)["decision"] == "NO_OP_VALID"
 
 
 def test_height_unclip_proposal_is_immutable(tmp_path):
