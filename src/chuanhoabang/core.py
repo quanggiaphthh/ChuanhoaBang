@@ -387,14 +387,22 @@ def propose(path, table_index, font_regular=None, font_bold=None):
     return result
 
 
-def _without_width(tbl, *, allow_first_row_header=False, allow_height_rule=False):
+def _without_width(tbl, *, allow_width=True, allow_first_row_header=False, height_rows=()):
+    """Canonical comparison with only explicitly authorized properties masked.
+
+    Header/height patches must NOT ignore width changes. The height allowlist
+    is row-scoped; unrelated row rules remain part of the integrity check.
+    """
     node = copy.deepcopy(tbl)
-    for xp in ("./w:tblGrid", "./w:tblPr/w:tblW", "./w:tblPr/w:tblLayout", ".//w:tcPr/w:tcW"):
-        for e in node.xpath(xp, namespaces=NS):
-            e.getparent().remove(e)
-    if allow_height_rule:
-        # Compare all original row height values; only hRule may change.
-        for height in node.xpath("./w:tr/w:trPr/w:trHeight", namespaces=NS):
+    if allow_width:
+        for xp in ("./w:tblGrid", "./w:tblPr/w:tblW", "./w:tblPr/w:tblLayout", ".//w:tcPr/w:tcW"):
+            for e in node.xpath(xp, namespaces=NS):
+                e.getparent().remove(e)
+    rows = node.xpath("./w:tr", namespaces=NS)
+    for ri in height_rows:
+        if not isinstance(ri, int) or not 0 <= ri < len(rows):
+            raise TableError("HEIGHT_ROW_SCOPE_INVALID")
+        for height in rows[ri].xpath("./w:trPr/w:trHeight", namespaces=NS):
             height.attrib.pop(W + "hRule", None)
     if allow_first_row_header:
         # Only the first physical row is whitelisted for this operation.
@@ -443,16 +451,23 @@ def _apply_widths(root, idx, widths):
             tcw.set(W + "w", str(width))
 
 
-def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False, allow_height_rule=False):
+def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False,
+                 allow_height_rule=False, height_rows=()):
     old = _xml(old_data)
     new = _xml(new_data)
     ot, nt = _tables(old), _tables(new)
     if len(ot) != len(nt) or not 0 <= index < len(ot):
         raise TableError("TABLE_INVENTORY_CHANGED")
-    if _without_width(ot[index], allow_first_row_header=allow_first_row_header,
-                      allow_height_rule=allow_height_rule) != \
-            _without_width(nt[index], allow_first_row_header=allow_first_row_header,
-                           allow_height_rule=allow_height_rule):
+    if allow_first_row_header and allow_height_rule:
+        raise TableError("MULTIPLE_UNSAFE_OPERATIONS")
+    if allow_height_rule and (not height_rows or len(set(height_rows)) != len(height_rows)):
+        raise TableError("HEIGHT_ROW_SCOPE_INVALID")
+    if height_rows and not allow_height_rule:
+        raise TableError("UNEXPECTED_HEIGHT_SCOPE")
+    filters = {"allow_width": not (allow_first_row_header or allow_height_rule),
+               "allow_first_row_header": allow_first_row_header,
+               "height_rows": height_rows if allow_height_rule else ()}
+    if _without_width(ot[index], **filters) != _without_width(nt[index], **filters):
         raise TableError("TARGET_NON_WIDTH_CONTENT_CHANGED")
     # Replace the same target table in both trees and compare the entire rest of the XML.
     for root, tbl in ((old, ot[index]), (new, nt[index])):
@@ -606,7 +621,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         _apply_widths(new_root, actual["table_index"], actual["candidate_twips"])
     new_raw = etree.tostring(new_root, xml_declaration=True, encoding="UTF-8", standalone=True)
     _assert_safe(raw, new_raw, actual["table_index"],
-                 allow_first_row_header=header_operation, allow_height_rule=height_operation)
+                 allow_first_row_header=header_operation, allow_height_rule=height_operation,
+                 height_rows=tuple(actual["row_indices"]) if height_operation else ())
     dst.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(suffix=".docx", prefix=".chuanhoabang-", dir=str(dst.parent))
     os.close(fd)
@@ -619,7 +635,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         if names != out_names or settings != out_settings:
             raise TableError("OPC_PACKAGE_CHANGED")
         _assert_safe(raw, out_raw, actual["table_index"],
-                     allow_first_row_header=header_operation, allow_height_rule=height_operation)
+                     allow_first_row_header=header_operation, allow_height_rule=height_operation,
+                     height_rows=tuple(actual["row_indices"]) if height_operation else ())
         with ZipFile(src) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
