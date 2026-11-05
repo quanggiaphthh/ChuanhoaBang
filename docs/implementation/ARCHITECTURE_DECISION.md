@@ -32,7 +32,7 @@
 
 - Chỉ bảng trong `word/document.xml`, không sửa header/footer. Body tables bên trong wrappers vẫn được thống kê, nhưng không tự sửa bảng trong content control hoặc bảng lồng.
 - Chỉ AutoFit bảng chữ đơn giản, không merged/field/object/track. Hai phép phân trang không đổi width có thể xử lý **gridSpan ngang đơn giản hợp lệ**, không xử lý vMerge/nested. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
-- Vùng width từ OOXML là ràng buộc khai báo, không phải kết quả render. Padding sử dụng ngân sách bảo thủ **ước lượng**: 150 twips; chưa resolve toàn bộ style cascade.
+- Vùng width từ OOXML là ràng buộc khai báo, không phải kết quả render. Direct left/right `dxa` table/cell margins được đưa vào bound từng ô; ô không có giá trị ngang trực tiếp dùng giả định estimator 150 twips. Table-style cascade và Word render vẫn chưa được xác minh.
 - Có `audit → propose / propose-header / propose-unclip → explicit apply`; không tự chạy background; nguồn DOCX không bị ghi đè.
 
 ## Quy tắc bảo toàn
