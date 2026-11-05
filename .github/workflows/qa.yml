@@ -21,3 +21,13 @@ jobs:
         run: python -m pytest -q tests/
       - name: CLI import smoke
         run: python -m chuanhoabang --help
+      - name: Build and install wheel in isolated target
+        run: |
+          wheel_dir="$RUNNER_TEMP/chuanhoabang-wheel"
+          install_dir="$RUNNER_TEMP/chuanhoabang-install"
+          mkdir -p "$wheel_dir" "$install_dir"
+          python -m pip wheel . --no-deps --wheel-dir "$wheel_dir"
+          python -m pip install --no-deps --no-index --target "$install_dir" "$wheel_dir"/*.whl
+          cd "$RUNNER_TEMP"
+          PYTHONPATH="$install_dir" python -c 'from importlib.resources import files; import chuanhoabang; assert files("chuanhoabang").joinpath("POLICY_REGISTRY.json").is_file(); assert chuanhoabang.available_profiles() == ("ND30", "HD05")'
+          PYTHONPATH="$install_dir" python -m chuanhoabang --help
