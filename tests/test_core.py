@@ -828,6 +828,40 @@ def test_implicit_equal_width_does_not_interpret_custom_column_children(tmp_path
     assert geometry["reason"] == "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED"
 
 
+@pytest.mark.parametrize(("marker", "attributes", "reason"), [
+    ("tblpPr", {core.W + "horzAnchor": "page"}, "FLOATING_OR_ROTATED_CONTENT"),
+    ("tblInd", {core.W + "w": "120", core.W + "type": "dxa"},
+     "TABLE_INDENT_REQUIRES_REVIEW"),
+])
+def test_floating_or_indented_table_position_blocks_all_proposals(
+        tmp_path, marker, attributes, reason):
+    from chuanhoabang import propose_header, propose_unclip_row_height
+
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_properties = table.find(core.W + "tblPr")
+    etree.SubElement(table_properties, core.W + marker, attributes)
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+    before = path.read_bytes()
+
+    report = audit(path)["tables"][0]
+
+    assert report["status"] == "REVIEW_REQUIRED"
+    assert reason in report["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize(("mirror_value", "expected_reason"), [
     (None, "MIRRORED_GUTTER_GEOMETRY_UNSUPPORTED"),
     ("0", None),
