@@ -291,6 +291,34 @@ def _normalize_layout_text(value):
     return " ".join(text.split())
 
 
+def _declared_width(parent, tag):
+    if parent is None:
+        return {"status": "ABSENT", "type": None, "raw_value": None, "twips": None}
+    nodes = parent.findall(tag)
+    if not nodes:
+        return {"status": "ABSENT", "type": None, "raw_value": None, "twips": None}
+    if len(nodes) != 1:
+        return {"status": "AMBIGUOUS", "type": None, "raw_value": None, "twips": None}
+    node = nodes[0]
+    width_type = node.get(W + "type", "auto")
+    raw_value = node.get(W + "w")
+    if width_type not in ("dxa", "pct", "auto", "nil"):
+        return {"status": "INVALID", "type": width_type,
+                "raw_value": raw_value, "twips": None}
+    if width_type in ("dxa", "pct"):
+        try:
+            parsed = int(raw_value)
+            if parsed < 0:
+                raise ValueError("negative width")
+        except (TypeError, ValueError):
+            return {"status": "INVALID", "type": width_type,
+                    "raw_value": raw_value, "twips": None}
+        return {"status": "DECLARED", "type": width_type,
+                "raw_value": raw_value, "twips": parsed if width_type == "dxa" else None}
+    return {"status": "DECLARED", "type": width_type,
+            "raw_value": raw_value, "twips": None}
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     rows = tbl.xpath("./w:tr", namespaces=NS)
     grid = tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS)
@@ -304,6 +332,17 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     reasons = list(locks)
     if geom["status"] != "STRUCTURAL":
         reasons.append(geom["reason"])
+    tblpr = tbl.find(W + "tblPr")
+    table_preferred = _declared_width(tblpr, W + "tblW")
+    cell_preferred = [
+        [_declared_width(cell.find(W + "tcPr"), W + "tcW")
+         for cell in row.xpath("./w:tc", namespaces=NS)]
+        for row in rows
+    ]
+    if (table_preferred["status"] in ("INVALID", "AMBIGUOUS") or
+            any(width["status"] in ("INVALID", "AMBIGUOUS")
+                for row in cell_preferred for width in row)):
+        reasons.append("INVALID_PREFERRED_WIDTH_DECLARATION")
     if tbl.xpath("ancestor::w:tbl | ancestor::w:sdt", namespaces=NS):
         reasons.append("NESTED_OR_CONTENT_CONTROL_TABLE")
     if tbl.xpath(".//w:tbl", namespaces=NS):
@@ -328,7 +367,6 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
         reasons.append("POSSIBLE_LAYOUT_TABLE")
     elif len(rows) < 2 or sum(bool(x) for x in header) < 2 or not any(x in header_str for x in HEADER_HINTS):
         reasons.append("UNCONFIRMED_DATA_TABLE")
-    tblpr = tbl.find(W + "tblPr")
     ind = tblpr.find(W + "tblInd") if tblpr is not None else None
     if ind is not None and ind.get(W + "w", "0") not in ("0", None):
         reasons.append("TABLE_INDENT_REQUIRES_REVIEW")
@@ -344,6 +382,12 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
             "table_sha256": table_hash,
+            "width_evidence": {
+                "table_preferred": table_preferred,
+                "cell_preferred": cell_preferred,
+                "grid_sum_twips": sum(widths) if widths else None,
+                "word_rendered": "NOT_RUN",
+            },
             "pagination_diagnostics": pagination,
             "overflow_declared": bool(widths and geom.get("available_twips") and
                 sum(widths) > geom["available_twips"])}

@@ -66,6 +66,41 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "section 0 header/default" in report
 
 
+def test_markdown_render_distinguishes_declared_grid_and_word_widths():
+    report = render_markdown({
+        "table_count": 1,
+        "tables": [{
+            "index": 0,
+            "table_id": "body:0:abc123",
+            "parent_table_id": None,
+            "status": "SUPPORTED",
+            "rows": 1,
+            "columns": 2,
+            "grid_twips": [1000, 2000],
+            "reasons": [],
+            "width_evidence": {
+                "table_preferred": {
+                    "status": "DECLARED", "type": "pct", "raw_value": "5000", "twips": None,
+                },
+                "cell_preferred": [[
+                    {"status": "DECLARED", "type": "dxa", "raw_value": "1000", "twips": 1000},
+                    {"status": "DECLARED", "type": "pct", "raw_value": "2500", "twips": None},
+                ]],
+                "grid_sum_twips": 3000,
+                "word_rendered": "NOT_RUN",
+            },
+        }],
+    })
+
+    assert "## Width evidence (OOXML declarations; not Word measurements)" in report
+    assert "tblW preferred" in report
+    assert "grid=[1000, 2000] twips; sum=3000 twips" in report
+    assert "pct:5000" in report
+    assert "r0c0=dxa:1000 twips" in report
+    assert "r0c1=pct:2500" in report
+    assert "NOT_RUN" in report
+
+
 def test_cli_audit_report_md_is_created_and_never_overwritten(tmp_path, capsys):
     source = tmp_path / "test.docx"
     doc = Document()

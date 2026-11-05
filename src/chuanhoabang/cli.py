@@ -14,6 +14,16 @@ def render_markdown(result: dict) -> str:
     def safe(value):
         return str(value).replace("|", "\\|").replace(chr(10), " ")
 
+    def width_label(width):
+        status = width.get("status", "UNKNOWN")
+        if status != "DECLARED":
+            return status
+        value = width.get("raw_value")
+        label = f"{width.get('type', 'UNKNOWN')}:{value if value is not None else '—'}"
+        if width.get("type") == "dxa" and width.get("twips") is not None:
+            label += " twips"
+        return label
+
     lines = ["# ChuanhoaBang — Báo cáo xử lý DOCX", "",
              f"**Quyết định:** `{safe(result.get('decision', result.get('status', 'AUDIT_ONLY')))}`",
              f"**Kết xuất Microsoft Word:** `{safe(result.get('word_render', 'NOT_RUN'))}`",
@@ -35,6 +45,26 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{table.get('rows', '?')} | {table.get('columns', '?')} | "
                          f"{safe(', '.join(table.get('reasons', [])))} |")
+        if any("width_evidence" in table for table in result["tables"]):
+            lines += ["", "## Width evidence (OOXML declarations; not Word measurements)", "",
+                      "| Table ID | Grid and sum | tblW preferred | tcW preferred by row/cell | Word rendered width |",
+                      "|---|---|---|---|---|"]
+            for table in result["tables"]:
+                evidence = table.get("width_evidence", {})
+                grid = table.get("grid_twips")
+                grid_sum = evidence.get("grid_sum_twips")
+                grid_label = (f"grid={grid if grid is not None else 'UNKNOWN'} twips; "
+                              f"sum={grid_sum if grid_sum is not None else 'UNKNOWN'} twips")
+                cell_labels = []
+                for row_index, row in enumerate(evidence.get("cell_preferred", [])):
+                    for cell_index, width in enumerate(row):
+                        cell_labels.append(f"r{row_index}c{cell_index}={width_label(width)}")
+                cells_label = "; ".join(cell_labels) or "no tcW declarations"
+                lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
+                             f"{safe(grid_label)} | "
+                             f"{safe(width_label(evidence.get('table_preferred', {})))} | "
+                             f"{safe(cells_label)} | "
+                             f"{safe(evidence.get('word_rendered', 'NOT_RUN'))} |")
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
                   "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp; "

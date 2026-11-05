@@ -60,6 +60,95 @@ def test_audit_read_only_and_header(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_audit_separates_declared_widths_from_grid_and_word_measurement(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    for column, width in zip(table.xpath("./w:tblGrid/w:gridCol", namespaces=core.NS),
+                             (1000, 2000, 500)):
+        column.set(core.W + "w", str(width))
+    table_width = table.find(core.W + "tblPr/" + core.W + "tblW")
+    table_width.set(core.W + "type", "pct")
+    table_width.set(core.W + "w", "5000")
+    for cell, (kind, value) in zip(table.xpath("./w:tr[1]/w:tc", namespaces=core.NS),
+                                   (("dxa", "1000"), ("pct", "2500"), ("auto", "0"))):
+        cell_width = cell.find(core.W + "tcPr/" + core.W + "tcW")
+        cell_width.set(core.W + "type", kind)
+        cell_width.set(core.W + "w", value)
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    width_evidence = audit(path)["tables"][0]["width_evidence"]
+
+    assert width_evidence["grid_sum_twips"] == 3500
+    assert width_evidence["table_preferred"] == {
+        "status": "DECLARED", "type": "pct", "raw_value": "5000", "twips": None,
+    }
+    assert width_evidence["cell_preferred"][0] == [
+        {"status": "DECLARED", "type": "dxa", "raw_value": "1000", "twips": 1000},
+        {"status": "DECLARED", "type": "pct", "raw_value": "2500", "twips": None},
+        {"status": "DECLARED", "type": "auto", "raw_value": "0", "twips": None},
+    ]
+    assert width_evidence["word_rendered"] == "NOT_RUN"
+
+
+def test_audit_fails_closed_on_invalid_preferred_width_declarations(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_width = table.find(core.W + "tblPr/" + core.W + "tblW")
+    table_width.set(core.W + "type", "dxa")
+    table_width.set(core.W + "w", "not-a-width")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["status"] == "REVIEW_REQUIRED"
+    assert "INVALID_PREFERRED_WIDTH_DECLARATION" in table_report["reasons"]
+    assert table_report["width_evidence"]["table_preferred"] == {
+        "status": "INVALID", "type": "dxa", "raw_value": "not-a-width", "twips": None,
+    }
+
+
+def test_audit_fails_closed_on_invalid_cell_width_declarations(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    cell_width = table.find("./" + core.W + "tr/" + core.W + "tc/" +
+                            core.W + "tcPr/" + core.W + "tcW")
+    cell_width.set(core.W + "type", "percent")
+    cell_width.set(core.W + "w", "5000")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["status"] == "REVIEW_REQUIRED"
+    assert "INVALID_PREFERRED_WIDTH_DECLARATION" in table_report["reasons"]
+    assert table_report["width_evidence"]["cell_preferred"][0][0] == {
+        "status": "INVALID", "type": "percent", "raw_value": "5000", "twips": None,
+    }
+
+
 def test_oversized_compressed_docx_is_rejected_before_archive_read(tmp_path, monkeypatch):
     path = fixture_docx(tmp_path)
     assert core.MAX_COMPRESSED_DOCX_BYTES == 64 * 1024 * 1024
