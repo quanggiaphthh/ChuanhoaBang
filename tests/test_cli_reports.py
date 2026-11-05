@@ -40,3 +40,28 @@ def test_cli_audit_report_md_is_created_and_never_overwritten(tmp_path, capsys):
     assert main(["audit", str(source), "--report-md", str(report)]) == 2
     assert source.read_bytes() == before
     assert report.read_text(encoding="utf-8") == body
+
+
+def test_markdown_report_cannot_overwrite_docx_or_proposal(tmp_path, capsys):
+    source = tmp_path / "sample.docx"
+    doc = Document()
+    table = doc.add_table(rows=2, cols=2)
+    for row, values in zip(table.rows, (("STT", "Nội dung"), ("0012", "Dữ liệu"))):
+        for cell, value in zip(row.cells, values):
+            cell.text = value
+    doc.save(source)
+    before = source.read_bytes()
+    proposal_file = tmp_path / "proposal.json"
+    assert main(["propose-header", str(source), "--table", "0", "--output",
+                 str(proposal_file), "--report-md", str(proposal_file)]) == 2
+    assert not proposal_file.exists()
+    assert main(["audit", str(source), "--report-md", str(source)]) == 2
+    assert source.read_bytes() == before
+    assert main(["propose-header", str(source), "--table", "0",
+                 "--output", str(proposal_file)]) == 0
+    proposal_before = proposal_file.read_bytes()
+    target = tmp_path / "output.docx"
+    assert main(["apply", str(source), "--proposal", str(proposal_file),
+                 "--output", str(target), "--report-md", str(target)]) == 2
+    assert not target.exists()
+    assert proposal_file.read_bytes() == proposal_before
