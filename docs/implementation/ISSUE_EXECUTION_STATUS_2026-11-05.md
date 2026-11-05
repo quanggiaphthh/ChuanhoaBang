@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified code:** PR head [`bcd77f83ee9ce7bca820b03aa0dfc16098c8a836`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/bcd77f83ee9ce7bca820b03aa0dfc16098c8a836), [GitHub Actions run 42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457): **83/83 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Artifact: `chuanhoabang-preview-df16abb9b604a70be8373d4a02236842284525bb`, retained until 19/11/2026. Word/WPS and source fixtures remain unverified.
+**Latest verified code:** PR head [`5b7e7924334e2762d74fa8295c74e9e81e0a8e9d`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/5b7e7924334e2762d74fa8295c74e9e81e0a8e9d), [GitHub Actions run 42093667353](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42093667353): **86/86 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Artifact: `chuanhoabang-preview-180c08f653e1625f38d6aad6d99916fc6184e5b5`, retained until 19/11/2026. Word/WPS and source fixtures remain unverified.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -13,7 +13,7 @@
 | [#1](https://github.com/quanggiaphthh/ChuanhoaBang/issues/1) ADR/capability | ADR evaluates Python OOXML / WordVN / .NET; WordVN repo inspected | Review/update final integration choice when editor exists | PARTIAL |
 | [#2](https://github.com/quanggiaphthh/ChuanhoaBang/issues/2) policies | Packaged runtime registry; ND30/HD05 selection and proposal binding; sourced profile-specific width-metric size gate; orientation safety | Complete verified profile presets, authority classification, and legal rule coverage | PARTIAL |
 | [#3](https://github.com/quanggiaphthh/ChuanhoaBang/issues/3) fixtures | Fixture inventory and provenance notes; local/Drive search did not locate originals; 118-case synthetic evidence contains 0 DOCX fixtures | Obtain original checksum-verified F01–F08 & V15 binaries | BLOCKED_PARTIAL |
-| [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only body table inventory plus separate part/hash inventory for header/footer/footnote/endnote tables; uncompressed-entry, ratio, and compressed-archive size guards | Resolve story-to-section ownership and broader document fixtures/source validation | PARTIAL |
+| [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only body inventory plus separate part/hash inventory for header/footer/footnote/endnote tables; direct section references resolved with ambiguous IDs fail closed | Resolve inherited story ownership and broader document fixtures/source validation | PARTIAL |
 | [#5](https://github.com/quanggiaphthh/ChuanhoaBang/issues/5) classification | Layout/lock/complex refusal, 7 negative markup cases, and layout-marker scan across every table row | Formal sample corpus, robust table semantics, authority validation | PARTIAL |
 | [#6](https://github.com/quanggiaphthh/ChuanhoaBang/issues/6) geometry | Single-section geometry, orientation/text-column gates, gutter subtraction, mirrored-margin plus gutter fail closed, diagnostics and bounded paragraph-style inheritance | Actual per-column width resolution, nested/story ownership, remaining style cascade and Word page-position evidence | PARTIAL |
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
@@ -22,7 +22,7 @@
 | [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; canonical wheel and manifest installed/smoke-tested across five environments | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 83 PASS across 5 environments incl archive/profile/geometry/rollback/classifier/story-inventory guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 86 PASS across 5 environments incl archive/profile/geometry/rollback/classifier/story-ownership guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LibreOffice secondary smoke; [repeatable Microsoft Word protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) | Independent Microsoft Word and WPS evidence on supported fixtures | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
 | [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Locked runtime/test dependencies; exact build backend pins; same-run repeat-build hash and manifest; canonical wheel install verified across 5 environments | Independent-builder reproducibility, release/update rollback, Word/WPS acceptance, original fixtures, remaining security/compatibility gates | PARTIAL |
@@ -38,6 +38,7 @@
 - Added fail-closed mirrored-margin/gutter geometry handling and a post-write validation rollback regression.
 - Layout/signature hints now fail closed when found in any table row; DOCX publication fails closed if another process creates the requested output after initial validation.
 - `audit` now counts and hashes tables in header/footer/footnotes/endnotes separately from body table indices; the CLI Markdown report exposes these stories and preserves their unsupported status.
+- Explicit header/footer relationship IDs now map to zero-based section indices and reference types. Duplicate IDs, unreferenced parts, and inherited linkage remain unresolved; tests cover first/second sections and the unreferenced/ambiguous cases.
 
 ## Release decision
 
@@ -153,6 +154,12 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 
 ## CB-04 follow-up — non-body story table inventory (05/11/2026)
 
-- `audit` now inventories tables in `word/headerN.xml`, `word/footerN.xml`, `word/footnotes.xml`, and `word/endnotes.xml` separately from editable body indices. Each entry includes its source part, story-local index, canonical table hash, `REVIEW_REQUIRED`, and an explicit unresolved section-owner status.
+- `audit` inventories tables in `word/headerN.xml`, `word/footerN.xml`, `word/footnotes.xml`, and `word/endnotes.xml` separately from editable body indices. Each entry includes its source part, story-local index, canonical table hash, and `REVIEW_REQUIRED`.
 - CLI Markdown reports expose these entries and state that they cannot be passed as `--table`; the DOCX remains read-only. Header/footer regressions verify body indices do not shift and the source stays byte-identical.
-- Local full suite **83/83 PASS**. GitHub Actions [42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457) **83/83 PASS** on all five environments. Resolving references back to sections, original fixture validation, and any editing support for these stories remain NOT_RUN; CB-04 remains partial.
+- Local full suite **83/83 PASS**. GitHub Actions [42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457) **83/83 PASS** on all five environments. At this point direct story ownership was not yet resolved; CB-04 remained partial.
+
+## CB-04 follow-up — direct story-to-section references (05/11/2026)
+
+- Header/footer part relationships in `word/_rels/document.xml.rels` are matched to direct `w:headerReference` / `w:footerReference` entries in active body section properties. Inventory entries record zero-based section index, story type, and default/first/even reference type.
+- The parser rejects ambiguous duplicate relationship IDs for ownership mapping; an unreferenced part stays `SECTION_RELATIONSHIP_NOT_RESOLVED`. Inherited header/footer linkage is not inferred, and all non-body tables remain `REVIEW_REQUIRED` and excluded from apply.
+- Regressions cover direct header/footer links, two distinct section indices, unreferenced parts, duplicate relationship IDs, body-index stability, and byte-identical source. Local full suite **86/86 PASS**; GitHub Actions [42093667353](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42093667353) **86/86 PASS** on five environments. Inheritance and original fixture validation remain unverified; CB-04 remains partial.

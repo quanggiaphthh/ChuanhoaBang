@@ -10,17 +10,17 @@
 
 | Gate | Yêu cầu để v1.0 | Trạng thái ở technical preview |
 |---|---|---|
-| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset: **83/83** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12 in [run 42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457); not Word acceptance |
-| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset: **83/83** in [run 42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457), all five environments; validation-failure cleanup, concurrent-destination no-overwrite, and read-only story inventory regressions PASS |
-| AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset in the 83-test suite across five environments; table-wide layout-marker scan fails closed; complete legal-profile coverage PARTIAL |
-| GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset in the 83-test suite; multi-column/custom-column and mirrored-margin-plus-gutter geometry fail closed. Word page layout not verified |
+| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset: **86/86** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12 in [run 42093667353](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42093667353); not Word acceptance |
+| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset: **86/86** in [run 42093667353](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42093667353), all five environments; validation-failure cleanup, concurrent-destination no-overwrite, and direct story-reference inventory regressions PASS |
+| AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset in the 86-test suite across five environments; table-wide layout-marker scan fails closed; complete legal-profile coverage PARTIAL |
+| GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset in the 86-test suite; multi-column/custom-column and mirrored-margin-plus-gutter geometry fail closed. Word page layout not verified |
 | FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |
 | PAGING | Header repeat/row split/trHeight xử lý theo quyền | First-row repeat + exact→atLeast row height opt-in structural PASS; row split DIAGNOSTICS_ONLY; Word NOT_RUN |
 | COMPLEX | Merged/nested controlled support | PARTIAL: gridSpan ngang hợp lệ chỉ được phép header-repeat / exact→atLeast; AutoFit merged, vMerge, nested vẫn PRESERVE |
 | L2-WORD | Print Layout Word không tràn/cắt | NOT_RUN; [manual protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) is ready. Current executor has no Microsoft Word |
 | WPS/LO | Renderer đối chứng | LibreOffice secondary smoke PASS on synthetic pagination/row-height fixtures ([header](../verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md), [row height](../verification/ROW_HEIGHT_LO_SMOKE_2026-11-05.md)); WPS NOT_RUN. Neither establishes Word acceptance |
 | WORDVN | Adapter, preview, Undo | Source repo `quanggiaphthh/WordVN` hiện chỉ có README (05/11/2026); editor/API/Undo NOT_IMPLEMENTED, adapter BLOCKED |
-| RELEASE | Clean install, pin dependencies, reproducible binary + rollback | PARTIAL: `uv.lock` pins runtime/test dependencies; exact setuptools/wheel build pins; [run 42092032457](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42092032457) built the preview wheel twice with matching SHA-256, wrote a source/lock/tool/artifact manifest, then installed that same artifact across five environments. Independent-builder reproducibility, release/update rollback, versioned release notes, and offline wheelhouse NOT_RUN |
+| RELEASE | Clean install, pin dependencies, reproducible binary + rollback | PARTIAL: `uv.lock` pins runtime/test dependencies; exact setuptools/wheel build pins; [run 42093667353](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42093667353) built the preview wheel twice with matching SHA-256, wrote a source/lock/tool/artifact manifest, then installed that same artifact across five environments. Independent-builder reproducibility, release/update rollback, versioned release notes, and offline wheelhouse NOT_RUN |
 
 **Nguyên tắc:** Có thể dùng CLI thử nghiệm cho phạm vi đã chứng minh; không đóng issue #7, #8, #11–#16 khi thiếu acceptance theo body issue. Không đóng những issue chỉ có tài liệu một phần.
 
