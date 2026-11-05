@@ -288,3 +288,65 @@ def test_width_proposal_does_not_reject_harmless_empty_runs(tmp_path, monkeypatc
     assert result["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
     assert "NON_PLAIN_RUN" not in result["reasons"]
     assert result["word_render"] == "NOT_RUN"
+
+
+def test_exact_height_relaxation_only_changes_row_rule(tmp_path):
+    from chuanhoabang import propose_unclip_row_height
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+    path = fixture_docx(tmp_path)
+    source = Document(path)
+    source.tables[0].rows[1].height = Pt(6)
+    source.tables[0].rows[1].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+    source.save(path)
+    before = path.read_bytes()
+    prop = propose_unclip_row_height(path, 0)
+    assert prop["decision"] == "PROPOSE_APPLY"
+    assert prop["row_indices"] == [1]
+    target = tmp_path / "height-at-least.docx"
+    applied = apply(path, prop, target)
+    assert applied["changed_properties"] == ["trHeight.hRule"]
+    assert applied["word_render"] == "NOT_RUN"
+    assert path.read_bytes() == before
+    new = Document(target)
+    assert new.tables[0].rows[1].height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
+    assert new.tables[0].rows[1].height == Pt(6)
+    assert [[c.text for c in r.cells] for r in source.tables[0].rows] == \
+           [[c.text for c in r.cells] for r in new.tables[0].rows]
+    assert propose_unclip_row_height(target, 0)["decision"] == "NO_OP_VALID"
+
+
+def test_unclip_review_for_locked_or_complex_document(tmp_path):
+    from chuanhoabang import propose_unclip_row_height
+    assert propose_unclip_row_height(fixture_docx(tmp_path, protected=True), 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_unclip_row_height(fixture_docx(tmp_path, merged=True), 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_height_unclip_proposal_is_immutable(tmp_path):
+    from chuanhoabang import propose_unclip_row_height
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].rows[1].height = Pt(6)
+    doc.tables[0].rows[1].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+    doc.save(path)
+    proposal = propose_unclip_row_height(path, 0)
+    altered = copy.deepcopy(proposal)
+    altered["row_indices"] = [0]
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(path, altered, tmp_path / "invalid.docx")
+
+
+def test_cli_unclip_height(tmp_path, capsys):
+    from chuanhoabang.cli import main
+    from docx.enum.table import WD_ROW_HEIGHT_RULE
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].rows[1].height = Pt(6)
+    doc.tables[0].rows[1].height_rule = WD_ROW_HEIGHT_RULE.EXACTLY
+    doc.save(path)
+    proposal = tmp_path / "proposal.json"
+    assert main(["propose-unclip", str(path), "--table", "0", "--output", str(proposal)]) == 0
+    assert json.loads(capsys.readouterr().out)["decision"] == "PROPOSE_APPLY"
+    target = tmp_path / "relaxed.docx"
+    assert main(["apply", str(path), "--proposal", str(proposal), "--output", str(target)]) == 0
+    assert json.loads(capsys.readouterr().out)["changed_properties"] == ["trHeight.hRule"]

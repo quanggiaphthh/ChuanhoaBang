@@ -24,7 +24,7 @@
 | Đo glyph có RAQM qua file TNR người dùng cung cấp | Conditional | Chưa được test bằng TNR thật trong runtime này |
 | Optimizer width bounded local search | Implemented for simple tables | Điểm số là estimated line proxy |
 | Apply/ZIP round trip | Implemented, whitelist props | Test structural PASS |
-| Header/row pagination | Repeat-first-header opt-in + read-only split/height diagnostics | 19 test cục bộ; chưa Word verified |
+| Header/row pagination | Repeat-first-header và exact→atLeast theo explicit proposal; split diagnostic only | 23 test cục bộ; LO smoke, chưa Word verified |
 | Word Print Layout / WPS | NOT_RUN | Không gắn Word PASS |
 | WordVN editor/history/Undo | NOT_AUDITED | Chưa có integration |
 
@@ -33,7 +33,7 @@
 - Chỉ bảng trong `word/document.xml`, không sửa header/footer. Body tables bên trong wrappers vẫn được thống kê, nhưng không tự sửa bảng trong content control hoặc bảng lồng.
 - Chỉ bảng chữ đơn giản, không merged/field/object/track. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
 - Vùng width từ OOXML là ràng buộc khai báo, không phải kết quả render. Padding sử dụng ngân sách bảo thủ **ước lượng**: 150 twips; chưa resolve toàn bộ style cascade.
-- Có `audit → propose / propose-header → explicit apply`; không tự chạy background; nguồn DOCX không bị ghi đè.
+- Có `audit → propose / propose-header / propose-unclip → explicit apply`; không tự chạy background; nguồn DOCX không bị ghi đè.
 
 ## Quy tắc bảo toàn
 

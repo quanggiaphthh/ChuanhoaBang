@@ -29,7 +29,8 @@ HEADER_HINTS = ("stt", "họ tên", "họ và tên", "nội dung", "nhiệm vụ
 LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng ủy", "đảng bộ", "nơi nhận", "người ký", "tổng giám đốc")
 DANGEROUS_IN_TABLE = [".//w:sdt", ".//w:ins", ".//w:del", ".//w:moveFrom", ".//w:moveTo",
                       ".//w:fldChar", ".//w:instrText", ".//w:drawing", ".//w:pict",
-                      ".//w:object", ".//w:altChunk", ".//w:hyperlink"]
+                      ".//w:object", ".//w:altChunk", ".//w:hyperlink",
+                      ".//w:trPrChange", ".//w:tcPrChange", ".//w:tblPrChange"]
 
 
 class TableError(ValueError):
@@ -382,11 +383,15 @@ def propose(path, table_index, font_regular=None, font_bold=None):
     return result
 
 
-def _without_width(tbl, *, allow_first_row_header=False):
+def _without_width(tbl, *, allow_first_row_header=False, allow_height_rule=False):
     node = copy.deepcopy(tbl)
     for xp in ("./w:tblGrid", "./w:tblPr/w:tblW", "./w:tblPr/w:tblLayout", ".//w:tcPr/w:tcW"):
         for e in node.xpath(xp, namespaces=NS):
             e.getparent().remove(e)
+    if allow_height_rule:
+        # Compare all original row height values; only hRule may change.
+        for height in node.xpath("./w:tr/w:trPr/w:trHeight", namespaces=NS):
+            height.attrib.pop(W + "hRule", None)
     if allow_first_row_header:
         # Only the first physical row is whitelisted for this operation.
         for h in node.xpath("./w:tr[1]/w:trPr/w:tblHeader", namespaces=NS):
@@ -434,14 +439,16 @@ def _apply_widths(root, idx, widths):
             tcw.set(W + "w", str(width))
 
 
-def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False):
+def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False, allow_height_rule=False):
     old = _xml(old_data)
     new = _xml(new_data)
     ot, nt = _tables(old), _tables(new)
     if len(ot) != len(nt) or not 0 <= index < len(ot):
         raise TableError("TABLE_INVENTORY_CHANGED")
-    if _without_width(ot[index], allow_first_row_header=allow_first_row_header) != \
-            _without_width(nt[index], allow_first_row_header=allow_first_row_header):
+    if _without_width(ot[index], allow_first_row_header=allow_first_row_header,
+                      allow_height_rule=allow_height_rule) != \
+            _without_width(nt[index], allow_first_row_header=allow_first_row_header,
+                           allow_height_rule=allow_height_rule):
         raise TableError("TARGET_NON_WIDTH_CONTENT_CHANGED")
     # Replace the same target table in both trees and compare the entire rest of the XML.
     for root, tbl in ((old, ot[index]), (new, nt[index])):
@@ -505,6 +512,58 @@ def _apply_header(root, index):
     rowpr.insert(position, header)
 
 
+def propose_unclip_row_height(path, table_index):
+    """Explicit, auditable exact-to-atLeast row-height proposal.
+
+    A structural risk mitigation, NOT proof of clipping or improved pages.
+    Other paragraph line spacing and row split properties are untouched.
+    """
+    base = audit(path)
+    if not isinstance(table_index, int) or not 0 <= table_index < base["table_count"]:
+        raise TableError("TABLE_INDEX_OUT_OF_RANGE")
+    table = base["tables"][table_index]
+    result = {"operation": "EXACT_ROW_HEIGHT_TO_AT_LEAST", "policy": POLICY_VERSION,
+              "input_sha256": base["input_sha256"], "table_index": table_index,
+              "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
+              "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
+    if table["status"] != "SUPPORTED":
+        return result
+    raw, _, _ = _package(path)
+    tbl = _tables(_xml(raw))[table_index]
+    rows = tbl.xpath("./w:tr", namespaces=NS)
+    for ri, row in enumerate(rows):
+        height = row.xpath("./w:trPr/w:trHeight[@w:hRule='exact']", namespaces=NS)
+        if len(height) > 1:
+            result["reasons"].append("AMBIGUOUS_ROW_HEIGHT_PROPERTIES")
+            return result
+        if height:
+            try:
+                val = int(height[0].get(W + "val"))
+                if val <= 0:
+                    raise ValueError("invalid")
+            except (TypeError, ValueError):
+                result["reasons"].append("INVALID_EXACT_ROW_HEIGHT")
+                return result
+            result["row_indices"].append(ri)
+    if not result["row_indices"]:
+        result["decision"] = "NO_OP_VALID"
+        result["reasons"].append("NO_EXACT_ROW_HEIGHT_FOUND")
+    else:
+        result["decision"] = "PROPOSE_APPLY"
+        result["reasons"].append("EXPLICIT_ROW_HEIGHT_RELAXATION")
+    return result
+
+
+def _apply_unclip_row_heights(root, index, row_indices):
+    rows = _tables(root)[index].xpath("./w:tr", namespaces=NS)
+    for ri in row_indices:
+        matches = rows[ri].xpath("./w:trPr/w:trHeight[@w:hRule='exact']", namespaces=NS)
+        if len(matches) != 1:
+            raise TableError("EXACT_ROW_HEIGHT_CHANGED")
+        matches[0].set(W + "hRule", "atLeast")
+
+
 def apply(path, proposal, output, font_regular=None, font_bold=None):
     src = Path(path)
     dst = Path(output)
@@ -512,16 +571,24 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         raise TableError("OUTPUT_MUST_BE_NEW_PATH")
     if not isinstance(proposal, dict) or proposal.get("decision") != "PROPOSE_APPLY":
         raise TableError("PROPOSAL_NOT_APPLICABLE")
-    header_operation = proposal.get("operation") == "SET_REPEAT_HEADER_FIRST_ROW"
-    if proposal.get("operation") not in (None, "SET_REPEAT_HEADER_FIRST_ROW"):
+    operation = proposal.get("operation") or "OPTIMIZE_WIDTH"
+    if operation not in ("OPTIMIZE_WIDTH", "SET_REPEAT_HEADER_FIRST_ROW", "EXACT_ROW_HEIGHT_TO_AT_LEAST"):
         raise TableError("UNSUPPORTED_PROPOSAL_OPERATION")
-    actual = (propose_header(src, proposal.get("table_index")) if header_operation else
-              propose(src, proposal.get("table_index"), font_regular, font_bold))
-    compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons")
-    if not header_operation:
-        compare += ("candidate_twips",)
+    header_operation = operation == "SET_REPEAT_HEADER_FIRST_ROW"
+    height_operation = operation == "EXACT_ROW_HEIGHT_TO_AT_LEAST"
+    if header_operation:
+        actual = propose_header(src, proposal.get("table_index"))
+    elif height_operation:
+        actual = propose_unclip_row_height(src, proposal.get("table_index"))
     else:
+        actual = propose(src, proposal.get("table_index"), font_regular, font_bold)
+    compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons")
+    if header_operation:
         compare += ("operation",)
+    elif height_operation:
+        compare += ("operation", "row_indices")
+    else:
+        compare += ("candidate_twips",)
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
     raw, settings, names = _package(src)
@@ -529,10 +596,13 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
     new_root = copy.deepcopy(old_root)
     if header_operation:
         _apply_header(new_root, actual["table_index"])
+    elif height_operation:
+        _apply_unclip_row_heights(new_root, actual["table_index"], actual["row_indices"])
     else:
         _apply_widths(new_root, actual["table_index"], actual["candidate_twips"])
     new_raw = etree.tostring(new_root, xml_declaration=True, encoding="UTF-8", standalone=True)
-    _assert_safe(raw, new_raw, actual["table_index"], allow_first_row_header=header_operation)
+    _assert_safe(raw, new_raw, actual["table_index"],
+                 allow_first_row_header=header_operation, allow_height_rule=height_operation)
     dst.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_path = tempfile.mkstemp(suffix=".docx", prefix=".chuanhoabang-", dir=str(dst.parent))
     os.close(fd)
@@ -544,7 +614,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
         out_raw, out_settings, out_names = _package(temp_path)
         if names != out_names or settings != out_settings:
             raise TableError("OPC_PACKAGE_CHANGED")
-        _assert_safe(raw, out_raw, actual["table_index"], allow_first_row_header=header_operation)
+        _assert_safe(raw, out_raw, actual["table_index"],
+                     allow_first_row_header=header_operation, allow_height_rule=height_operation)
         with ZipFile(src) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
@@ -554,7 +625,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None):
             os.unlink(temp_path)
     return {"decision": "APPLIED", "output": str(dst), "output_sha256": digest(dst.read_bytes()),
             "input_sha256": actual["input_sha256"],
-            "operation": "SET_REPEAT_HEADER_FIRST_ROW" if header_operation else "OPTIMIZE_WIDTH",
-            "changed_properties": ["tblHeader"] if header_operation else ["tblGrid", "tblW", "tblLayout", "tcW"],
+            "operation": operation,
+            "changed_properties": (["tblHeader"] if header_operation else ["trHeight.hRule"]
+                                   if height_operation else ["tblGrid", "tblW", "tblLayout", "tcW"]),
             "content_integrity": "PASS", "non_target_package_parts": "PASS", "word_render": "NOT_RUN",
             "width_proposal_evidence": actual["evidence"], "table_index": actual["table_index"]}

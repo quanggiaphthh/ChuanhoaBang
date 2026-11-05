@@ -20,6 +20,10 @@ chuanhoabang apply INPUT.docx --proposal proposal.json --output INPUT_DINHDANG.d
 # Độc lập với đo chữ: đề xuất lặp hàng tiêu đề đầu tiên của bảng nội dung
 chuanhoabang propose-header INPUT.docx --table 0 --output repeat-header.json
 chuanhoabang apply INPUT.docx --proposal repeat-header.json --output INPUT_HEADER.docx
+
+# Xử lý nguy cơ chữ bị che bởi hàng cố định Exactly, chỉ khi người dùng chọn
+chuanhoabang propose-unclip INPUT.docx --table 0 --output unclip.json
+chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.docx
 ```
 
 - `--table` lấy index 0-based từ `audit`. `propose` không sửa DOCX; `apply` cần đề xuất `PROPOSE_APPLY` chưa bị chỉnh và đầu vào **chưa đổi**.
@@ -27,6 +31,7 @@ chuanhoabang apply INPUT.docx --proposal repeat-header.json --output INPUT_HEADE
 - Để tránh sửa nhầm, bản thử nghiệm chỉ tự động xử lý bảng dữ liệu phẳng, một section, với các run khai báo trực tiếp TNR 13/14. Các bảng phức tạp/khóa vẫn được audit nhưng không tự sửa.
 - Lệnh `propose` (width) chỉ sửa width của bảng được chọn; không thay font, số liệu, orientation, header/footer hoặc height. Điểm width chưa chứng minh độ vừa trang trong Word.
 - Lệnh `propose-header` chỉ bật `w:tblHeader` của **hàng đầu tiên** trên bảng nội dung đơn giản, khi được chọn và áp dụng rõ ràng; không ép `cantSplit`, không sửa nội dung, không tự lặp cho biểu mẫu khóa. Không chứng nhận Word đã lặp thực tế.
+- Lệnh `propose-unclip` là phép sửa có điều kiện: chuyển `w:trHeight/@w:hRule` từ `exact` sang `atLeast` **nhưng giữ nguyên `w:val` và toàn bộ nội dung**. Không tự thay line spacing của đoạn, không tuyên bố đã giải quyết mọi lỗi che chữ. Áp dụng chỉ khi người dùng yêu cầu bằng proposal riêng và bảng thuộc scope an toàn.
 - Nếu ô có nhiều đoạn văn, width proposal trả REVIEW vì phép tính line-wrap hiện chưa mô phỏng nhiều paragraph; các run XML rỗng hợp lệ được bỏ qua khi đo chữ.
 - Mọi score về line count chỉ là **FONT_METRIC_ESTIMATE**. Chưa có xác nhận rằng Word/WPS in không tràn/cắt.
 
@@ -38,7 +43,8 @@ chuanhoabang apply INPUT.docx --proposal repeat-header.json --output INPUT_HEADE
 
 ## Bằng chứng hiện có (05/11/2026)
 
-- Pytest cục bộ: **19 PASS** (bảng tự tạo; khẳng định structural/integrity only).
+- Pytest cục bộ: **23 PASS** (bảng tự tạo; khẳng định structural/integrity only).
 - Kiểm chứng LibreOffice 25.x tại bảng 90 dòng (không phải Word acceptance): header ở trang 2 có sau patch; số trang thay đổi 12 → 13 do chi phí chiều cao hàng tiêu đề.
 - Không được hiểu kết quả LibreOffice là chính xác Microsoft Word; cần xác minh bản in Word và font Times New Roman có bản quyền trên máy mục tiêu.
-- Xem `docs/verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md`.
+- Smoke `Exactly 6 pt` → `At least 6 pt` trên LibreOffice: trước khi sửa một phần nội dung hàng bị che; sau khi sửa các dòng nhìn thấy đầy đủ. Đây là kết quả riêng trên LO, không phải Word.
+- Xem `docs/verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md` và `ROW_HEIGHT_LO_SMOKE_2026-11-05.md`.
