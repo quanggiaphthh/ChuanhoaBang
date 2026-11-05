@@ -16,6 +16,17 @@ python -m pip install .
 
 `uv.lock` pins the runtime and test dependency graph used by CI. The first `uv sync` still needs an internet connection or a prefilled package cache/wheelhouse; once installed, the formatter itself runs offline.
 
+### Cài đặt trên máy không có mạng
+
+CI tạo wheelhouse riêng theo hệ điều hành, kiến trúc và phiên bản Python. Tải artifact `chuanhoabang-offline-<OS>-py<Python>-<commit>` khớp với máy đích; artifact gồm `wheelhouse/`, `requirements.txt` có hash và `offline-bundle-manifest.json`. Trên máy đích, từ thư mục artifact:
+
+```bash
+python -m pip install --no-index --find-links ./wheelhouse chuanhoabang==0.1.0.dev0
+chuanhoabang --help
+```
+
+Wheelhouse chỉ dùng cho đúng OS/kiến trúc/Python minor ghi trong manifest. Nó chứa wheel runtime và wheel preview của ứng dụng, không chứa bộ test hoặc Times New Roman. Lệnh cài đặt đặt `--no-index`, nên pip chỉ tìm package trong thư mục nội bộ.
+
 ## Sử dụng
 
 ```bash

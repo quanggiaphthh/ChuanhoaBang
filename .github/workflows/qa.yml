@@ -74,3 +74,12 @@ jobs:
         run: uv run --locked python -m chuanhoabang --help
       - name: Install and smoke-test canonical preview wheel
         run: uv run --locked python .github/scripts/wheel_smoke.py --candidate-dir work/release-candidate
+      - name: Build and verify a target-specific offline wheelhouse
+        run: python .github/scripts/offline_bundle_smoke.py --candidate-dir work/release-candidate --output-dir work/offline-bundle
+      - name: Preserve offline wheelhouse and install manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: chuanhoabang-offline-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+          path: work/offline-bundle/
+          if-no-files-found: error
+          retention-days: 14
