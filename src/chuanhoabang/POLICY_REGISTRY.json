@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -160,6 +160,17 @@
       "default_padding_twips": 240,
       "rationale": "Rounded above V15's internal 2 mm-per-side horizontal-padding suggestion; not a Word default or verified rendered margin.",
       "postconditions": ["the assumed budget is reported in audit/proposal evidence", "Word-effective margins and rendered fit are not claimed"]
+    },
+    {
+      "id": "APPLY-OUTPUT-IDEMPOTENT-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "repeated explicit apply to an existing output path",
+      "preconditions": ["proposal is revalidated against the current source", "existing destination is a regular non-symlink file byte-identical to the validated candidate"],
+      "severity": "HARD",
+      "safe_action": "RETURN_NO_OP_VALID_OR_REFUSE",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_AND_OUTPUT_BYTES",
+      "postconditions": ["identical output is left untouched and reported as NO_OP_VALID", "different, non-regular, or symlink destinations are never overwritten and return OUTPUT_MUST_BE_NEW_PATH"]
     },
     {
       "id": "TABLE-SCOPE-001",

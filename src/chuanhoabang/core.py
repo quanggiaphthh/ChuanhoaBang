@@ -1369,10 +1369,26 @@ def _publish_new_file(temp_path, destination):
     os.unlink(temp_path)
 
 
+def _files_equal(first, second):
+    try:
+        if os.path.getsize(first) != os.path.getsize(second):
+            return False
+        with open(first, "rb") as left, open(second, "rb") as right:
+            while True:
+                left_chunk = left.read(1024 * 1024)
+                right_chunk = right.read(1024 * 1024)
+                if left_chunk != right_chunk:
+                    return False
+                if not left_chunk:
+                    return True
+    except OSError:
+        return False
+
+
 def apply(path, proposal, output, font_regular=None, font_bold=None, profile=None):
     src = Path(path)
     dst = Path(output)
-    if src.resolve() == dst.resolve() or dst.exists():
+    if src.resolve() == dst.resolve():
         raise TableError("OUTPUT_MUST_BE_NEW_PATH")
     if not isinstance(proposal, dict) or proposal.get("decision") != "PROPOSE_APPLY":
         raise TableError("PROPOSAL_NOT_APPLICABLE")
@@ -1435,16 +1451,24 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         with ZipFile(src) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
-        _publish_new_file(temp_path, dst)
+        if dst.exists() or dst.is_symlink():
+            if dst.is_symlink() or not dst.is_file() or not _files_equal(temp_path, dst):
+                raise TableError("OUTPUT_MUST_BE_NEW_PATH")
+            decision = "NO_OP_VALID"
+        else:
+            _publish_new_file(temp_path, dst)
+            decision = "APPLIED"
     finally:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
-    return {"decision": "APPLIED", "output": str(dst), "output_sha256": digest(dst.read_bytes()),
+    return {"decision": decision, "output": str(dst), "output_sha256": digest(dst.read_bytes()),
             "input_sha256": actual["input_sha256"],
             **profile_context,
             **({"profile_constraints": actual["profile_constraints"]}
                if "profile_constraints" in actual else {}),
             "operation": operation,
+            "reasons": (["OUTPUT_MATCHES_VALIDATED_PROPOSAL"]
+                        if decision == "NO_OP_VALID" else []),
             "changed_properties": (["tblHeader"] if header_operation else ["trHeight.hRule"]
                                    if height_operation else ["tblGrid", "tblW", "tblLayout", "tcW"]),
             "content_integrity": "PASS", "non_target_package_parts": "PASS", "word_render": "NOT_RUN",

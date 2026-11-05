@@ -479,8 +479,48 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert before == after
     assert after[1][0] == "0012"
     assert after[2][0] == "0"
+    repeated = apply(path, proposal, target)
+    assert repeated["decision"] == "NO_OP_VALID"
+
+
+def test_reapplying_same_proposal_to_identical_output_is_noop(tmp_path):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "same-result.docx"
+
+    first = apply(source, proposal, target)
+    output_before = target.read_bytes()
+    second = apply(source, proposal, target)
+
+    assert first["decision"] == "APPLIED"
+    assert second["decision"] == "NO_OP_VALID"
+    assert second["reasons"] == ["OUTPUT_MATCHES_VALIDATED_PROPOSAL"]
+    assert second["output_sha256"] == core.digest(output_before)
+    assert target.read_bytes() == output_before
+    assert source.read_bytes() == source_before
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
+def test_apply_does_not_replace_different_existing_output(tmp_path):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "user-file.docx"
+    target.parent.mkdir()
+    sentinel = b"existing user output must remain unchanged"
+    target.write_bytes(sentinel)
+
     with pytest.raises(TableError, match="OUTPUT_MUST_BE_NEW_PATH"):
-        apply(path, proposal, target)
+        apply(source, proposal, target)
+
+    assert source.read_bytes() == source_before
+    assert target.read_bytes() == sentinel
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
 
 
 def test_post_write_validation_failure_rolls_back_output_and_temp_file(tmp_path, monkeypatch):
