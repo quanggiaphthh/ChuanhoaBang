@@ -30,6 +30,7 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 - `--profile ND30|HD05` ghi profile được chọn vào báo cáo/đề xuất. Registry chưa xác minh preset pháp lý và runtime chưa áp dụng quy tắc riêng cho profile; kết quả vẫn là `REFERENCE_ONLY`, không phải chứng nhận tuân thủ.
 - Phông chữ phải là file Times New Roman hợp pháp có trên máy. **Không sử dụng Tinos/Liberation Serif như Times New Roman**. Nếu không có font, lệnh trả `REVIEW_REQUIRED`; không tạo giả phép đo.
 - Để tránh sửa nhầm, AutoFit bản thử nghiệm chỉ xử lý bảng dữ liệu phẳng, một section, khi TNR 13/14 được giải từ run trực tiếp hoặc chuỗi paragraph-style `basedOn` rõ ràng tới style mặc định. Table style, character style, theme font, chuỗi thiếu/cyclic hoặc hiệu ứng chưa hỗ trợ đều trả `REVIEW_REQUIRED`. Ngoại lệ hạn chế: `gridSpan` gộp ngang hợp lệ được phép lặp header hoặc nới chiều cao hàng (không đổi width); gộp dọc, bảng lồng hoặc bảng khóa vẫn bị chặn.
+- Nếu `w:pgSz/@w:orient` mâu thuẫn với `w:w`/`w:h`, audit trả `GEOMETRY_UNKNOWN` và optimizer giữ `REVIEW_REQUIRED`; không suy đoán hướng trang hoặc bề rộng khả dụng.
 - Lệnh `propose` (width) chỉ sửa width của bảng được chọn; không thay font, số liệu, orientation, header/footer hoặc height. Điểm width chưa chứng minh độ vừa trang trong Word.
 - Lệnh `propose-header` chỉ bật `w:tblHeader` của **hàng đầu tiên** trên bảng nội dung đơn giản, khi được chọn và áp dụng rõ ràng; không ép `cantSplit`, không sửa nội dung, không tự lặp cho biểu mẫu khóa. Không chứng nhận Word đã lặp thực tế.
 - Lệnh `propose-unclip` là phép sửa có điều kiện: chuyển `w:trHeight/@w:hRule` từ `exact` sang `atLeast` **nhưng giữ nguyên `w:val` và toàn bộ nội dung**. Không tự thay line spacing của đoạn, không tuyên bố đã giải quyết mọi lỗi che chữ. Áp dụng chỉ khi người dùng yêu cầu bằng proposal riêng và bảng thuộc scope an toàn.
@@ -57,6 +58,27 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 - Đường dẫn Markdown phải mới, không được trùng nguồn DOCX, JSON proposal hoặc DOCX output. Xung đột bị chặn **trước khi áp dụng**.
 - Báo cáo ghi quyết định, bằng chứng, bảng, cảnh báo và thuộc tính thay đổi; **không thay thế** kiểm chứng hiển thị Microsoft Word.
 - Kiểm thử GitHub Actions gồm toàn bộ `tests/`, không bỏ qua các kiểm thử an toàn bổ sung.
+
+## Python API
+
+```python
+from pathlib import Path
+from chuanhoabang import audit, apply, available_profiles, propose
+
+source = Path("input.docx")
+regular_tnr = Path("/path/to/TimesNewRoman.ttf")
+bold_tnr = Path("/path/to/TimesNewRoman-Bold.ttf")
+print(available_profiles())  # ('ND30', 'HD05')
+
+report = audit(source, profile="ND30")
+proposal = propose(source, table_index=0, font_regular=regular_tnr,
+                   font_bold=bold_tnr, profile="ND30")
+if proposal["decision"] == "PROPOSE_APPLY":
+    result = apply(source, proposal, Path("output.docx"),
+                   font_regular=regular_tnr, font_bold=bold_tnr, profile="ND30")
+```
+
+The API uses the same offline core and explicit proposal checks as the CLI. A missing or unsupported font can return `REVIEW_REQUIRED`; apply only a `PROPOSE_APPLY` proposal. The selected profile is recorded as `REFERENCE_ONLY` with `profile_rules_applied: false` until profile rules are verified and implemented.
 
 ## Phạm vi hỗ trợ bảng gộp ngang (technical preview)
 

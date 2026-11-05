@@ -124,6 +124,13 @@ def _geometry(root):
             raise ValueError("nonpositive")
     except (ValueError, TypeError):
         return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_PAGE_GEOMETRY", "sections": 1}
+    orientation = "LANDSCAPE" if page_width > page_height else "PORTRAIT"
+    declared_orientation = size.get(W + "orient")
+    if declared_orientation is not None:
+        if declared_orientation not in ("portrait", "landscape"):
+            return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_PAGE_ORIENTATION", "sections": 1}
+        if declared_orientation.upper() != orientation:
+            return {"status": "GEOMETRY_UNKNOWN", "reason": "PAGE_ORIENTATION_CONFLICT", "sections": 1}
     cols = sect.find(W + "cols")
     try:
         if cols is not None and int(cols.get(W + "num", "1")) != 1:
@@ -131,7 +138,7 @@ def _geometry(root):
     except (ValueError, TypeError):
         return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_TEXT_COLUMNS", "sections": 1}
     return {"status": "STRUCTURAL", "available_twips": width, "page_width_twips": page_width,
-            "orientation": "LANDSCAPE" if page_width > page_height else "PORTRAIT", "sections": 1}
+            "orientation": orientation, "sections": 1}
 
 
 def _protected(settings: bytes, names: list[str], root):

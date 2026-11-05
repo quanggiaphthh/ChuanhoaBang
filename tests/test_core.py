@@ -183,6 +183,26 @@ def test_no_automatic_landscape_from_overflow(tmp_path):
     assert propose(path, 0)["candidate_twips"] is None
 
 
+def test_conflicting_declared_page_orientation_requires_review(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename)) for item in package.infolist()}
+    info, xml = data["word/document.xml"]
+    root = core._xml(xml)
+    page_size = root.find(".//" + core.W + "sectPr/" + core.W + "pgSz")
+    page_size.set(core.W + "orient", "landscape")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for info, content in data.values():
+            package.writestr(info, content)
+
+    report = audit(path)
+
+    assert report["geometry"]["status"] == "GEOMETRY_UNKNOWN"
+    assert report["geometry"]["reason"] == "PAGE_ORIENTATION_CONFLICT"
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
 def test_header_repeat_proposal_applies_only_to_first_row(tmp_path):
     from chuanhoabang import propose_header
     path = fixture_docx(tmp_path)
