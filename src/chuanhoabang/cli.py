@@ -34,6 +34,19 @@ def render_markdown(result: dict) -> str:
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             lines.append(f"| {safe(key)} | {safe(result[key])} |")
+    geometry = result.get("geometry")
+    if isinstance(geometry, dict):
+        lines += ["", "## Geometry evidence", "", "| Field | Value |", "|---|---|"]
+        for key in ("status", "reason", "orientation", "sections", "page_width_twips",
+                    "page_text_width_twips", "column_count", "column_gap_twips",
+                    "available_width_scope", "available_twips"):
+            if key not in geometry:
+                continue
+            value = geometry[key]
+            if key.endswith("_twips") and value is not None:
+                value = f"{value} twips"
+            lines.append(f"| {safe(key)} | {safe(value)} |")
+        lines.append(f"| word_rendered_width | {safe(result.get('word_render', 'NOT_RUN'))} |")
     if isinstance(result.get("tables"), list):
         lines += ["", "## Bảng được phát hiện", "",
                   "| Table ID | Parent table ID | STT | Trạng thái | Hàng | Cột | Lý do |",

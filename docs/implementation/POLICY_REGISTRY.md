@@ -19,7 +19,10 @@ scope. HD05 lists 14–15 pt for document text, while project rule `V16-FONT-02`
 selects 14 pt for table width measurement and forbids automatically lowering it.
 These are eligibility limits for measurement, not font-size corrections.
 
-`TEXT-COLUMN-GEOMETRY-001` keeps width optimization in review when section XML
-contains multiple columns or an explicit single-column width override. In those
-cases the page text width is not a safe substitute for the table's actual column
-width.
+Rule `TEXT-COLUMN-GEOMETRY-001` (registry revision `TEXT-COLUMN-GEOMETRY-002`)
+uses the section text width as a conservative lower
+bound for equal-width columns only when the column count and nonnegative spacing
+are explicit in source XML. Missing spacing, unequal/custom columns, ambiguous
+sections, and explicit one-column overrides remain `GEOMETRY_UNKNOWN` and keep
+width proposals in review. The source-derived bound is not a Word-rendered
+measurement.

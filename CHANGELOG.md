@@ -34,7 +34,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 ### `0.1.0.dev0` — technical preview trên PR #17, chưa phát hành
 
 - Cung cấp CLI/API offline để audit, lập proposal và apply có xác nhận cho tập bảng DOCX giới hạn; ND30/HD05 được ghi nhận là `REFERENCE_ONLY`, chưa áp dụng preset pháp lý đầy đủ.
-- Audit JSON/Markdown tách độ rộng `tblW`/`tcW` khai báo khỏi tổng lưới `tblGrid`; khai báo width lỗi chuyển sang `REVIEW_REQUIRED`, còn đo độ rộng trong Microsoft Word vẫn `NOT_RUN`.
+- Audit JSON/Markdown tách độ rộng `tblW`/`tcW` khai báo khỏi tổng lưới `tblGrid`; khai báo width lỗi chuyển sang `REVIEW_REQUIRED`. Section nhiều cột đều có spacing tường minh dùng bound dưới cho từng cột; bố cục Word thực tế vẫn `NOT_RUN`.
 - Audit gán ID xác định theo phạm vi/chỉ số/hash và liên kết bảng lồng với ID của bảng cha trong body lẫn header/footer story; các chỉ số body dùng cho `--table` vẫn giữ nguyên.
 - CI tạo wheelhouse theo Linux/Python 3.10–3.13 và Windows/Python 3.12. `offline-install-requirements.txt` pin SHA-256 của ứng dụng và runtime dependencies; cài sạch với `pip --no-index --require-hashes` và audit DOCX tiếng Việt PASS trên cả năm target trong [run 42103226907](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42103226907), với **94/94 tests PASS** mỗi target.
 - Runner Ubuntu/Python 3.12 độc lập tái tạo canonical wheel cùng SHA-256 `c4c1c641f87c4aa0b2f6cf2ac3b1bc54bfdc4f7743ac74e71050d5143ab20809`. Artifacts `chuanhoabang-preview-c3c0e88f1fed5aff777076a58a5ead142a3983fa` và `chuanhoabang-offline-*` được giữ đến 19/11/2026.

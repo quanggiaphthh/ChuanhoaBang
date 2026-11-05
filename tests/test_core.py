@@ -522,7 +522,7 @@ def test_conflicting_declared_page_orientation_requires_review(tmp_path):
 
 @pytest.mark.parametrize(("column_count", "explicit_width", "equal_width", "reason"), [
     (1, True, None, "CUSTOM_TEXT_COLUMN_GEOMETRY_UNSUPPORTED"),
-    (2, False, None, "MULTICOLUMN_SECTION"),
+    (2, False, None, "COLUMN_SPACING_UNSPECIFIED"),
     (1, False, "maybe", "INVALID_TEXT_COLUMNS"),
 ])
 def test_non_default_text_column_geometry_requires_review(
@@ -536,6 +536,7 @@ def test_non_default_text_column_geometry_requires_review(
     columns = section.find(core.W + "cols")
     if columns is None:
         columns = etree.SubElement(section, core.W + "cols")
+    columns.attrib.pop(core.W + "space", None)
     columns.set(core.W + "num", str(column_count))
     if equal_width is not None:
         columns.set(core.W + "equalWidth", equal_width)
@@ -552,6 +553,70 @@ def test_non_default_text_column_geometry_requires_review(
     assert report["geometry"]["status"] == "GEOMETRY_UNKNOWN"
     assert report["geometry"]["reason"] == reason
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+@pytest.mark.parametrize("spacing", ["not-a-width", "-1"])
+def test_equal_width_columns_reject_invalid_spacing(tmp_path, spacing):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    section = root.xpath(".//w:sectPr", namespaces=core.NS)[0]
+    columns = section.find(core.W + "cols")
+    if columns is None:
+        columns = etree.SubElement(section, core.W + "cols")
+    columns.set(core.W + "num", "2")
+    columns.set(core.W + "equalWidth", "1")
+    columns.set(core.W + "space", spacing)
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    geometry = audit(path)["geometry"]
+
+    assert geometry["status"] == "GEOMETRY_UNKNOWN"
+    assert geometry["reason"] == "INVALID_TEXT_COLUMN_SPACING"
+
+
+def test_equal_width_columns_use_column_width_for_overflow_diagnostic(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    section = root.xpath(".//w:sectPr", namespaces=core.NS)[0]
+    page_size = section.find(core.W + "pgSz")
+    page_size.set(core.W + "w", "18000")
+    page_size.set(core.W + "h", "24000")
+    margins = section.find(core.W + "pgMar")
+    margins.set(core.W + "left", "1000")
+    margins.set(core.W + "right", "1000")
+    margins.set(core.W + "gutter", "0")
+    columns = section.find(core.W + "cols")
+    if columns is None:
+        columns = etree.SubElement(section, core.W + "cols")
+    columns.set(core.W + "num", "2")
+    columns.set(core.W + "equalWidth", "1")
+    columns.set(core.W + "space", "1000")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+    before = path.read_bytes()
+
+    report = audit(path)
+
+    assert report["geometry"]["status"] == "STRUCTURAL"
+    assert report["geometry"]["available_twips"] == 7500
+    assert report["geometry"]["available_width_scope"] == "EQUAL_WIDTH_COLUMN_LOWER_BOUND"
+    assert report["geometry"]["column_count"] == 2
+    assert report["geometry"]["column_gap_twips"] == 1000
+    assert report["tables"][0]["overflow_declared"] is True
+    assert path.read_bytes() == before
 
 
 @pytest.mark.parametrize(("mirror_value", "expected_reason"), [

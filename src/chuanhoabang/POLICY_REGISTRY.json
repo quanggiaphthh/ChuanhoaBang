@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-002",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -56,12 +56,12 @@
       "id": "TEXT-COLUMN-GEOMETRY-001",
       "authority": "PROJECT_POLICY",
       "scope": "available width for body tables in sections with explicit text-column geometry",
-      "preconditions": ["width optimization requested", "section text-column geometry is not a default single column"],
+      "preconditions": ["width optimization requested", "single section with default single column or equal-width columns and explicit nonnegative spacing"],
       "severity": "HARD",
-      "safe_action": "REVIEW_IF_CUSTOM_OR_MULTICOLUMN_GEOMETRY",
+      "safe_action": "CALCULATE_EQUAL_COLUMN_LOWER_BOUND_OR_REVIEW",
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
-      "postconditions": ["optimizer does not treat page text width as a column's available width"]
+      "postconditions": ["optimizer uses the conservative source-derived width of an equal column", "custom or unknown column geometry stays REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
     },
     {
       "id": "TABLE-SCOPE-001",

@@ -101,6 +101,29 @@ def test_markdown_render_distinguishes_declared_grid_and_word_widths():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_conservative_column_width_bound():
+    report = render_markdown({
+        "geometry": {
+            "status": "STRUCTURAL",
+            "orientation": "PORTRAIT",
+            "sections": 1,
+            "page_text_width_twips": 16000,
+            "available_twips": 7500,
+            "available_width_scope": "EQUAL_WIDTH_COLUMN_LOWER_BOUND",
+            "column_count": 2,
+            "column_gap_twips": 1000,
+        },
+        "word_render": "NOT_RUN",
+    })
+
+    assert "## Geometry evidence" in report
+    assert "EQUAL_WIDTH_COLUMN_LOWER_BOUND" in report
+    assert "7500 twips" in report
+    assert "2" in report
+    assert "1000 twips" in report
+    assert "NOT_RUN" in report
+
+
 def test_cli_audit_report_md_is_created_and_never_overwritten(tmp_path, capsys):
     source = tmp_path / "test.docx"
     doc = Document()
