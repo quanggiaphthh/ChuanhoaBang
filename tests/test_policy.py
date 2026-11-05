@@ -18,6 +18,7 @@ def test_policy_machine_readable():
     assert "UNSUPPORTED-PACKAGE-CONTENT-001" in ids
     assert "UNICODE-LINEBREAK-001" in ids
     assert "CELL-MARGIN-GEOMETRY-001" in ids
+    assert "CELL-MARGIN-STYLE-CASCADE-001" in ids
     assert "CELL-MARGIN-DEFAULT-BUDGET-001" in ids
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",

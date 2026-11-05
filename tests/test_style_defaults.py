@@ -4,7 +4,7 @@ from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Pt
 
-from chuanhoabang import propose
+from chuanhoabang import audit, propose
 from chuanhoabang import core
 
 
@@ -73,6 +73,17 @@ def test_unsupported_style_cascade_fails_closed(tmp_path, fake_metrics, override
     p = propose(source, 0, font_regular=fake_metrics)
     assert p["decision"] == "REVIEW_REQUIRED"
     assert "STYLE" in " ".join(p["reasons"])
+
+
+def test_audit_does_not_claim_cell_padding_resolved_for_table_style(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+
+    report = audit(source)["tables"][0]
+    padding = report["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "UNRESOLVED"
+    assert padding["reason"] == "TABLE_STYLE_CASCADE_NOT_SUPPORTED"
+    assert "twips_by_row" not in padding
 
 
 def test_run_level_tnr_overrides_non_tnr_normal(tmp_path, fake_metrics):

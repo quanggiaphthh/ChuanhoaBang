@@ -462,6 +462,8 @@ def _declared_width(parent, tag):
 
 def _cell_padding(tbl, rows):
     """Resolve simple direct dxa horizontal margins; otherwise use the versioned estimate."""
+    if tbl.xpath("./w:tblPr/w:tblStyle", namespaces=NS):
+        return {"status": "UNRESOLVED", "reason": "TABLE_STYLE_CASCADE_NOT_SUPPORTED"}
     default_padding = next(
         rule["default_padding_twips"]
         for rule in POLICY_REGISTRY["rules"]
