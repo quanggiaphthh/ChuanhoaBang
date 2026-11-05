@@ -11,11 +11,11 @@ from .core import TableError, audit, propose, propose_header, propose_unclip_row
 def render_markdown(result: dict) -> str:
     """Human-readable audit trail; no layout or legal acceptance is inferred."""
     def safe(value):
-        return str(value).replace("|", "\\|").replace("\\n", " ")
+        return str(value).replace("|", "\\|").replace(chr(10), " ")
 
     lines = ["# ChuanhoaBang — Báo cáo xử lý DOCX", "",
-             f"**Quyết định:** \`{safe(result.get('decision', result.get('status', 'AUDIT_ONLY')))}\`",
-             f"**Kết xuất Microsoft Word:** \`{safe(result.get('word_render', 'NOT_RUN'))}\`",
+             f"**Quyết định:** `{safe(result.get('decision', result.get('status', 'AUDIT_ONLY')))}`",
+             f"**Kết xuất Microsoft Word:** `{safe(result.get('word_render', 'NOT_RUN'))}`",
              "", "## Thông tin xử lý", "", "| Thuộc tính | Giá trị |", "|---|---|"]
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "table_index", "table_count", "operation", "evidence",
@@ -34,11 +34,11 @@ def render_markdown(result: dict) -> str:
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])
     if result.get("changed_properties"):
         lines += ["", "## Thuộc tính thay đổi", ""]
-        lines.extend(f"- \`{safe(prop)}\`" for prop in result["changed_properties"])
+        lines.extend(f"- `{safe(prop)}`" for prop in result["changed_properties"])
     lines += ["", "## Giới hạn nghiệm thu", "",
               "Kiểm tra cấu trúc DOCX không tương đương nghiệm thu trình bày trong Microsoft Word. "
               "Không tự kết luận đúng khổ in hoặc đúng quy phạm pháp luật từ báo cáo này.", ""]
-    return "\\n".join(lines)
+    return chr(10).join(lines)
 
 
 def main(argv=None):
