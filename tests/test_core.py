@@ -172,6 +172,35 @@ def test_post_write_validation_failure_rolls_back_output_and_temp_file(tmp_path,
     assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
 
 
+def test_apply_does_not_replace_output_created_during_validation(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "created-concurrently.docx"
+    sentinel = b"concurrent output must not be overwritten"
+    original_assert_safe = core._assert_safe
+    validation_calls = 0
+
+    def create_output_during_validation(*args, **kwargs):
+        nonlocal validation_calls
+        validation_calls += 1
+        result = original_assert_safe(*args, **kwargs)
+        if validation_calls == 2:
+            target.write_bytes(sentinel)
+        return result
+
+    monkeypatch.setattr(core, "_assert_safe", create_output_during_validation)
+    with pytest.raises(TableError, match="OUTPUT_MUST_BE_NEW_PATH"):
+        apply(source, proposal, target)
+
+    assert validation_calls == 2
+    assert source.read_bytes() == source_before
+    assert target.read_bytes() == sentinel
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
 def test_proposal_modification_and_invalid_zip_are_rejected(tmp_path, monkeypatch):
     path = fixture_docx(tmp_path)
     meta = audit(path)["tables"][0]

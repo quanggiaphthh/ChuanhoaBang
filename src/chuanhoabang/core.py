@@ -840,6 +840,17 @@ def _apply_unclip_row_heights(root, index, row_indices):
         matches[0].set(W + "hRule", "atLeast")
 
 
+def _publish_new_file(temp_path, destination):
+    # os.replace() would clobber a path created after the initial existence
+    # check. A same-directory hard link publishes the validated file atomically
+    # and fails if any process created the destination in the meantime.
+    try:
+        os.link(temp_path, destination)
+    except FileExistsError as exc:
+        raise TableError("OUTPUT_MUST_BE_NEW_PATH") from exc
+    os.unlink(temp_path)
+
+
 def apply(path, proposal, output, font_regular=None, font_bold=None, profile=None):
     src = Path(path)
     dst = Path(output)
@@ -906,7 +917,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         with ZipFile(src) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
-        os.replace(temp_path, dst)
+        _publish_new_file(temp_path, dst)
     finally:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
