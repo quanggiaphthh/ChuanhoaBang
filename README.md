@@ -59,4 +59,7 @@ Giữ một tài liệu hợp nhất làm nguồn tham chiếu thay vì sao ché
 - [Hướng dẫn CLI](RUN_TOOL.md) · [Quyết định kiến trúc](docs/implementation/ARCHITECTURE_DECISION.md) · [Bảng trạng thái 16 issue](docs/implementation/ISSUE_EXECUTION_STATUS_2026-11-05.md).
 - Có `audit`, `propose` độ rộng bảng dữ liệu đơn giản và `apply` theo đề xuất được cấp quyền; `propose-header` lặp tiêu đề đầu và `propose-unclip` giảm rủi ro chiều cao hàng `exact`.
 - **Bảng có gộp ngang `gridSpan`:** chỉ cho phép hai thao tác phân trang không thay đổi độ rộng khi mọi hàng phủ kín lưới vật lý; gộp dọc `vMerge`, lưới sai, nested và AutoFit bảng gộp **vẫn được chặn**.
-- GitHub Actions `tests/`: **43 test cấu trúc PASS** trên dữ liệu tổng hợp tại commit `c518e5070d115806bf42003ffe8d36fcf4f45c3d`; không dùng con số này làm Word acceptance hoặc kết luận font TNR đã được đo thực.
+- **Bằng chứng code mới nhất:** commit `bac4cd4` — [GitHub Actions 42080478277](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42080478277), **74/74 tests PASS** trên Python 3.11; wheel build/install và CLI smoke PASS. Bài test dùng DOCX tổng hợp và metric font giả lập.
+- Registry gate đo width dùng ND30 13/14 pt và HD05 14 pt; custom/multi-column geometry yêu cầu review. Đây chưa phải xác minh toàn bộ preset pháp lý.
+- Microsoft Word acceptance: **NOT_RUN**. Executor hiện phân giải tên TNR thành Liberation Serif; chưa có phép đo bằng TNR có bản quyền. Fixture F01–F08 gốc hiện chưa truy xuất được. Không dùng CI hoặc LibreOffice thay cho Word acceptance.
+- **Mốc lịch sử:** GitHub Actions tại commit `c518e5070d115806bf42003ffe8d36fcf4f45c3d` chạy 43 test cấu trúc PASS; đây không phải kết quả hiện tại hoặc Word acceptance.
