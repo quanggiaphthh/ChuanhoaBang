@@ -48,6 +48,12 @@ rules](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34
 markers](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permstart?view=openxml-3.0.1),
 and [documentProtection enforcement](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d).
 
+Registry rule `UNSUPPORTED-PACKAGE-CONTENT-001` blocks proposals when the OPC
+member list contains a conventional `_xmlsignatures/` part or
+`word/vbaProject.bin`. This is a fail-closed presence check; it does not
+validate signature cryptography or execute macros. Synthetic marker-part
+regressions cover both signals.
+
 `UNICODE-LINEBREAK-001` covers only a conservative metric-estimate guard: U+00A0,
 U+180E, U+2007, and U+202F stay grouped with adjacent text. The tokenizer is
 not a complete Unicode line-breaking implementation or a Word renderer; see
