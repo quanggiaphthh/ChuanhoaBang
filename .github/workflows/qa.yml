@@ -17,6 +17,6 @@ jobs:
       - name: Install core and test requirements
         run: python -m pip install '.[test]'
       - name: Run focused structural tests
-        run: python -m pytest -q tests/test_core.py tests/test_policy.py
+        run: python -m pytest -q tests/
       - name: CLI import smoke
         run: python -m chuanhoabang --help
