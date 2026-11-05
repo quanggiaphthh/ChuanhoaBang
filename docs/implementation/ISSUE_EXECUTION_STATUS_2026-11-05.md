@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified:** commit `046f5f00127853c572acefdb1485044c748fcab7`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42074053917): **64/64 PASS** on Python 3.11 and synthetic DOCX fixtures.
+**Latest verified:** commit `adf67e3c637da7e7157c0503958dfcf7edadb7ec`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42074935268): **64/64 PASS** on Python 3.11; wheel build, isolated install, packaged registry/profile check, and installed CLI smoke also **PASS**. DOCX fixtures remain synthetic.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -19,7 +19,7 @@
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
 | [#8](https://github.com/quanggiaphthh/ChuanhoaBang/issues/8) width | Bounded optimizer on rectangular tables; no automatic landscape | Real font/renderer validation and historical fixture comparison | PARTIAL |
 | [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist (width vs header vs row height); stale proposal guard, non-target parts, path safety | Edge DOCX interoperability and merge/review | PARTIAL |
-| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; manual wheel install smoke | CI wheel/install smoke and end-to-end user document acceptance | PARTIAL |
+| [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; CI wheel/install smoke | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
 | [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 49 PASS, incl 6 invariant-scope and 4 gridSpan cases | Original F01–F08/V15 plus target renderer cases | PARTIAL |
@@ -92,4 +92,4 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 
 - CI now builds the project wheel, installs it with `--no-deps --no-index` into a separate target, then imports from that target outside the checkout.
 - The smoke checks that the packaged `POLICY_REGISTRY.json` is present, the public profiles are `('ND30', 'HD05')`, and `python -m chuanhoabang --help` runs from the installed wheel.
-- Manual local wheel build/install smoke passed before this workflow change; **CI verification for the new step is pending**. This does not replace end-to-end acceptance on a user document or Word rendering.
+- Manual local wheel build/install smoke passed, and GitHub Actions run [42074935268](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42074935268) completed **PASS** for build, isolated install, packaged policy/profile assertions, CLI help, and the full **64-test** suite. This does not replace end-to-end acceptance on a user document or Word rendering.
