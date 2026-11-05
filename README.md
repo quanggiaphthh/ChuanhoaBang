@@ -4,7 +4,7 @@
 
 ## Phạm vi hiện tại
 
-Repo lưu **bản nghiên cứu hợp nhất V15 (21/10/2026)**, các quy tắc đánh giá, định hướng tích hợp và bằng chứng thực nghiệm đã được mô tả trong báo cáo. **Chưa phải công cụ định dạng DOCX đã triển khai hoặc nghiệm thu.**
+Repo lưu **bản nghiên cứu hợp nhất V15 (21/10/2026)**, các quy tắc đánh giá, định hướng tích hợp và bằng chứng thực nghiệm đã được mô tả trong báo cáo. **Đã có lõi DOCX thử nghiệm kỹ thuật ở PR #17; chưa nghiệm thu Microsoft Word hay phát hành v1.0.**
 
 - Văn bản hành chính: Nghị định 30/2020/NĐ-CP.
 - Văn bản của Đảng: Quy định 399-QĐ/TW và Hướng dẫn 05-HD/VPTW năm 2026.
@@ -27,7 +27,7 @@ Repo lưu **bản nghiên cứu hợp nhất V15 (21/10/2026)**, các quy tắc 
 2. **Nghiệp vụ/thẩm mỹ:** Preset như Formal Grid, Statistical Minimal là khuyến nghị, không phải quy định pháp lý.
 3. **Bảo toàn:** Không đổi số liệu, thứ tự, ô gộp, bảng lồng hoặc biểu mẫu gốc chỉ nhằm nâng điểm thẩm mỹ.
 4. **Thực nghiệm:** Các phép thử từ V10–V15 sử dụng DOCX tổng hợp và LibreOffice; **chưa xác nhận bằng Microsoft Word**.
-5. **Triển khai:** Chưa có bộ định dạng tự động được triển khai trong repo này.
+5. **Triển khai:** Có core offline thử nghiệm trên nhánh PR #17, chỉ xử lý phạm vi đã kiểm chứng; không phải ứng dụng định dạng Word hoàn chỉnh.
 
 ## Dùng báo cáo để triển khai
 
@@ -39,7 +39,7 @@ Các gói DOCX/PDF thử nghiệm V10–V15 đã được tạo trong quá trìn
 
 ## Trạng thái
 
-**RESEARCH / SPECIFICATION — NOT IMPLEMENTED — WORD ACCEPTANCE PENDING**.
+**RESEARCH + TECHNICAL PREVIEW (PR #17) — WORD ACCEPTANCE PENDING**.
 
 Giữ một tài liệu hợp nhất làm nguồn tham chiếu thay vì sao chép các phiên bản cũ nhiều lần. Không nhầm 152 kịch bản được đặc tả với 152 test đã chạy PASS.
 
@@ -51,4 +51,12 @@ Giữ một tài liệu hợp nhất làm nguồn tham chiếu thay vì sao ché
 - [Hậu kiểm Antigravity V17.4](docs/verification/V17_4/scoring/V17_4_INDEPENDENT_FILE_AUDIT_REPORT.md): 128 phản hồi báo cáo, đối chiếu **SPEC**, blind/expert-gold vẫn BLOCKED; model provider chưa xác thực độc lập.
 - [Tình trạng dữ liệu và gói kết quả](docs/verification/V17_4/POSTPILOT_INDEX.md). Raw payload ZIP và khóa đáp án riêng không được đưa vào GitHub để hạn chế lộ private key và dữ liệu máy người dùng.
 
-**Phạm vi không đổi:** RESEARCH / SPEC ONLY; Times New Roman **13–14 pt**; không tự thay đổi dữ liệu, biểu mẫu khóa hoặc hướng trang; không tuyên bố đã nghiệm thu Microsoft Word.
+**Ranh giới nghiệm thu không đổi:** nghiên cứu là nguồn quy tắc, core chỉ là TECHNICAL PREVIEW; Times New Roman **13–14 pt**; không tự thay đổi dữ liệu, biểu mẫu khóa hoặc hướng trang; không tuyên bố đã nghiệm thu Microsoft Word.
+
+
+## Core DOCX offline — bản thử nghiệm kỹ thuật (PR #17)
+
+- [Hướng dẫn CLI](RUN_TOOL.md) · [Quyết định kiến trúc](docs/implementation/ARCHITECTURE_DECISION.md) · [Bảng trạng thái 16 issue](docs/implementation/ISSUE_EXECUTION_STATUS_2026-11-05.md).
+- Có `audit`, `propose` độ rộng bảng dữ liệu đơn giản và `apply` theo đề xuất được cấp quyền; `propose-header` lặp tiêu đề đầu và `propose-unclip` giảm rủi ro chiều cao hàng `exact`.
+- **Bảng có gộp ngang `gridSpan`:** chỉ cho phép hai thao tác phân trang không thay đổi độ rộng khi mọi hàng phủ kín lưới vật lý; gộp dọc `vMerge`, lưới sai, nested và AutoFit bảng gộp **vẫn được chặn**.
+- GitHub Actions `tests/`: **43 test cấu trúc PASS** trên dữ liệu tổng hợp tại commit `c518e5070d115806bf42003ffe8d36fcf4f45c3d`; không dùng con số này làm Word acceptance hoặc kết luận font TNR đã được đo thực.

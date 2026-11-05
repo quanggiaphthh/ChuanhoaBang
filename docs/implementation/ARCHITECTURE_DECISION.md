@@ -18,20 +18,20 @@
 | Phạm vi | v0.1 | Trạng thái |
 |---|---|---|
 | Đọc và liệt kê body tables, trang đơn section | Implemented | Test synthetic PASS |
-| Khoá, tracked changes, signed, merged/nested, layout heuristics | Detect/decline | Test subset PASS, cần thêm fixture |
+| Khoá, tracked changes, signed, nested, layout heuristics | Detect/decline; gridSpan ngang hỗ trợ riêng paging | Test subset PASS, cần thêm fixture |
 | Hình học từ `sectPr/pgSz/pgMar` | Structural only | Không suy ra Word line breaks |
 | Font TNR hiệu dụng | Explicit `w:rFonts/w:sz` only | Style cascade đầy đủ chưa có |
 | Đo glyph có RAQM qua file TNR người dùng cung cấp | Conditional | Chưa được test bằng TNR thật trong runtime này |
 | Optimizer width bounded local search | Implemented for simple tables | Điểm số là estimated line proxy |
 | Apply/ZIP round trip | Implemented, whitelist props | Test structural PASS |
-| Header/row pagination | Repeat-first-header và exact→atLeast theo explicit proposal; split diagnostic only | 23 test cục bộ; LO smoke, chưa Word verified |
+| Header/row pagination | Repeat-first-header và exact→atLeast theo explicit proposal; split diagnostic only | 43 test CI (synthetic); LO smoke, chưa Word verified |
 | Word Print Layout / WPS | NOT_RUN | Không gắn Word PASS |
 | WordVN editor/history/Undo | NOT_AUDITED | Chưa có integration |
 
 ## Các giới hạn chủ ý của bản đầu
 
 - Chỉ bảng trong `word/document.xml`, không sửa header/footer. Body tables bên trong wrappers vẫn được thống kê, nhưng không tự sửa bảng trong content control hoặc bảng lồng.
-- Chỉ bảng chữ đơn giản, không merged/field/object/track. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
+- Chỉ AutoFit bảng chữ đơn giản, không merged/field/object/track. Hai phép phân trang không đổi width có thể xử lý **gridSpan ngang đơn giản hợp lệ**, không xử lý vMerge/nested. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
 - Vùng width từ OOXML là ràng buộc khai báo, không phải kết quả render. Padding sử dụng ngân sách bảo thủ **ước lượng**: 150 twips; chưa resolve toàn bộ style cascade.
 - Có `audit → propose / propose-header / propose-unclip → explicit apply`; không tự chạy background; nguồn DOCX không bị ghi đè.
 
@@ -41,3 +41,10 @@
 - `apply` yêu cầu kiểm lại SHA của file/tbl, candidate, profile; từ chối proposal stale/đã chỉnh.
 - Chỉ patch `w:tblGrid`, `w:tblW`, `w:tblLayout` và `w:tcW` của bảng được chọn; ZIP member không phải `word/document.xml` phải byte-identical. Ghi output tạm và rollback khi kiểm tra lỗi.
 - Cần Word acceptance riêng trước khi tuyên bố bản in được bảo đảm.
+
+## Quyết định bổ sung về danh sách thuộc tính OOXML được phép (05/11/2026)
+
+- Bộ so sánh L0 đã chuyển sang **allowlist riêng cho từng operation**. OPTIMIZE_WIDTH chỉ bỏ qua phép đo width; SET_REPEAT_HEADER_FIRST_ROW chỉ bỏ qua `tblHeader` ở hàng đầu; EXACT_ROW_HEIGHT_TO_AT_LEAST chỉ bỏ qua thuộc tính `hRule` tại đúng `row_indices` đã phê duyệt.
+- Không còn bỏ qua thay đổi `tblGrid/tcW/tblW` khi sửa header/height, hoặc bỏ qua hRule của hàng **không** thuộc đề xuất.
+- Vùng `gridSpan` ngang được kiểm phủ lưới theo mỗi hàng và chỉ cho hai phép phân trang trên; width optimizer vẫn từ chối.
+- CI 43/43 PASS theo fixture tổng hợp; chưa có Word Print Layout hoặc TNR bản quyền.
