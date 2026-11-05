@@ -29,12 +29,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
-      - name: Install core and test requirements
-        run: python -m pip install '.[test]'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.4'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked core and test requirements
+        run: uv sync --locked --extra test
       - name: Run focused structural tests
-        run: python -m pytest -q tests/
+        run: uv run --locked python -m pytest -q tests/
       - name: CLI import smoke
-        run: python -m chuanhoabang --help
+        run: uv run --locked python -m chuanhoabang --help
       - name: Build and install wheel in isolated target
-        run: python .github/scripts/wheel_smoke.py
+        run: uv run --locked python .github/scripts/wheel_smoke.py

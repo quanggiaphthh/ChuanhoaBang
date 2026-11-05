@@ -20,13 +20,12 @@ def main() -> None:
         install_dir.mkdir()
 
         subprocess.run([
-            sys.executable, "-m", "pip", "wheel", ".", "--no-deps",
-            "--wheel-dir", str(wheel_dir),
+            "uv", "build", "--wheel", "--out-dir", str(wheel_dir), ".",
         ], check=True)
         wheel = next(wheel_dir.glob("*.whl"))
         subprocess.run([
-            sys.executable, "-m", "pip", "install", "--no-deps", "--no-index",
-            "--target", str(install_dir), str(wheel),
+            "uv", "pip", "install", "--python", sys.executable,
+            "--no-deps", "--no-index", "--target", str(install_dir), str(wheel),
         ], check=True)
 
         env = os.environ.copy()

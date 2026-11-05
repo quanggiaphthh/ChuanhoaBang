@@ -5,10 +5,16 @@
 ## Cài đặt
 
 ```bash
+# Reproducible install from the committed dependency lock
+uv sync --locked
+# Include the test tools when developing
+uv sync --locked --extra test
+# Alternative unlocked package install
 python -m pip install .
-# Để chạy kiểm thử: python -m pip install '.[test]'
-python -m pytest -q
+# With the locked environment: uv run --locked python -m pytest -q tests/
 ```
+
+`uv.lock` pins the runtime and test dependency graph used by CI. The first `uv sync` still needs an internet connection or a prefilled package cache/wheelhouse; once installed, the formatter itself runs offline.
 
 ## Sử dụng
 
