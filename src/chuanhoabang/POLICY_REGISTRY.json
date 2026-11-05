@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNICODE-LINEBREAK-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -59,6 +59,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
       "postconditions": ["any permStart/permEnd markers block body-table proposals", "enabled documentProtection blocks proposals", "invalid or duplicate documentProtection declarations block proposals"]
+    },
+    {
+      "id": "UNSUPPORTED-PACKAGE-CONTENT-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables in OPC packages containing digital signature or VBA macro parts",
+      "preconditions": ["package member names are inspected before proposing a body-table change", "runtime does not validate signature cryptography or execute macros"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_PACKAGE_PART_NAMES",
+      "postconditions": ["members under _xmlsignatures/ block body-table proposals", "word/vbaProject.bin blocks body-table proposals", "signature and macro behavior are not validated"]
     },
     {
       "id": "UNICODE-LINEBREAK-001",

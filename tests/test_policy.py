@@ -15,6 +15,7 @@ def test_policy_machine_readable():
     assert "TEXT-COLUMN-GEOMETRY-001" in ids
     assert "MARKUP-COMPATIBILITY-001" in ids
     assert "PROTECTION-STATE-001" in ids
+    assert "UNSUPPORTED-PACKAGE-CONTENT-001" in ids
     assert "UNICODE-LINEBREAK-001" in ids
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",
