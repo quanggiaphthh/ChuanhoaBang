@@ -20,7 +20,10 @@ from zipfile import BadZipFile, ZipFile
 
 from lxml import etree
 
-NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+NS = {
+    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+    "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+}
 W = "{" + NS["w"] + "}"
 R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
 REL_NS = {"rel": "http://schemas.openxmlformats.org/package/2006/relationships"}
@@ -349,6 +352,8 @@ def _geometry(root, settings=b""):
 
 def _protected(settings: bytes, names: list[str], root):
     reasons = []
+    if root.xpath(".//mc:AlternateContent", namespaces=NS):
+        reasons.append("ALTERNATE_CONTENT_NOT_SUPPORTED")
     if any(n.startswith("_xmlsignatures/") for n in names):
         reasons.append("SIGNED_OPC_PACKAGE")
     if "word/vbaProject.bin" in names:

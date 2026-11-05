@@ -13,6 +13,7 @@ def test_policy_machine_readable():
     assert "FONT-PROFILE-001" in ids
     assert "PROFILE-METRIC-SIZE-001" in ids
     assert "TEXT-COLUMN-GEOMETRY-001" in ids
+    assert "MARKUP-COMPATIBILITY-001" in ids
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",
                                       "requires_approval", "evidence_level", "postconditions"))

@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -8,7 +8,8 @@
     "docs/research/V17_5_1/V17_5_1_ADMIN_TABLES_USER_CONTROLLED_ORIENTATION_SPEC.md",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1",
-    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935"
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935",
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245"
   ],
   "rules": [
     {
@@ -32,6 +33,17 @@
       "requires_approval": false,
       "evidence_level": "STRUCTURAL_DIFF",
       "postconditions": ["text and topology unchanged", "non-target XML content unchanged", "OPC members unchanged"]
+    },
+    {
+      "id": "MARKUP-COMPATIBILITY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "DOCX document parts containing mc:AlternateContent",
+      "preconditions": ["table audit or formatting proposal requested", "markup compatibility alternatives are not resolved by the runtime"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["body tables remain REVIEW_REQUIRED", "no Choice/Fallback branch is silently selected or discarded"]
     },
     {
       "id": "FONT-PROFILE-001",

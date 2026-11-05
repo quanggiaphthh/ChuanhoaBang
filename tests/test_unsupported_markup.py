@@ -7,6 +7,49 @@ import pytest
 from chuanhoabang import audit, propose, propose_header, propose_unclip_row_height
 from chuanhoabang import core
 
+MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+
+
+def test_alternate_content_around_table_fails_closed(tmp_path):
+    source = tmp_path / "alternate-content.docx"
+    doc = Document()
+    table = doc.add_table(rows=2, cols=3)
+    for row, values in zip(table.rows, [("STT", "Nội dung", "Ghi chú"),
+                                        ("0012", "Nội dung bảo toàn", "Hoàn thành")]):
+        for cell, value in zip(row.cells, values):
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(value)
+            run.font.name = "Times New Roman"
+            run.font.size = Pt(14)
+    doc.save(source)
+    with ZipFile(source) as package:
+        entries = [(info, package.read(info.filename)) for info in package.infolist()]
+    with ZipFile(source, "w") as package:
+        for info, data in entries:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+                body = table.getparent()
+                index = body.index(table)
+                body.remove(table)
+                alternate = etree.Element(f"{{{MC}}}AlternateContent", nsmap={"mc": MC})
+                choice = etree.SubElement(alternate, f"{{{MC}}}Choice", Requires="w")
+                choice.append(table)
+                fallback = etree.SubElement(alternate, f"{{{MC}}}Fallback")
+                fallback.append(etree.Element(core.W + "p"))
+                body.insert(index, alternate)
+                data = etree.tostring(root, encoding="UTF-8", xml_declaration=True)
+            package.writestr(info, data)
+    original = source.read_bytes()
+
+    report = audit(source)
+
+    assert "ALTERNATE_CONTENT_NOT_SUPPORTED" in report["global_locks"]
+    assert report["tables"][0]["status"] == "REVIEW_REQUIRED"
+    assert "ALTERNATE_CONTENT_NOT_SUPPORTED" in report["tables"][0]["reasons"]
+    assert propose_header(source, 0)["decision"] == "REVIEW_REQUIRED"
+    assert source.read_bytes() == original
+
 
 @pytest.mark.parametrize("element,container", [
     ("fldSimple", "tc"),
