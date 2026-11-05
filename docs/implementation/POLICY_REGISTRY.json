@@ -1,0 +1,61 @@
+{
+  "schema": "chuanhoabang.policy.v0.1",
+  "version": "V17.5.1/USER-ORIENTATION-001",
+  "sources": [
+    "AGENTS.md",
+    "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
+    "docs/spec/AI_TABLE_FORMATTING_NO_RENDER_V16.md",
+    "docs/research/V17_5_1/V17_5_1_ADMIN_TABLES_USER_CONTROLLED_ORIENTATION_SPEC.md"
+  ],
+  "rules": [
+    {
+      "id": "USER-ORIENTATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "existing DOCX section orientation",
+      "preconditions": ["existing_docx", "no_explicit_user_orientation_request"],
+      "severity": "HARD",
+      "safe_action": "KEEP_EXISTING_ORIENTATION",
+      "requires_approval": true,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["all sectPr/pgSz unchanged"]
+    },
+    {
+      "id": "DATA-INTEGRITY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "target table and all OPC package parts",
+      "preconditions": ["explicit_apply", "source_fingerprint_matches"],
+      "severity": "HARD",
+      "safe_action": "ONLY_PATCH_TARGET_WIDTH_PROPERTIES",
+      "requires_approval": false,
+      "evidence_level": "STRUCTURAL_DIFF",
+      "postconditions": ["text and topology unchanged", "non-target XML content unchanged", "OPC members unchanged"]
+    },
+    {
+      "id": "FONT-PROFILE-001",
+      "authority": "PROJECT_PROFILE_NOT_GENERAL_LAW",
+      "scope": "supported content table runs",
+      "preconditions": ["explicit Times New Roman font properties", "13 or 14 pt font size", "licensed local font face provided"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_UNRESOLVED",
+      "requires_approval": false,
+      "evidence_level": "RESOLVED_EXPLICIT_RUN_FONT_OR_UNKNOWN",
+      "postconditions": ["font properties not modified"]
+    },
+    {
+      "id": "TABLE-SCOPE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "simple unmerged data table only in v0.1",
+      "preconditions": ["no document lock/signature", "single known section", "rectangular grid", "plausible data header"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_UNSUPPORTED",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["layout and official-form tables not autoformatted"]
+    }
+  ],
+  "profiles": {
+    "ND30": {"type": "policy-binding", "verified_legal_presets": false},
+    "HD05": {"type": "policy-binding", "verified_legal_presets": false}
+  },
+  "limitations": ["Policy registry is reference data; the v0.1 runtime implements only the enumerated safety subset."]
+}

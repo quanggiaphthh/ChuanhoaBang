@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chuanhoabang"
+version = "0.1.0.dev0"
+description = "Conservative offline DOCX table formatting technical preview"
+requires-python = ">=3.10"
+dependencies = ["lxml>=5,<7", "Pillow>=10,<13"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10", "python-docx>=1.2,<2"]
+
+[project.scripts]
+chuanhoabang = "chuanhoabang.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
