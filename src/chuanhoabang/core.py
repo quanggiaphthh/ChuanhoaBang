@@ -492,6 +492,8 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
         reasons.append("MERGED_OR_OMITTED_CELLS")
     if tbl.xpath(".//w:tblpPr | .//w:textDirection", namespaces=NS):
         reasons.append("FLOATING_OR_ROTATED_CONTENT")
+    if tbl.xpath(".//w:tblCellMar | .//w:tcMar", namespaces=NS):
+        reasons.append("CELL_MARGIN_GEOMETRY_UNRESOLVED")
     if any(tbl.xpath(q, namespaces=NS) for q in DANGEROUS_IN_TABLE):
         reasons.append("COMPLEX_CONTENT_OR_TRACKED_CHANGES")
     if not widths or not rows or any(len(r.xpath("./w:tc", namespaces=NS)) != len(widths) for r in rows):

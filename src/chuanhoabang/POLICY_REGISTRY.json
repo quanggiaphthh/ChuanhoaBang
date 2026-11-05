@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -114,6 +114,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
       "postconditions": ["optimizer uses the minimum source-derived column width as a conservative bound when column placement is unresolved", "unknown or malformed column geometry stays REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
+    },
+    {
+      "id": "CELL-MARGIN-GEOMETRY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables with explicit table-level or cell-level margins",
+      "preconditions": ["width optimization requested", "runtime does not resolve the effective table-style and cell-level margin cascade"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_TARGET_TABLE",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["explicit tblCellMar or tcMar keeps the target table REVIEW_REQUIRED", "no width, header-repeat, or row-height proposal is issued"]
     },
     {
       "id": "TABLE-SCOPE-001",

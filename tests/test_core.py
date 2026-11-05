@@ -862,6 +862,44 @@ def test_floating_or_indented_table_position_blocks_all_proposals(
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize(("owner", "margin_element"), [
+    ("table", "tblCellMar"),
+    ("cell", "tcMar"),
+])
+def test_explicit_cell_margins_make_width_geometry_unknown(
+        tmp_path, owner, margin_element):
+    from chuanhoabang import propose_header, propose_unclip_row_height
+
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    if owner == "table":
+        properties = table.find(core.W + "tblPr")
+    else:
+        properties = table.find("./" + core.W + "tr/" + core.W + "tc/" + core.W + "tcPr")
+    margins = etree.SubElement(properties, core.W + margin_element)
+    etree.SubElement(margins, core.W + "left", {core.W + "w": "900", core.W + "type": "dxa"})
+    etree.SubElement(margins, core.W + "right", {core.W + "w": "900", core.W + "type": "dxa"})
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+    before = path.read_bytes()
+
+    report = audit(path)["tables"][0]
+
+    assert report["status"] == "REVIEW_REQUIRED"
+    assert "CELL_MARGIN_GEOMETRY_UNRESOLVED" in report["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize(("mirror_value", "expected_reason"), [
     (None, "MIRRORED_GUTTER_GEOMETRY_UNSUPPORTED"),
     ("0", None),
