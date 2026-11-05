@@ -222,7 +222,60 @@ def _load_fonts(regular_file, bold_file):
         raise TableError("UNREADABLE_TNR_FONT") from exc
 
 
-def _runs(cell):
+def _basic_run_props(rpr):
+    """A deliberately small OOXML subset; unresolved theme fonts never pass as TNR."""
+    props = {}
+    if rpr is None:
+        return props
+    fonts = rpr.find(W + "rFonts")
+    if fonts is not None:
+        for field in ("ascii", "hAnsi"):
+            explicit = fonts.get(W + field)
+            theme = fonts.get(W + field + "Theme")
+            if explicit is not None:
+                props[field] = explicit
+            elif theme is not None:
+                props[field] = "UNRESOLVED_THEME_FONT"
+    size = rpr.find(W + "sz")
+    if size is not None:
+        props["size"] = size.get(W + "val")
+    for tag, name in (("b", "bold"), ("i", "italic")):
+        elt = rpr.find(W + tag)
+        if elt is not None:
+            props[name] = elt.get(W + "val", "1") not in ("0", "false", "off")
+    return props
+
+
+def _style_defaults(path):
+    """Resolve docDefaults + default paragraph style only, without guessing named cascades.
+
+    Any paragraph/character/table-specific style that may alter typography is
+    deliberately deferred. No font files are read from or distributed with DOCX.
+    """
+    with ZipFile(path) as package:
+        if "word/styles.xml" not in package.namelist():
+            return {}, None
+        root = _xml(package.read("word/styles.xml"))
+    run_defaults = root.xpath("./w:docDefaults/w:rPrDefault/w:rPr", namespaces=NS)
+    if len(run_defaults) > 1:
+        raise TableError("AMBIGUOUS_STYLE_DEFAULTS")
+    props = _basic_run_props(run_defaults[0]) if run_defaults else {}
+    styles = root.xpath("./w:style[@w:type='paragraph'][@w:default='1']", namespaces=NS)
+    if len(styles) > 1:
+        raise TableError("AMBIGUOUS_DEFAULT_PARAGRAPH_STYLE")
+    if not styles:
+        styles = root.xpath("./w:style[@w:type='paragraph'][@w:styleId='Normal']", namespaces=NS)
+    default_id = None
+    if styles:
+        style = styles[0]
+        if style.find(W + "basedOn") is not None:
+            raise TableError("DEFAULT_STYLE_CASCADE_NOT_SUPPORTED")
+        default_id = style.get(W + "styleId")
+        props.update(_basic_run_props(style.find(W + "rPr")))
+    return props, default_id
+
+
+def _runs(cell, style_defaults=None):
     if len(cell.xpath("./w:p", namespaces=NS)) != 1:
         raise TableError("MULTI_PARAGRAPH_CELL_REQUIRES_REVIEW")
     all_runs = cell.xpath("./w:p/w:r", namespaces=NS)
@@ -240,26 +293,29 @@ def _runs(cell):
                 raise TableError("NON_PLAIN_RUN")
             continue
         rpr = run.find(W + "rPr")
-        fonts = rpr.find(W + "rFonts") if rpr is not None else None
-        size = rpr.find(W + "sz") if rpr is not None else None
-        b = rpr.find(W + "b") if rpr is not None else None
-        italic = rpr.find(W + "i") if rpr is not None else None
-        if fonts is None or size is None or fonts.get(W + "ascii", "").casefold() != "times new roman" or \
-            fonts.get(W + "hAnsi", "").casefold() != "times new roman":
+        if rpr is not None and rpr.find(W + "rStyle") is not None:
+            raise TableError("CHARACTER_STYLE_CASCADE_NOT_SUPPORTED")
+        base, default_style_id = style_defaults if style_defaults is not None else ({}, None)
+        para_style = cell.xpath("./w:p/w:pPr/w:pStyle", namespaces=NS)
+        if para_style and para_style[0].get(W + "val") != default_style_id:
+            raise TableError("NAMED_PARAGRAPH_STYLE_NOT_RESOLVED")
+        props = dict(base)
+        props.update(_basic_run_props(rpr))
+        if props.get("ascii", "").casefold() != "times new roman" or \
+                props.get("hAnsi", "").casefold() != "times new roman":
             raise TableError("UNRESOLVED_EFFECTIVE_FONT")
-        if size.get(W + "val") not in ("26", "28"):
+        if props.get("size") not in ("26", "28"):
             raise TableError("FONT_SIZE_NOT_13_OR_14")
-        if italic is not None and italic.get(W + "val", "1") not in ("0", "false", "off"):
+        if props.get("italic", False):
             raise TableError("ITALIC_FACE_NOT_IMPLEMENTED")
-        bold = b is not None and b.get(W + "val", "1") not in ("0", "false", "off")
-        normalized.append((runtext, int(size.get(W + "val")) / 2, bold))
+        normalized.append((runtext, int(props["size"]) / 2, bool(props.get("bold", False))))
     if not normalized:
         raise TableError("EMPTY_CELL_REQUIRES_REVIEW")
     return normalized
 
 
-def _cell_measures(cell, fonts):
-    chunks = _runs(cell)
+def _cell_measures(cell, fonts, style_defaults=None):
+    chunks = _runs(cell, style_defaults)
     measures = []
     for content, pt, is_bold in chunks:
         face = fonts[1] if is_bold else fonts[0]
@@ -315,8 +371,13 @@ def propose(path, table_index, font_regular=None, font_bold=None):
         return result
     try:
         fonts = _load_fonts(font_regular, font_bold)
+        inherited_styles = _style_defaults(path)
         tbl = _tables(_xml(_package(path)[0]))[table_index]
-        matrix = [[_cell_measures(c, fonts) for c in row.xpath("./w:tc", namespaces=NS)]
+        # Table-level conditional text formatting is not yet resolved. Refuse,
+        # rather than accidentally measure typography using only Normal style.
+        if tbl.xpath("./w:tblPr/w:tblStyle", namespaces=NS):
+            raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+        matrix = [[_cell_measures(c, fonts, inherited_styles) for c in row.xpath("./w:tc", namespaces=NS)]
                   for row in tbl.xpath("./w:tr", namespaces=NS)]
     except TableError as exc:
         result["reasons"].append(str(exc))
