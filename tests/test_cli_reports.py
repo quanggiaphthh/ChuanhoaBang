@@ -165,6 +165,47 @@ def test_markdown_render_exposes_unresolved_table_style_padding():
     assert "fallback=not used" in report
 
 
+def test_markdown_render_identifies_resolved_table_style_margin_source():
+    report = render_markdown({
+        "table_count": 1,
+        "tables": [{
+            "index": 0,
+            "table_id": "body:0:abc123",
+            "parent_table_id": None,
+            "status": "SUPPORTED",
+            "rows": 1,
+            "columns": 1,
+            "grid_twips": [1000],
+            "reasons": [],
+            "width_evidence": {
+                "table_preferred": {"status": "ABSENT"},
+                "cell_preferred": [],
+                "grid_sum_twips": 1000,
+                "cell_padding": {
+                    "status": "RESOLVED",
+                    "basis": "TABLE_STYLE_DXA",
+                    "assumed_default_twips": None,
+                    "twips_by_row": [[156]],
+                    "table_style": {
+                        "status": "RESOLVED",
+                        "style_id": "TableGrid",
+                        "based_on_chain": ["TableNormal", "TableGrid"],
+                        "margin_source_style_id": "TableNormal",
+                        "horizontal_margin_twips": {"left": 72, "right": 84},
+                        "margin_used": True,
+                    },
+                },
+                "word_rendered": "NOT_RUN",
+            },
+        }],
+    })
+
+    assert "table style=TableGrid" in report
+    assert "margin source=TableNormal (left=72, right=84 twips)" in report
+    assert "chain=TableNormal -> TableGrid" in report
+    assert "style margin used=yes" in report
+
+
 def test_markdown_render_exposes_conservative_column_width_bound():
     report = render_markdown({
         "geometry": {

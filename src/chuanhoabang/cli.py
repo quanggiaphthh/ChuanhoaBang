@@ -88,6 +88,26 @@ def render_markdown(result: dict) -> str:
                     padding_parts.append(
                         f"fallback={assumed} twips" if assumed is not None else "fallback=not used"
                     )
+                    table_style = padding.get("table_style")
+                    if isinstance(table_style, dict):
+                        padding_parts.append(
+                            f"table style={table_style.get('style_id', 'UNKNOWN')}"
+                        )
+                        chain = table_style.get("based_on_chain")
+                        if chain:
+                            padding_parts.append(f"chain={' -> '.join(map(str, chain))}")
+                        source = table_style.get("margin_source_style_id")
+                        margins = table_style.get("horizontal_margin_twips")
+                        if source and isinstance(margins, dict):
+                            padding_parts.append(
+                                f"margin source={source} "
+                                f"(left={margins.get('left', 'UNKNOWN')}, "
+                                f"right={margins.get('right', 'UNKNOWN')} twips)"
+                            )
+                        padding_parts.append(
+                            "style margin used=" +
+                            ("yes" if table_style.get("margin_used") else "no")
+                        )
                     matrix = padding.get("twips_by_row")
                     if matrix is not None:
                         row_labels = "; ".join(

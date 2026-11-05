@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -129,13 +129,24 @@
     {
       "id": "CELL-MARGIN-STYLE-CASCADE-001",
       "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
-      "scope": "table-style-derived cell margins in width audit evidence",
-      "preconditions": ["table references w:tblStyle", "style inheritance and conditional properties are not resolved"],
+      "scope": "unsupported table-style-derived cell margins in width audit evidence",
+      "preconditions": ["table references w:tblStyle", "conditional margins, style-level tcMar, partial margins, or the basedOn chain are unresolved"],
       "severity": "HARD",
       "safe_action": "REPORT_MARGIN_GEOMETRY_UNRESOLVED",
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
-      "postconditions": ["audit does not present direct or assumed padding as effective cell geometry", "width proposal remains review-only", "non-width proposals retain their operation-specific gates"]
+      "postconditions": ["audit reports unresolved padding without an effective per-cell matrix", "width proposal remains review-only", "non-width proposals retain their operation-specific gates"]
+    },
+    {
+      "id": "CELL-MARGIN-TABLE-STYLE-BASIC-001",
+      "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
+      "scope": "simple table-style cell margins in body-table width audit evidence",
+      "preconditions": ["table references one table style with an unambiguous table-style basedOn chain", "style margins are complete left/right dxa pairs", "no conditional table-style margins or style-level tcMar declarations"],
+      "severity": "HARD",
+      "safe_action": "REPORT_BOUNDED_SOURCE_STYLE_MARGIN_CHAIN_OR_REVIEW",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["audit reports the table style id, basedOn chain, margin source, use status, and per-cell margin matrix", "direct table and cell margins override the supported style baseline", "conditional, malformed, partial, cyclic, or unknown style margins remain unresolved", "width proposals continue to refuse table styles while typography cascade is unsupported", "Word-rendered fit is not inferred"]
     },
     {
       "id": "CELL-MARGIN-DEFAULT-BUDGET-001",

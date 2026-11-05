@@ -3,6 +3,8 @@ import pytest
 from docx import Document
 from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Pt
+from lxml import etree
+from zipfile import ZipFile
 
 from chuanhoabang import audit, propose
 from chuanhoabang import core
@@ -42,6 +44,80 @@ def document_fixture(tmp_path, *, normal_font="Times New Roman", named_style=Fal
     return path
 
 
+def rewrite_parts(path, updates):
+    with ZipFile(path) as package:
+        parts = [(item, updates.get(item.filename, package.read(item.filename)))
+                 for item in package.infolist()]
+    with ZipFile(path, "w") as package:
+        for item, content in parts:
+            package.writestr(item, content)
+
+
+def set_style_margins(path, style_id, left, right):
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/styles.xml"))
+    styles = root.xpath("./w:style[@w:type='table'][@w:styleId=$style_id]",
+                        namespaces=core.NS, style_id=style_id)
+    assert len(styles) == 1
+    table_properties = styles[0].find(core.W + "tblPr")
+    if table_properties is None:
+        table_properties = etree.SubElement(styles[0], core.W + "tblPr")
+    for margins in table_properties.findall(core.W + "tblCellMar"):
+        table_properties.remove(margins)
+    if left is not None or right is not None:
+        margins = etree.SubElement(table_properties, core.W + "tblCellMar")
+        for side, value in (("left", left), ("right", right)):
+            if value is not None:
+                etree.SubElement(margins, core.W + side,
+                                 {core.W + "w": str(value), core.W + "type": "dxa"})
+    rewrite_parts(path, {"word/styles.xml": etree.tostring(root)})
+
+
+def add_conditional_style_margins(path):
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/styles.xml"))
+    styles = root.xpath("./w:style[@w:type='table'][@w:styleId='TableGrid']",
+                        namespaces=core.NS)
+    assert len(styles) == 1
+    conditional = etree.SubElement(styles[0], core.W + "tblStylePr",
+                                   {core.W + "type": "firstRow"})
+    cell_properties = etree.SubElement(conditional, core.W + "tcPr")
+    margins = etree.SubElement(cell_properties, core.W + "tcMar")
+    for side, value in (("left", 30), ("right", 40)):
+        etree.SubElement(margins, core.W + side,
+                         {core.W + "w": str(value), core.W + "type": "dxa"})
+    rewrite_parts(path, {"word/styles.xml": etree.tostring(root)})
+
+
+def make_table_style_cycle(path):
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/styles.xml"))
+    styles = root.xpath("./w:style[@w:type='table'][@w:styleId='TableNormal']",
+                        namespaces=core.NS)
+    assert len(styles) == 1
+    etree.SubElement(styles[0], core.W + "basedOn", {core.W + "val": "TableGrid"})
+    rewrite_parts(path, {"word/styles.xml": etree.tostring(root)})
+
+
+def set_direct_margins(path, *, table=None, first_cell_left=None):
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table_node = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    if table is not None:
+        table_properties = table_node.find(core.W + "tblPr")
+        margins = etree.SubElement(table_properties, core.W + "tblCellMar")
+        for side, value in zip(("left", "right"), table):
+            etree.SubElement(margins, core.W + side,
+                             {core.W + "w": str(value), core.W + "type": "dxa"})
+    if first_cell_left is not None:
+        first_cell = table_node.find("./" + core.W + "tr/" + core.W + "tc")
+        cell_properties = first_cell.find(core.W + "tcPr")
+        margins = etree.SubElement(cell_properties, core.W + "tcMar")
+        etree.SubElement(margins, core.W + "left",
+                         {core.W + "w": str(first_cell_left), core.W + "type": "dxa"})
+    rewrite_parts(path, {"word/document.xml": etree.tostring(root)})
+
+
 @pytest.fixture
 def fake_metrics(tmp_path, monkeypatch):
     synthetic_data = tmp_path / "synthetic-test-only-not-a-font.bin"
@@ -75,11 +151,92 @@ def test_unsupported_style_cascade_fails_closed(tmp_path, fake_metrics, override
     assert "STYLE" in " ".join(p["reasons"])
 
 
-def test_audit_does_not_claim_cell_padding_resolved_for_table_style(tmp_path):
+def test_table_style_conditional_margins_keep_cell_padding_unresolved(tmp_path):
     source = document_fixture(tmp_path, table_style=True)
+    add_conditional_style_margins(source)
 
     report = audit(source)["tables"][0]
     padding = report["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "UNRESOLVED"
+    assert padding["reason"] == "TABLE_STYLE_CASCADE_NOT_SUPPORTED"
+    assert "twips_by_row" not in padding
+
+
+def test_audit_resolves_table_style_cell_margins_from_based_on_chain(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+    set_style_margins(source, "TableGrid", None, None)
+    set_style_margins(source, "TableNormal", 72, 84)
+
+    report = audit(source)["tables"][0]
+    padding = report["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "RESOLVED"
+    assert padding["basis"] == "TABLE_STYLE_DXA"
+    assert padding["assumed_default_twips"] is None
+    assert padding["twips_by_row"] == [[156, 156, 156]] * 3
+    assert padding["table_style"] == {
+        "status": "RESOLVED",
+        "style_id": "TableGrid",
+        "based_on_chain": ["TableNormal", "TableGrid"],
+        "margin_source_style_id": "TableNormal",
+        "horizontal_margin_twips": {"left": 72, "right": 84},
+        "margin_used": True,
+    }
+
+
+def test_direct_table_and_cell_margins_override_table_style_margins(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+    set_style_margins(source, "TableGrid", 135, 165)
+    set_direct_margins(source, table=(200, 240), first_cell_left=300)
+
+    report = audit(source)["tables"][0]
+    padding = report["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "RESOLVED"
+    assert padding["basis"] == "EXPLICIT_DXA"
+    assert padding["twips_by_row"] == [[540, 440, 440], [440, 440, 440],
+                                       [440, 440, 440]]
+    assert padding["table_style"]["margin_source_style_id"] == "TableGrid"
+    assert padding["table_style"]["horizontal_margin_twips"] == {
+        "left": 135, "right": 165,
+    }
+    assert padding["table_style"]["margin_used"] is False
+
+
+def test_direct_cell_margin_overrides_one_side_of_table_style_baseline(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+    set_style_margins(source, "TableGrid", 135, 165)
+    set_direct_margins(source, first_cell_left=300)
+
+    padding = audit(source)["tables"][0]["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "RESOLVED"
+    assert padding["basis"] == "TABLE_STYLE_AND_EXPLICIT_DXA"
+    assert padding["twips_by_row"] == [[465, 300, 300], [300, 300, 300],
+                                       [300, 300, 300]]
+    assert padding["table_style"]["margin_used"] is True
+
+
+def test_table_style_without_horizontal_margin_uses_reported_estimator_budget(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+    set_style_margins(source, "TableGrid", None, None)
+    set_style_margins(source, "TableNormal", None, None)
+
+    padding = audit(source)["tables"][0]["width_evidence"]["cell_padding"]
+
+    assert padding["status"] == "RESOLVED"
+    assert padding["basis"] == "TABLE_STYLE_DEFAULT_ASSUMPTION"
+    assert padding["assumed_default_twips"] == 240
+    assert padding["twips_by_row"] == [[240, 240, 240]] * 3
+    assert padding["table_style"]["margin_used"] is False
+
+
+def test_table_style_based_on_cycle_keeps_cell_padding_unresolved(tmp_path):
+    source = document_fixture(tmp_path, table_style=True)
+    make_table_style_cycle(source)
+
+    padding = audit(source)["tables"][0]["width_evidence"]["cell_padding"]
 
     assert padding["status"] == "UNRESOLVED"
     assert padding["reason"] == "TABLE_STYLE_CASCADE_NOT_SUPPORTED"

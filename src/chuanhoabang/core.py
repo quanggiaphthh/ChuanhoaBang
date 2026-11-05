@@ -460,10 +460,23 @@ def _declared_width(parent, tag):
             "raw_value": raw_value, "twips": None}
 
 
-def _cell_padding(tbl, rows):
-    """Resolve simple direct dxa horizontal margins; otherwise use the versioned estimate."""
-    if tbl.xpath("./w:tblPr/w:tblStyle", namespaces=NS):
-        return {"status": "UNRESOLVED", "reason": "TABLE_STYLE_CASCADE_NOT_SUPPORTED"}
+def _table_style_definitions(path):
+    """Read table-style definitions for the bounded cell-margin resolver."""
+    with ZipFile(path) as package:
+        if "word/styles.xml" not in package.namelist():
+            return {}
+        root = _xml(package.read("word/styles.xml"))
+    styles = {}
+    for style in root.xpath("./w:style[@w:type='table']", namespaces=NS):
+        style_id = style.get(W + "styleId")
+        if not style_id or style_id in styles:
+            raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+        styles[style_id] = style
+    return styles
+
+
+def _cell_padding(tbl, rows, table_styles=None):
+    """Resolve bounded direct/table-style dxa margins; otherwise use the estimate."""
     default_padding = next(
         rule["default_padding_twips"]
         for rule in POLICY_REGISTRY["rules"]
@@ -493,6 +506,61 @@ def _cell_padding(tbl, rows):
             pair[side] = twips
         return pair or None
 
+    table_style_nodes = tbl.xpath("./w:tblPr/w:tblStyle", namespaces=NS)
+    if len(table_style_nodes) > 1:
+        raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+    has_table_style = bool(table_style_nodes)
+    style_pair = None
+    style_chain_ids = []
+    margin_source_style_id = None
+    table_style_id = None
+    if has_table_style:
+        table_style_id = table_style_nodes[0].get(W + "val")
+        if not table_style_id or table_styles is None:
+            raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+        seen = set()
+        chain = []
+        current_id = table_style_id
+        while current_id:
+            if current_id in seen:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            seen.add(current_id)
+            style = table_styles.get(current_id)
+            if style is None:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            chain.append(style)
+            style_chain_ids.append(current_id)
+            if style.xpath("./w:tblStylePr[.//w:tblCellMar or .//w:tcMar]",
+                            namespaces=NS):
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            if style.xpath("./w:tcPr/w:tcMar | ./w:tblPr/w:tcMar",
+                            namespaces=NS):
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            based_on_nodes = style.findall(W + "basedOn")
+            if len(based_on_nodes) > 1:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            if not based_on_nodes:
+                break
+            current_id = based_on_nodes[0].get(W + "val")
+            if not current_id:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+        for style in reversed(chain):
+            style_table_properties = style.findall(W + "tblPr")
+            if len(style_table_properties) > 1:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            if not style_table_properties:
+                continue
+            style_margin_nodes = style_table_properties[0].findall(W + "tblCellMar")
+            if len(style_margin_nodes) > 1:
+                raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+            if style_margin_nodes:
+                pair = margin_pair(style_margin_nodes[0])
+                if pair and set(pair) != {"left", "right"}:
+                    raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
+                if pair:
+                    style_pair = pair
+                    margin_source_style_id = style.get(W + "styleId")
+
     table_properties = tbl.find(W + "tblPr")
     table_nodes = table_properties.findall(W + "tblCellMar") if table_properties is not None else []
     if len(table_nodes) > 1:
@@ -501,6 +569,8 @@ def _cell_padding(tbl, rows):
     if table_pair and set(table_pair) != {"left", "right"}:
         raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
 
+    effective_table_pair = table_pair or style_pair
+    style_pair_used = False
     padding_rows = []
     has_explicit_horizontal_margin = bool(table_pair)
     uses_default_assumption = False
@@ -514,30 +584,67 @@ def _cell_padding(tbl, rows):
             cell_pair = margin_pair(cell_nodes[0]) if cell_nodes else None
             if cell_pair:
                 has_explicit_horizontal_margin = True
-                if not table_pair and set(cell_pair) != {"left", "right"}:
+                if not effective_table_pair and set(cell_pair) != {"left", "right"}:
                     raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
-                left = cell_pair.get("left", table_pair.get("left") if table_pair else None)
-                right = cell_pair.get("right", table_pair.get("right") if table_pair else None)
+                left = cell_pair.get("left", effective_table_pair.get("left")
+                                     if effective_table_pair else None)
+                right = cell_pair.get("right", effective_table_pair.get("right")
+                                      if effective_table_pair else None)
                 if left is None or right is None:
                     raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
                 padding_row.append(left + right)
-            elif table_pair:
-                padding_row.append(table_pair["left"] + table_pair["right"])
+                if style_pair and not table_pair and (
+                        "left" not in cell_pair or "right" not in cell_pair):
+                    style_pair_used = True
+            elif effective_table_pair:
+                padding_row.append(effective_table_pair["left"] + effective_table_pair["right"])
+                if style_pair and not table_pair:
+                    style_pair_used = True
             else:
                 uses_default_assumption = True
                 padding_row.append(default_padding)
         padding_rows.append(padding_row)
-    return {
+    if uses_default_assumption:
+        if style_pair_used and has_explicit_horizontal_margin:
+            basis = "TABLE_STYLE_AND_EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION"
+        elif style_pair_used:
+            basis = "TABLE_STYLE_DXA_AND_DEFAULT_ASSUMPTION"
+        elif has_explicit_horizontal_margin:
+            basis = "EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION"
+        elif has_table_style:
+            basis = "TABLE_STYLE_DEFAULT_ASSUMPTION"
+        else:
+            basis = "ASSUMED_DEFAULT"
+    elif style_pair_used and has_explicit_horizontal_margin:
+        basis = "TABLE_STYLE_AND_EXPLICIT_DXA"
+    elif style_pair_used:
+        basis = "TABLE_STYLE_DXA"
+    elif has_explicit_horizontal_margin:
+        basis = "EXPLICIT_DXA"
+    elif has_table_style:
+        basis = "TABLE_STYLE_DEFAULT_ASSUMPTION"
+    else:
+        basis = "ASSUMED_DEFAULT"
+    result = {
         "status": "RESOLVED",
-        "basis": ("EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION"
-                  if has_explicit_horizontal_margin and uses_default_assumption else
-                  "EXPLICIT_DXA" if has_explicit_horizontal_margin else "ASSUMED_DEFAULT"),
+        "basis": basis,
         "assumed_default_twips": default_padding if uses_default_assumption else None,
         "twips_by_row": padding_rows,
     }
+    if has_table_style:
+        result["table_style"] = {
+            "status": "RESOLVED",
+            "style_id": table_style_id,
+            "based_on_chain": list(reversed(style_chain_ids)),
+            "margin_source_style_id": margin_source_style_id,
+            "horizontal_margin_twips": style_pair,
+            "margin_used": style_pair_used,
+        }
+    return result
 
 
-def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
+def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
+             table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
     grid = tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS)
     widths = []
@@ -551,10 +658,10 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     if geom["status"] != "STRUCTURAL":
         reasons.append(geom["reason"])
     try:
-        cell_padding = _cell_padding(tbl, rows)
-    except TableError:
-        cell_padding = {"status": "UNRESOLVED", "reason": "CELL_MARGIN_GEOMETRY_UNRESOLVED"}
-        reasons.append("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+        cell_padding = _cell_padding(tbl, rows, table_styles)
+    except TableError as exc:
+        cell_padding = {"status": "UNRESOLVED", "reason": str(exc)}
+        reasons.append(str(exc))
     tblpr = tbl.find(W + "tblPr")
     table_preferred = _declared_width(tblpr, W + "tblW")
     cell_preferred = [
@@ -624,6 +731,12 @@ def audit(path, profile=None):
     geometry = _geometry(root, settings)
     locks = _protected(settings, names, root)
     body_tables = _tables(root)
+    table_styles = None
+    if any(table.xpath("./w:tblPr/w:tblStyle", namespaces=NS) for table in body_tables):
+        try:
+            table_styles = _table_style_definitions(path)
+        except TableError:
+            table_styles = None
     table_hashes = [digest(etree.tostring(table, method="c14n")) for table in body_tables]
     table_ids = {
         table: f"body:{index}:{table_hash[:16]}"
@@ -634,7 +747,7 @@ def audit(path, profile=None):
         ancestors = table.xpath("ancestor::w:tbl", namespaces=NS)
         parent_id = table_ids.get(ancestors[-1]) if ancestors else None
         tables.append(_details(table, index, geometry, locks, table_ids[table], parent_id,
-                               table_hashes[index]))
+                               table_hashes[index], table_styles))
     section_references, inheritance_candidates = _section_story_references(
         root, document_rels, story_parts
     )
