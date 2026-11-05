@@ -63,8 +63,8 @@ def render_markdown(result: dict) -> str:
                          f"{safe(', '.join(table.get('reasons', [])))} |")
         if any("width_evidence" in table for table in result["tables"]):
             lines += ["", "## Width evidence (OOXML declarations; not Word measurements)", "",
-                      "| Table ID | Grid and sum | tblW preferred | tcW preferred by row/cell | Word rendered width |",
-                      "|---|---|---|---|---|"]
+                      "| Table ID | Grid and sum | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
+                      "|---|---|---|---|---|---|"]
             for table in result["tables"]:
                 evidence = table.get("width_evidence", {})
                 grid = table.get("grid_twips")
@@ -76,10 +76,30 @@ def render_markdown(result: dict) -> str:
                     for cell_index, width in enumerate(row):
                         cell_labels.append(f"r{row_index}c{cell_index}={width_label(width)}")
                 cells_label = "; ".join(cell_labels) or "no tcW declarations"
+                padding = evidence.get("cell_padding")
+                if not isinstance(padding, dict):
+                    padding_label = "NOT_REPORTED"
+                else:
+                    padding_parts = [f"status={padding.get('status', 'UNKNOWN')}"]
+                    for key in ("reason", "basis"):
+                        if padding.get(key) is not None:
+                            padding_parts.append(f"{key}={padding[key]}")
+                    assumed = padding.get("assumed_default_twips")
+                    padding_parts.append(
+                        f"fallback={assumed} twips" if assumed is not None else "fallback=not used"
+                    )
+                    matrix = padding.get("twips_by_row")
+                    if matrix is not None:
+                        row_labels = "; ".join(
+                            f"r{row_index}={values}" for row_index, values in enumerate(matrix)
+                        )
+                        padding_parts.append(f"per-cell twips: {row_labels}")
+                    padding_label = "; ".join(padding_parts)
                 lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
                              f"{safe(grid_label)} | "
                              f"{safe(width_label(evidence.get('table_preferred', {})))} | "
                              f"{safe(cells_label)} | "
+                             f"{safe(padding_label)} | "
                              f"{safe(evidence.get('word_rendered', 'NOT_RUN'))} |")
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",

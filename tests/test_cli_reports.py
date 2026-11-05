@@ -101,6 +101,70 @@ def test_markdown_render_distinguishes_declared_grid_and_word_widths():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_cell_padding_matrix_and_assumption():
+    report = render_markdown({
+        "table_count": 1,
+        "tables": [{
+            "index": 0,
+            "table_id": "body:0:abc123",
+            "parent_table_id": None,
+            "status": "SUPPORTED",
+            "rows": 2,
+            "columns": 2,
+            "grid_twips": [1000, 2000],
+            "reasons": [],
+            "width_evidence": {
+                "table_preferred": {"status": "ABSENT"},
+                "cell_preferred": [],
+                "grid_sum_twips": 3000,
+                "cell_padding": {
+                    "status": "RESOLVED",
+                    "basis": "EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION",
+                    "assumed_default_twips": 240,
+                    "twips_by_row": [[700, 240], [240, 240]],
+                },
+                "word_rendered": "NOT_RUN",
+            },
+        }],
+    })
+
+    assert "Cell padding evidence" in report
+    assert "status=RESOLVED" in report
+    assert "basis=EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION" in report
+    assert "fallback=240 twips" in report
+    assert "per-cell twips: r0=[700, 240]; r1=[240, 240]" in report
+
+
+def test_markdown_render_exposes_unresolved_table_style_padding():
+    report = render_markdown({
+        "table_count": 1,
+        "tables": [{
+            "index": 0,
+            "table_id": "body:0:abc123",
+            "parent_table_id": None,
+            "status": "SUPPORTED",
+            "rows": 2,
+            "columns": 2,
+            "grid_twips": [1000, 2000],
+            "reasons": [],
+            "width_evidence": {
+                "table_preferred": {"status": "ABSENT"},
+                "cell_preferred": [],
+                "grid_sum_twips": 3000,
+                "cell_padding": {
+                    "status": "UNRESOLVED",
+                    "reason": "TABLE_STYLE_CASCADE_NOT_SUPPORTED",
+                },
+                "word_rendered": "NOT_RUN",
+            },
+        }],
+    })
+
+    assert "status=UNRESOLVED" in report
+    assert "TABLE_STYLE_CASCADE_NOT_SUPPORTED" in report
+    assert "fallback=not used" in report
+
+
 def test_markdown_render_exposes_conservative_column_width_bound():
     report = render_markdown({
         "geometry": {
