@@ -51,7 +51,7 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 
 ## Bằng chứng hiện có (05/11/2026)
 
-- GitHub Actions [run 42086960094](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42086960094): **74/74 tests PASS** trên Ubuntu/Python 3.10–3.13 và Windows/Python 3.12. CI tạo một wheel preview có manifest SHA-256, sau đó cài và smoke-test chính wheel đó (registry, CLI, DOCX tiếng Việt) trên cả năm môi trường. Artifact là preview, Microsoft Word acceptance vẫn `NOT_RUN`.
+- GitHub Actions [run 42088771669](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42088771669): **78/78 tests PASS** trên Ubuntu/Python 3.10–3.13 và Windows/Python 3.12. CI tạo một wheel preview có manifest SHA-256, sau đó cài và smoke-test chính wheel đó (registry, CLI, DOCX tiếng Việt) trên cả năm môi trường. Artifact là preview, Microsoft Word acceptance vẫn `NOT_RUN`.
 - Đây là kiểm thử cấu trúc trên DOCX tổng hợp với metric font giả lập; không đo TNR có bản quyền, không phải Microsoft Word acceptance.
 - Kiểm chứng LibreOffice 25.x tại bảng 90 dòng (không phải Word acceptance): header ở trang 2 có sau patch; số trang thay đổi 12 → 13 do chi phí chiều cao hàng tiêu đề.
 - Không được hiểu kết quả LibreOffice là chính xác Microsoft Word; cần xác minh bản in Word và font Times New Roman có bản quyền trên máy mục tiêu.
