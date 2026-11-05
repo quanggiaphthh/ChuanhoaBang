@@ -90,6 +90,41 @@ def test_permission_range_outside_table_forces_review(tmp_path):
     assert source.read_bytes() == original
 
 
+@pytest.mark.parametrize(("part_name", "reason"), [
+    ("_xmlsignatures/sig1.xml", "SIGNED_OPC_PACKAGE"),
+    ("word/vbaProject.bin", "MACRO_CONTENT_NOT_SUPPORTED"),
+])
+def test_signed_or_macro_package_fails_closed(tmp_path, part_name, reason):
+    source = tmp_path / "protected-package.docx"
+    doc = Document()
+    table = doc.add_table(rows=2, cols=3)
+    for row, values in zip(table.rows, [("STT", "Nội dung", "Ghi chú"),
+                                        ("0012", "Nội dung bảo toàn", "Hoàn thành")]):
+        for cell, value in zip(row.cells, values):
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(value)
+            run.font.name = "Times New Roman"
+            run.font.size = Pt(14)
+    doc.save(source)
+    with ZipFile(source) as package:
+        entries = [(info, package.read(info.filename)) for info in package.infolist()]
+    with ZipFile(source, "w") as package:
+        for info, data in entries:
+            package.writestr(info, data)
+        package.writestr(part_name, b"synthetic unsupported package-part marker")
+    original = source.read_bytes()
+
+    report = audit(source)
+
+    assert reason in report["global_locks"]
+    assert report["tables"][0]["status"] == "REVIEW_REQUIRED"
+    assert reason in report["tables"][0]["reasons"]
+    assert propose(source, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(source, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_unclip_row_height(source, 0)["decision"] == "REVIEW_REQUIRED"
+    assert source.read_bytes() == original
+
+
 @pytest.mark.parametrize("element,container", [
     ("fldSimple", "tc"),
     ("commentReference", "r"),
