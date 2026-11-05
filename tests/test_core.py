@@ -310,8 +310,10 @@ def test_multiline_cell_does_not_enter_width_optimization_without_evidence(tmp_p
     class FakeFont:
         def getlength(self, text):
             return len(text) * 4
+    synthetic_font = tmp_path / "synthetic-font-placeholder.bin"
+    synthetic_font.write_bytes(b"not-a-font; metric loader is patched")
     monkeypatch.setattr(core, "_load_fonts", lambda *args: (FakeFont(), FakeFont()))
-    result = propose(doc, 0, font_regular="/dev/null", font_bold="/dev/null")
+    result = propose(doc, 0, font_regular=synthetic_font, font_bold=synthetic_font)
     assert result["decision"] == "REVIEW_REQUIRED"
     assert "MULTI_PARAGRAPH_CELL_REQUIRES_REVIEW" in result["reasons"]
 
@@ -346,9 +348,11 @@ def test_width_proposal_does_not_reject_harmless_empty_runs(tmp_path, monkeypatc
     class FakeFont:
         def getlength(self, text):
             return len(text) * 4
+    synthetic_font = tmp_path / "synthetic-font-placeholder.bin"
+    synthetic_font.write_bytes(b"not-a-font; metric loader is patched")
     monkeypatch.setattr(core, "_load_fonts", lambda *args: (FakeFont(), FakeFont()))
-    result = propose(path, 0, font_regular="/etc/hosts", font_bold="/etc/hosts")
-    # This tests only the token/structure path; /etc/hosts is not a font.
+    result = propose(path, 0, font_regular=synthetic_font, font_bold=synthetic_font)
+    # This tests only the token/structure path; the placeholder is not a font.
     assert result["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
     assert "NON_PLAIN_RUN" not in result["reasons"]
     assert result["word_render"] == "NOT_RUN"

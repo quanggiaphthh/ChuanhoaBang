@@ -7,13 +7,28 @@ on:
 
 jobs:
   python-tests:
-    runs-on: ubuntu-latest
+    name: tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: '3.10'
+          - os: ubuntu-latest
+            python-version: '3.11'
+          - os: ubuntu-latest
+            python-version: '3.12'
+          - os: ubuntu-latest
+            python-version: '3.13'
+          - os: windows-latest
+            python-version: '3.12'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install core and test requirements
         run: python -m pip install '.[test]'
@@ -22,12 +37,4 @@ jobs:
       - name: CLI import smoke
         run: python -m chuanhoabang --help
       - name: Build and install wheel in isolated target
-        run: |
-          wheel_dir="$RUNNER_TEMP/chuanhoabang-wheel"
-          install_dir="$RUNNER_TEMP/chuanhoabang-install"
-          mkdir -p "$wheel_dir" "$install_dir"
-          python -m pip wheel . --no-deps --wheel-dir "$wheel_dir"
-          python -m pip install --no-deps --no-index --target "$install_dir" "$wheel_dir"/*.whl
-          cd "$RUNNER_TEMP"
-          PYTHONPATH="$install_dir" python -c 'from importlib.resources import files; import chuanhoabang; assert files("chuanhoabang").joinpath("POLICY_REGISTRY.json").is_file(); assert chuanhoabang.available_profiles() == ("ND30", "HD05")'
-          PYTHONPATH="$install_dir" python -m chuanhoabang --help
+        run: python .github/scripts/wheel_smoke.py
