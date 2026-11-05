@@ -275,6 +275,46 @@ def test_non_default_text_column_geometry_requires_review(
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+@pytest.mark.parametrize(("mirror_value", "expected_reason"), [
+    (None, "MIRRORED_GUTTER_GEOMETRY_UNSUPPORTED"),
+    ("0", None),
+    ("invalid", "INVALID_MIRROR_MARGINS_SETTING"),
+])
+def test_mirrored_margins_with_gutter_are_scoped_by_settings(
+        tmp_path, mirror_value, expected_reason):
+    path = fixture_docx(tmp_path)
+    baseline_available = audit(path)["geometry"]["available_twips"]
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+
+    document_info, document_xml = data["word/document.xml"]
+    document_root = core._xml(document_xml)
+    page_margins = document_root.find(".//" + core.W + "sectPr/" + core.W + "pgMar")
+    page_margins.set(core.W + "gutter", "720")
+    data["word/document.xml"] = (document_info, etree.tostring(document_root))
+
+    settings_info, settings_xml = data["word/settings.xml"]
+    settings_root = core._xml(settings_xml)
+    mirror_margins = etree.SubElement(settings_root, core.W + "mirrorMargins")
+    if mirror_value is not None:
+        mirror_margins.set(core.W + "val", mirror_value)
+    data["word/settings.xml"] = (settings_info, etree.tostring(settings_root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    report = audit(path)
+
+    if expected_reason is not None:
+        assert report["geometry"]["status"] == "GEOMETRY_UNKNOWN"
+        assert report["geometry"]["reason"] == expected_reason
+        assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    else:
+        assert report["geometry"]["status"] == "STRUCTURAL"
+        assert report["geometry"]["available_twips"] == baseline_available - 720
+
+
 def test_header_repeat_proposal_applies_only_to_first_row(tmp_path):
     from chuanhoabang import propose_header
     path = fixture_docx(tmp_path)

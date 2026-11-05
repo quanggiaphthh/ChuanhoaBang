@@ -108,7 +108,21 @@ def _tables(root):
     return root.xpath(".//w:body//w:tbl", namespaces=NS)
 
 
-def _geometry(root):
+def _mirror_margins_enabled(settings: bytes):
+    if not settings:
+        return False
+    node = _xml(settings).find(W + "mirrorMargins")
+    if node is None:
+        return False
+    value = node.get(W + "val")
+    if value is None or value.casefold() in ("1", "true", "on"):
+        return True
+    if value.casefold() in ("0", "false", "off"):
+        return False
+    return None
+
+
+def _geometry(root, settings=b""):
     sections = root.xpath(".//w:sectPr", namespaces=NS)
     if len(sections) != 1:
         return {"status": "GEOMETRY_UNKNOWN", "reason": "MULTI_OR_MISSING_SECTION", "sections": len(sections)}
@@ -127,6 +141,12 @@ def _geometry(root):
             raise ValueError("nonpositive")
     except (ValueError, TypeError):
         return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_PAGE_GEOMETRY", "sections": 1}
+    mirror_margins = _mirror_margins_enabled(settings)
+    if mirror_margins is None:
+        return {"status": "GEOMETRY_UNKNOWN", "reason": "INVALID_MIRROR_MARGINS_SETTING", "sections": 1}
+    if mirror_margins and gutter > 0:
+        return {"status": "GEOMETRY_UNKNOWN",
+                "reason": "MIRRORED_GUTTER_GEOMETRY_UNSUPPORTED", "sections": 1}
     orientation = "LANDSCAPE" if page_width > page_height else "PORTRAIT"
     declared_orientation = size.get(W + "orient")
     if declared_orientation is not None:
@@ -233,7 +253,7 @@ def audit(path, profile=None):
     profile_context = _profile_context(profile)
     raw, settings, names = _package(path)
     root = _xml(raw)
-    geometry = _geometry(root)
+    geometry = _geometry(root, settings)
     locks = _protected(settings, names, root)
     tables = [_details(tbl, i, geometry, locks) for i, tbl in enumerate(_tables(root))]
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
