@@ -73,8 +73,16 @@ def main(argv=None):
     p_apply.add_argument("--report-md", help="Write a Markdown QA report to a new file")
     args = parser.parse_args(argv)
     try:
-        if args.report_md and Path(args.report_md).exists():
-            raise TableError("REPORT_OUTPUT_MUST_BE_NEW_PATH")
+        if args.report_md:
+            report_path = Path(args.report_md).resolve()
+            if report_path.exists():
+                raise TableError("REPORT_OUTPUT_MUST_BE_NEW_PATH")
+            if getattr(args, "output", None) and report_path == Path(args.output).resolve():
+                raise TableError("REPORT_OUTPUT_CONFLICT")
+            if report_path == Path(args.input).resolve():
+                raise TableError("REPORT_OUTPUT_CONFLICT")
+            if getattr(args, "proposal", None) and report_path == Path(args.proposal).resolve():
+                raise TableError("REPORT_OUTPUT_CONFLICT")
         if args.command == "audit":
             result = audit(args.input)
         elif args.command == "propose":
