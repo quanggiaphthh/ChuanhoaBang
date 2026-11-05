@@ -36,3 +36,19 @@ and [column spacing](https://learn.microsoft.com/en-us/dotnet/api/documentformat
 documentation. Microsoft documents Word's default of `equalWidth=true` when
 omitted and its requirement that a false `equalWidth` column count match the
 child `col` count in [MS-OI29500](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935).
+
+The registry also carries `MARKUP-COMPATIBILITY-001` and
+`PROTECTION-STATE-001`. Any `mc:AlternateContent` in `word/document.xml` keeps
+body tables in review because the runtime does not choose among compatibility
+branches. Any `w:permStart`/`w:permEnd` markers block body-table proposals because
+the runtime does not resolve permission ranges against the caller's identity.
+An enforced, malformed, or duplicate `w:documentProtection` declaration also
+blocks proposals. See Microsoft's [AlternateContent extension
+rules](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245), [permission
+markers](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permstart?view=openxml-3.0.1),
+and [documentProtection enforcement](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d).
+
+`UNICODE-LINEBREAK-001` covers only a conservative metric-estimate guard: U+00A0,
+U+180E, U+2007, and U+202F stay grouped with adjacent text. The tokenizer is
+not a complete Unicode line-breaking implementation or a Word renderer; see
+[Unicode UAX #14](https://unicode.org/reports/tr14/).
