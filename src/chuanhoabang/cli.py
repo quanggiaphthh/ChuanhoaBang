@@ -20,7 +20,7 @@ def render_markdown(result: dict) -> str:
              "", "## Thông tin xử lý", "", "| Thuộc tính | Giá trị |", "|---|---|"]
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
-                "table_index", "table_count", "operation", "evidence",
+                "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             lines.append(f"| {safe(key)} | {safe(result[key])} |")
@@ -31,6 +31,21 @@ def render_markdown(result: dict) -> str:
             lines.append(f"| {table.get('index', '?')} | {safe(table.get('status', 'UNKNOWN'))} | "
                          f"{table.get('rows', '?')} | {table.get('columns', '?')} | "
                          f"{safe(', '.join(table.get('reasons', [])))} |")
+    if "non_body_story_tables" in result:
+        lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
+                  "Các chỉ số này không dùng làm `--table`; chủ sở hữu section chưa được phân giải "
+                  "và các bảng ngoài body chỉ được kiểm kê để xem xét.", "",
+                  "| Part | Chỉ số trong part | SHA-256 | Trạng thái owner | Trạng thái | Lý do |",
+                  "|---|---:|---|---|---|---|"]
+        for table in result["non_body_story_tables"]:
+            lines.append(f"| {safe(table.get('part', '?'))} | "
+                         f"{table.get('story_table_index', '?')} | "
+                         f"`{safe(table.get('table_sha256', '?'))}` | "
+                         f"{safe(table.get('owner_status', 'UNKNOWN'))} | "
+                         f"{safe(table.get('status', 'UNKNOWN'))} | "
+                         f"{safe(table.get('reason', 'UNKNOWN'))} |")
+        if not result["non_body_story_tables"]:
+            lines.append("| — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])
@@ -55,7 +70,7 @@ def main(argv=None):
                 pass
     parser = argparse.ArgumentParser(prog="chuanhoabang", description="Conservative offline DOCX table-width formatter")
     sub = parser.add_subparsers(dest="command", required=True)
-    p_audit = sub.add_parser("audit", help="Read-only inspection of all body tables")
+    p_audit = sub.add_parser("audit", help="Inspect body tables and inventory non-body story tables")
     p_audit.add_argument("input")
     p_audit.add_argument("--report-md", help="Write a Markdown QA report to a new file")
     p_audit.add_argument("--profile", choices=available_profiles(),

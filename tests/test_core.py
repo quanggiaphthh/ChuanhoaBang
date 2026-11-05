@@ -89,6 +89,31 @@ def test_layout_marker_anywhere_in_table_forces_review(tmp_path):
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+@pytest.mark.parametrize("story_name", ["header", "footer"])
+def test_audit_reports_story_tables_without_body_indices(tmp_path, story_name):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    story = getattr(doc.sections[0], story_name)
+    table = story.add_table(rows=1, cols=1, width=Cm(10))
+    table.cell(0, 0).text = "Không chỉnh sửa ngoài phần nội dung"
+    doc.save(path)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+
+    assert report["table_count"] == 1
+    assert report["tables"][0]["index"] == 0
+    assert report["non_body_story_table_count"] == 1
+    entry = report["non_body_story_tables"][0]
+    assert entry["part"] == f"word/{story_name}1.xml"
+    assert entry["story_table_index"] == 0
+    assert len(entry["table_sha256"]) == 64
+    assert entry["owner_status"] == "SECTION_RELATIONSHIP_NOT_RESOLVED"
+    assert entry["status"] == "REVIEW_REQUIRED"
+    assert entry["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
+    assert path.read_bytes() == source_before
+
+
 def test_merged_is_not_auto_formatted(tmp_path):
     path = fixture_docx(tmp_path, merged=True)
     result = audit(path)

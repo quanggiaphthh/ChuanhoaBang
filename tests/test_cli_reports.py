@@ -18,6 +18,26 @@ def test_markdown_render_has_real_line_breaks():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_non_body_story_table_inventory():
+    report = render_markdown({
+        "table_count": 1,
+        "non_body_story_table_count": 1,
+        "non_body_story_tables": [{
+            "part": "word/header1.xml",
+            "story_table_index": 0,
+            "table_sha256": "a" * 64,
+            "owner_status": "SECTION_RELATIONSHIP_NOT_RESOLVED",
+            "status": "REVIEW_REQUIRED",
+            "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
+        }],
+    })
+    assert "| non_body_story_table_count | 1 |" in report
+    assert "## Bảng trong header/footer/footnote/endnote" in report
+    assert "word/header1.xml" in report
+    assert "a" * 64 in report
+    assert "SECTION_RELATIONSHIP_NOT_RESOLVED" in report
+
+
 def test_cli_audit_report_md_is_created_and_never_overwritten(tmp_path, capsys):
     source = tmp_path / "test.docx"
     doc = Document()
