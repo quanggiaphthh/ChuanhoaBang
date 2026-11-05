@@ -1,6 +1,7 @@
-"""Limited style resolver: docDefaults + Normal, never pretend full Word cascade."""
+"""Bounded style resolution with fail-closed handling of unresolved cascades."""
 import pytest
 from docx import Document
+from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Pt
 
 from chuanhoabang import propose
@@ -79,3 +80,55 @@ def test_run_level_tnr_overrides_non_tnr_normal(tmp_path, fake_metrics):
     p = propose(source, 0, font_regular=fake_metrics)
     assert p["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
     assert p["evidence"] == "FONT_METRIC_ESTIMATE"
+
+
+def test_named_paragraph_style_with_explicit_normal_parent_resolves(tmp_path, fake_metrics):
+    source = document_fixture(tmp_path)
+    doc = Document(source)
+    style = doc.styles.add_style("ReportBody", WD_STYLE_TYPE.PARAGRAPH)
+    style.base_style = doc.styles["Normal"]
+    for row in doc.tables[0].rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                paragraph.style = style
+    doc.save(source)
+
+    result = propose(source, 0, font_regular=fake_metrics, font_bold=fake_metrics)
+
+    assert result["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")
+    assert result["evidence"] == "FONT_METRIC_ESTIMATE"
+
+
+def test_named_paragraph_style_inheritance_cycle_is_reviewed(tmp_path, fake_metrics):
+    source = document_fixture(tmp_path)
+    doc = Document(source)
+    first = doc.styles.add_style("CycleOne", WD_STYLE_TYPE.PARAGRAPH)
+    second = doc.styles.add_style("CycleTwo", WD_STYLE_TYPE.PARAGRAPH)
+    first.base_style = second
+    second.base_style = first
+    for row in doc.tables[0].rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                paragraph.style = first
+    doc.save(source)
+
+    result = propose(source, 0, font_regular=fake_metrics, font_bold=fake_metrics)
+
+    assert result["decision"] == "REVIEW_REQUIRED"
+    assert "STYLE_BASED_ON_CYCLE" in result["reasons"]
+
+
+def test_named_paragraph_style_without_normal_ancestor_is_reviewed(tmp_path, fake_metrics):
+    source = document_fixture(tmp_path)
+    doc = Document(source)
+    style = doc.styles.add_style("DetachedBody", WD_STYLE_TYPE.PARAGRAPH)
+    for row in doc.tables[0].rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                paragraph.style = style
+    doc.save(source)
+
+    result = propose(source, 0, font_regular=fake_metrics, font_bold=fake_metrics)
+
+    assert result["decision"] == "REVIEW_REQUIRED"
+    assert "PARAGRAPH_STYLE_DEFAULT_NOT_INHERITED" in result["reasons"]

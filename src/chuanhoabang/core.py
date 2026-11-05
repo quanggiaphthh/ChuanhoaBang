@@ -266,14 +266,16 @@ def _basic_run_props(rpr):
 
 
 def _style_defaults(path):
-    """Resolve docDefaults + default paragraph style only, without guessing named cascades.
+    """Read shared run defaults and paragraph styles for a bounded cascade resolver.
 
-    Any paragraph/character/table-specific style that may alter typography is
-    deliberately deferred. No font files are read from or distributed with DOCX.
+    Only explicit ``basedOn`` paragraph-style chains are resolved. Unsupported
+    run properties, character/table styles, and theme fonts remain fail-closed.
+    No font files are read from or distributed with DOCX.
     """
     with ZipFile(path) as package:
         if "word/styles.xml" not in package.namelist():
-            return {}, None
+            return {"doc_defaults": {}, "paragraph_styles": {},
+                    "default_paragraph_style_id": None}
         root = _xml(package.read("word/styles.xml"))
     run_defaults = root.xpath("./w:docDefaults/w:rPrDefault/w:rPr", namespaces=NS)
     if len(run_defaults) > 1:
@@ -282,16 +284,65 @@ def _style_defaults(path):
     styles = root.xpath("./w:style[@w:type='paragraph'][@w:default='1']", namespaces=NS)
     if len(styles) > 1:
         raise TableError("AMBIGUOUS_DEFAULT_PARAGRAPH_STYLE")
-    if not styles:
-        styles = root.xpath("./w:style[@w:type='paragraph'][@w:styleId='Normal']", namespaces=NS)
-    default_id = None
+    paragraph_styles = {}
+    for style in root.xpath("./w:style[@w:type='paragraph']", namespaces=NS):
+        style_id = style.get(W + "styleId")
+        if not style_id or style_id in paragraph_styles:
+            raise TableError("AMBIGUOUS_PARAGRAPH_STYLE_ID")
+        paragraph_styles[style_id] = style
     if styles:
-        style = styles[0]
-        if style.find(W + "basedOn") is not None:
-            raise TableError("DEFAULT_STYLE_CASCADE_NOT_SUPPORTED")
-        default_id = style.get(W + "styleId")
-        props.update(_basic_run_props(style.find(W + "rPr")))
-    return props, default_id
+        default_id = styles[0].get(W + "styleId")
+    else:
+        default_id = "Normal" if "Normal" in paragraph_styles else None
+    return {"doc_defaults": props, "paragraph_styles": paragraph_styles,
+            "default_paragraph_style_id": default_id}
+
+
+def _paragraph_run_props(cell, style_context):
+    paragraphs = cell.xpath("./w:p", namespaces=NS)
+    paragraph_styles = paragraphs[0].xpath("./w:pPr/w:pStyle", namespaces=NS)
+    if len(paragraph_styles) > 1:
+        raise TableError("AMBIGUOUS_PARAGRAPH_STYLE")
+    style_id = (paragraph_styles[0].get(W + "val") if paragraph_styles
+                else style_context["default_paragraph_style_id"])
+    props = dict(style_context["doc_defaults"])
+    if style_id is None:
+        return props
+
+    styles = style_context["paragraph_styles"]
+    seen = set()
+    chain = []
+    current_id = style_id
+    while current_id:
+        if current_id in seen:
+            raise TableError("STYLE_BASED_ON_CYCLE")
+        seen.add(current_id)
+        style = styles.get(current_id)
+        if style is None:
+            raise TableError("PARAGRAPH_STYLE_NOT_FOUND")
+        chain.append(style)
+        based_on = style.find(W + "basedOn")
+        if based_on is None:
+            break
+        current_id = based_on.get(W + "val")
+        if not current_id:
+            raise TableError("PARAGRAPH_STYLE_BASE_MISSING")
+
+    default_id = style_context["default_paragraph_style_id"]
+    if default_id and style_id != default_id and default_id not in seen:
+        raise TableError("PARAGRAPH_STYLE_DEFAULT_NOT_INHERITED")
+
+    supported = {W + "rFonts", W + "sz", W + "b", W + "i"}
+    for style in reversed(chain):
+        run_props = style.find(W + "rPr")
+        if run_props is None:
+            continue
+        if any(child.tag not in supported for child in run_props):
+            raise TableError("UNSUPPORTED_STYLE_RUN_PROPERTY")
+        if run_props.find(W + "b") is not None or run_props.find(W + "i") is not None:
+            raise TableError("STYLE_TOGGLE_CASCADE_NOT_SUPPORTED")
+        props.update(_basic_run_props(run_props))
+    return props
 
 
 def _runs(cell, style_defaults=None):
@@ -314,11 +365,10 @@ def _runs(cell, style_defaults=None):
         rpr = run.find(W + "rPr")
         if rpr is not None and rpr.find(W + "rStyle") is not None:
             raise TableError("CHARACTER_STYLE_CASCADE_NOT_SUPPORTED")
-        base, default_style_id = style_defaults if style_defaults is not None else ({}, None)
-        para_style = cell.xpath("./w:p/w:pPr/w:pStyle", namespaces=NS)
-        if para_style and para_style[0].get(W + "val") != default_style_id:
-            raise TableError("NAMED_PARAGRAPH_STYLE_NOT_RESOLVED")
-        props = dict(base)
+        style_context = (style_defaults if style_defaults is not None else
+                         {"doc_defaults": {}, "paragraph_styles": {},
+                          "default_paragraph_style_id": None})
+        props = _paragraph_run_props(cell, style_context)
         props.update(_basic_run_props(rpr))
         if props.get("ascii", "").casefold() != "times new roman" or \
                 props.get("hAnsi", "").casefold() != "times new roman":
