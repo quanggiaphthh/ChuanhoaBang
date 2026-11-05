@@ -21,7 +21,7 @@ python -m pip install .
 CI tạo wheelhouse riêng theo hệ điều hành, kiến trúc và phiên bản Python. Tải artifact `chuanhoabang-offline-<OS>-py<Python>-<commit>` khớp với máy đích; artifact gồm `wheelhouse/`, `requirements.txt` có hash và `offline-bundle-manifest.json`. Trên máy đích, từ thư mục artifact:
 
 ```bash
-python -m pip install --no-index --find-links ./wheelhouse --require-hashes -r ./offline-install-requirements.txt
+python -m pip install --no-index --find-links ./wheelhouse --require-hashes --only-binary=:all: -r ./offline-install-requirements.txt
 chuanhoabang --help
 ```
 
@@ -62,8 +62,7 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 
 ## Bằng chứng hiện có (05/11/2026)
 
-- GitHub Actions [run 42097921605](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097921605): **88/88 tests PASS** trên Ubuntu/Python 3.10–3.13 và Windows/Python 3.12. CI tạo một wheel preview có manifest SHA-256 và cài/smoke-test chính wheel đó (registry, CLI, DOCX tiếng Việt) trên cả năm môi trường. Artifact `chuanhoabang-preview-ce74ffd5d654b589834fd2aa3d1102902fda2eeb` được giữ đến 19/11/2026. Artifact là preview; Microsoft Word acceptance vẫn `NOT_RUN`.
-- GitHub Actions [run 42097921605](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097921605), PR code commit `9c033112d6a0238bc18c98966b1b18580ea2a78b`: **88/88 tests PASS** trên cả năm môi trường. Mỗi job xuất một wheelhouse theo target, cài wheel từ thư mục nội bộ trong virtualenv mới bằng `pip --no-index`, rồi chạy CLI help và audit DOCX tiếng Việt kèm Markdown report. Artifact có `offline-bundle-manifest.json` với SHA-256 cho từng wheel. Ubuntu/Python 3.12 runner độc lập build lại canonical wheel và thu được cùng SHA-256 `a3c83990a8ae5448e0d119e3c3b6bb195fc004e6e872a69691b51665d1961f43`. Artifacts `chuanhoabang-offline-*-ce74ffd5d654b589834fd2aa3d1102902fda2eeb` hết hạn 19/11/2026. Đây là kiểm chứng gói cài preview; Word acceptance vẫn `NOT_RUN`.
+- GitHub Actions [run 42099184995](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42099184995), commit `e5ebef948fc38445c4be4cbad90503f1b6590603`: **88/88 tests PASS** trên Ubuntu/Python 3.10–3.13 và Windows/Python 3.12. Mỗi target cài wheelhouse trong virtualenv mới với `pip --no-index --require-hashes`, rồi chạy CLI help và audit DOCX tiếng Việt kèm Markdown report. Manifest chứa SHA-256 từng wheel. Ubuntu/Python 3.12 runner độc lập tái tạo canonical wheel với SHA-256 `87905000018f721ebf85952021c8a91d86edc0e373e1e6abc10e6c8f55c94282`. Artifacts `chuanhoabang-offline-*-e5322ecebe3a040d5440145d1e0b42c7c595c765` và `chuanhoabang-preview-e5322ecebe3a040d5440145d1e0b42c7c595c765` hết hạn 19/11/2026. Đây là bằng chứng cho package preview; Microsoft Word acceptance vẫn `NOT_RUN`.
 - Regression bổ sung khóa marker bố cục/chữ ký ở mọi hàng bảng vào REVIEW, nhận dạng dấu gạch Unicode trong khẩu hiệu hành chính; một regression khác xác nhận tệp đầu ra được tạo đồng thời không bị ghi đè sau khi DOCX đã được kiểm tra.
 - Đây là kiểm thử cấu trúc trên DOCX tổng hợp với metric font giả lập; không đo TNR có bản quyền, không phải Microsoft Word acceptance.
 - Kiểm chứng LibreOffice 25.x tại bảng 90 dòng (không phải Word acceptance): header ở trang 2 có sau patch; số trang thay đổi 12 → 13 do chi phí chiều cao hàng tiêu đề.
