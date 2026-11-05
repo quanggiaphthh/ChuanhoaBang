@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified code:** PR head [`6f66e454f8c1b4aaa103b32fdc9abda9501cd36b`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/6f66e454f8c1b4aaa103b32fdc9abda9501cd36b), [GitHub Actions run 42094491029](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42094491029): **88/88 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Artifact: `chuanhoabang-preview-e2cfcd4792b99dee45a6dee1c22711fedda13d87`, retained until 19/11/2026. Word/WPS and source fixtures remain unverified.
+**Latest verified code:** PR commit [`9c033112d6a0238bc18c98966b1b18580ea2a78b`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/9c033112d6a0238bc18c98966b1b18580ea2a78b), [GitHub Actions run 42097921605](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097921605): **88/88 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. Each target built and uploaded a runtime wheelhouse, installed it in a fresh environment with package indexes disabled, and passed CLI/DOCX audit smoke. An independent Ubuntu/Python 3.12 runner reproduced the canonical wheel SHA-256 `a3c83990a8ae5448e0d119e3c3b6bb195fc004e6e872a69691b51665d1961f43`. Target-specific artifacts `chuanhoabang-offline-*-ce74ffd5d654b589834fd2aa3d1102902fda2eeb` and the preview wheel are retained until 19/11/2026. Word/WPS and source fixtures remain unverified.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -25,7 +25,7 @@
 | [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 88 PASS across 5 environments incl archive/profile/geometry/rollback/classifier/story-ownership guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LibreOffice secondary smoke; [repeatable Microsoft Word protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) | Independent Microsoft Word and WPS evidence on supported fixtures | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
-| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Locked runtime/test dependencies; exact build backend pins; same-run repeat-build hash and manifest; canonical wheel install verified across 5 environments | Independent-builder reproducibility, release/update rollback, Word/WPS acceptance, original fixtures, remaining security/compatibility gates | PARTIAL |
+| [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Locked runtime/test dependencies; exact build backend pins; source/lock/artifact manifests; target-specific offline wheelhouses with `--no-index` clean installs across 5 environments; separate-runner wheel SHA match | Release/update rollback, versioned release notes, Word/WPS acceptance, original fixtures, remaining security/compatibility gates | PARTIAL |
 
 ## Delivered changes beyond original PR bootstrap
 
@@ -39,6 +39,7 @@
 - Layout/signature hints now fail closed when found in any table row; DOCX publication fails closed if another process creates the requested output after initial validation.
 - `audit` now counts and hashes tables in header/footer/footnotes/endnotes separately from body table indices; the CLI Markdown report exposes these stories and preserves their unsupported status.
 - Explicit header/footer relationship IDs now map to zero-based section indices and reference types. Duplicate IDs, unreferenced parts, and inherited linkage remain unresolved; tests cover first/second sections and the unreferenced/ambiguous cases.
+- The release workflow now emits target-specific runtime wheelhouses with a per-wheel SHA-256 manifest; fresh `pip --no-index` installs and a separate-runner canonical-wheel rebuild are release checks.
 
 ## Release decision
 
@@ -168,3 +169,9 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 
 - Layout text is NFKC-normalized and common Unicode dash characters are normalized before matching existing official-layout hints. This catches “Độc lập – Tự do – Hạnh phúc” and em-dash variants even in trailing rows after a data-looking header.
 - Two new regression variants failed before the fix and pass afterward with `POSSIBLE_LAYOUT_TABLE` / `REVIEW_REQUIRED`. Local full suite **88/88 PASS**; GitHub Actions [42094491029](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42094491029) **88/88 PASS** on all five environments. This remains a heuristic safety improvement, not formal semantic classification; CB-05 stays partial.
+
+## CB-16 follow-up — offline wheelhouses and independent rebuild (05/11/2026)
+
+- Commit `5911fe4` added a target-specific runtime wheelhouse for Linux/Python 3.10–3.13 and Windows/Python 3.12. Each bundle contains the canonical app wheel, hash-checked binary runtime wheels, exported locked requirements, and a target/install manifest. A fresh virtual environment installs from the wheelhouse using `pip --no-index`, then runs CLI help and a Vietnamese DOCX audit/report smoke.
+- First CI attempt [42097131878](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097131878) **FAIL** only on Windows because Git checkout line endings changed the working-tree hash of `uv.lock`. Commit `fb79b21` changed the comparison to the committed Git blob; rerun [42097567245](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097567245) passed the full **88/88** suite and offline install check in all five environments.
+- Commit `9c03311` added a second-runner reproducibility comparison. [Run 42097921605](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42097921605) passed **88/88** on each environment; the independent Ubuntu/Python 3.12 runner rebuilt the canonical wheel with the same SHA-256 `a3c83990a8ae5448e0d119e3c3b6bb195fc004e6e872a69691b51665d1961f43`. Offline artifacts for Linux/Python 3.10–3.13 and Windows/Python 3.12 expire **19/11/2026**. This closes the tested offline-install and independent-rebuild subgates, not CB-16: release/update rollback, power-loss behavior, Word/WPS, licensed TNR, and original fixture gates remain **NOT_RUN / UNAVAILABLE**.
