@@ -863,17 +863,20 @@ def test_floating_or_indented_table_position_blocks_all_proposals(
 
 
 @pytest.mark.parametrize(("table_margin", "cell_margin", "expected_padding", "min_first_width",
-                         "expected_basis"), [
+                         "expected_basis", "expected_assumed_padding"), [
     ({"left": 300, "right": 400}, None, [[700, 700, 700]] * 3, 1507,
-     "EXPLICIT_DXA"),
+     "EXPLICIT_DXA", None),
     ({"left": 100, "right": 100}, {"left": 400, "right": 300},
      [[700, 200, 200], [200, 200, 200], [200, 200, 200]], 1007,
-     "EXPLICIT_DXA"),
-    (None, None, [[240, 240, 240]] * 3, 1047, "ASSUMED_DEFAULT"),
+     "EXPLICIT_DXA", None),
+    (None, {"left": 300, "right": 400},
+     [[700, 240, 240], [240, 240, 240], [240, 240, 240]], 1047,
+     "EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION", 240),
+    (None, None, [[240, 240, 240]] * 3, 1047, "ASSUMED_DEFAULT", 240),
 ])
 def test_cell_margin_geometry_feeds_width_metrics(
         tmp_path, monkeypatch, table_margin, cell_margin, expected_padding, min_first_width,
-        expected_basis):
+        expected_basis, expected_assumed_padding):
     class FakeFont:
         def getlength(self, text):
             return len(text) * 12
@@ -928,10 +931,11 @@ def test_cell_margin_geometry_feeds_width_metrics(
     assert report["status"] == "SUPPORTED"
     assert report["width_evidence"]["cell_padding"]["twips_by_row"] == expected_padding
     assert report["width_evidence"]["cell_padding"]["basis"] == expected_basis
+    assert report["width_evidence"]["cell_padding"]["assumed_default_twips"] == expected_assumed_padding
     assert proposal["decision"] == "PROPOSE_APPLY"
     assert proposal["candidate_twips"][0] >= min_first_width
     assert proposal["metrics"]["padding_twips_by_cell"] == expected_padding
-    assert proposal["metrics"]["padding_twips_assumed"] == 240
+    assert proposal["metrics"]["padding_twips_assumed"] == expected_assumed_padding
     assert propose_header(path, 0)["decision"] == "PROPOSE_APPLY"
     assert propose_unclip_row_height(path, 0)["decision"] == "NO_OP_VALID"
     assert path.read_bytes() == before

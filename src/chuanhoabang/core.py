@@ -530,7 +530,7 @@ def _cell_padding(tbl, rows):
         "basis": ("EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION"
                   if has_explicit_horizontal_margin and uses_default_assumption else
                   "EXPLICIT_DXA" if has_explicit_horizontal_margin else "ASSUMED_DEFAULT"),
-        "assumed_default_twips": default_padding,
+        "assumed_default_twips": default_padding if uses_default_assumption else None,
         "twips_by_row": padding_rows,
     }
 
