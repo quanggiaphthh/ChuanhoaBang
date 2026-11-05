@@ -132,6 +132,34 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
         apply(path, proposal, target)
 
 
+def test_post_write_validation_failure_rolls_back_output_and_temp_file(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    assert proposal["decision"] == "PROPOSE_APPLY"
+    target = tmp_path / "output" / "failed.docx"
+    original_assert_safe = core._assert_safe
+    validation_calls = 0
+
+    def fail_after_temp_write(*args, **kwargs):
+        nonlocal validation_calls
+        validation_calls += 1
+        if validation_calls == 2:
+            raise TableError("INJECTED_OUTPUT_VALIDATION_FAILURE")
+        return original_assert_safe(*args, **kwargs)
+
+    monkeypatch.setattr(core, "_assert_safe", fail_after_temp_write)
+    with pytest.raises(TableError, match="INJECTED_OUTPUT_VALIDATION_FAILURE"):
+        apply(source, proposal, target)
+
+    assert validation_calls == 2
+    assert source.read_bytes() == source_before
+    assert not target.exists()
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
 def test_proposal_modification_and_invalid_zip_are_rejected(tmp_path, monkeypatch):
     path = fixture_docx(tmp_path)
     meta = audit(path)["tables"][0]
