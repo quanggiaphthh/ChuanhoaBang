@@ -10,8 +10,8 @@
 
 | Gate | Yêu cầu để v1.0 | Trạng thái ở technical preview |
 |---|---|---|
-| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset (64/64 GitHub Actions; 65/65 local after archive guard, 05/11/2026) |
-| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset (65 local pytest, 05/11/2026); latest compressed-archive size-guard change awaits CI |
+| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset (65/65 GitHub Actions and local, 05/11/2026) |
+| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset (65/65 GitHub Actions and local, 05/11/2026) |
 | AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset (43 pytest, 05/11/2026) |
 | GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset (43 pytest, 05/11/2026); Word not verified |
 | FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |

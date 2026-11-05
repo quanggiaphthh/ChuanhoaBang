@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified:** commit `adf67e3c637da7e7157c0503958dfcf7edadb7ec`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42074935268): **64/64 PASS** on Python 3.11; wheel build, isolated install, packaged registry/profile check, and installed CLI smoke also **PASS**. DOCX fixtures remain synthetic.
+**Latest verified:** commit `28a6f015b250573d28690318b19cde6deaa0e657`, [GitHub CI](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42076213808): **65/65 PASS** on Python 3.11; wheel build, isolated install, packaged registry/profile check, and installed CLI smoke also **PASS**. DOCX fixtures remain synthetic.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -22,7 +22,7 @@
 | [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; CI wheel/install smoke | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 64 PASS (latest prior code) and 65 local PASS incl archive-size guard | Original F01–F08/V15 plus target renderer cases; CI for latest guard pending | PARTIAL |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 65 PASS incl archive-size guard | Original F01–F08/V15 plus target renderer cases | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LO secondary smoke documents | Independent Microsoft Word and WPS evidence | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
 | [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Release gates; CI test and wheel-install smoke | Dependency pinning, reproducible build/rollback, Word acceptance, remaining security/compatibility gates | NOT_READY |
@@ -97,4 +97,4 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 ## CB-04/16 follow-up — compressed archive size guard
 
 - `_package` rejects a DOCX archive larger than 64 MiB before opening it with `ZipFile`; existing entry-size, total-uncompressed-size, entry-count, duplicate-name, and compression-ratio checks remain in place.
-- A synthetic regression lowers the configured limit and asserts the ZIP reader is never invoked. Targeted test **1 PASS** and full local suite **65 PASS** on Python 3.12. The latest GitHub run predates this code change; CI verification is pending.
+- A synthetic regression lowers the configured limit and asserts the ZIP reader is never invoked. Targeted test **1 PASS** and full local suite **65 PASS** on Python 3.12. GitHub Actions run [42076213808](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42076213808) completed **65/65 PASS** on Python 3.11.
