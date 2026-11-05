@@ -476,6 +476,55 @@ def _assert_safe(old_data, new_data, index, *, allow_first_row_header=False,
         raise TableError("NON_TARGET_DOC_CHANGED")
 
 
+def _paging_horizontal_span_only(raw, table_index, info):
+    """Narrow exception: valid horizontal spans may use *non-width* paging patches.
+
+    Width optimization remains blocked: spans require a separate constraint solver.
+    Vertical merges, omitted cells, malformed grid sums, nested tables, locks,
+    signatures, tracked content and unrecognized table roles remain blocked.
+    """
+    allowed = {"MERGED_OR_OMITTED_CELLS", "NON_RECTANGULAR_OR_MISSING_GRID"}
+    reasons = set(info["reasons"])
+    if "MERGED_OR_OMITTED_CELLS" not in reasons or not reasons.issubset(allowed):
+        return False
+    root = _xml(raw)
+    table = _tables(root)[table_index]
+    if table.xpath(".//w:vMerge | .//w:gridBefore | .//w:gridAfter | .//w:tbl", namespaces=NS):
+        return False
+    count = len(table.xpath("./w:tblGrid/w:gridCol", namespaces=NS))
+    if count < 2:
+        return False
+    saw_merge = False
+    for row in table.xpath("./w:tr", namespaces=NS):
+        total = 0
+        for cell in row.xpath("./w:tc", namespaces=NS):
+            spans = cell.xpath("./w:tcPr/w:gridSpan", namespaces=NS)
+            if len(spans) > 1:
+                return False
+            try:
+                span = int(spans[0].get(W + "val")) if spans else 1
+            except (ValueError, TypeError):
+                return False
+            if span <= 0 or span > count:
+                return False
+            total += span
+            saw_merge |= span > 1
+        if total != count:
+            return False
+    return saw_merge
+
+
+def _allow_paging_only(path, table_index, info, result):
+    """Restrict horizontal-merge override to operation-specific safe proposals."""
+    if info["status"] == "SUPPORTED":
+        return True
+    raw, _, _ = _package(path)
+    if not _paging_horizontal_span_only(raw, table_index, info):
+        return False
+    result["reasons"] = ["HORIZONTAL_GRIDSPAN_PAGING_ONLY"]
+    return True
+
+
 def propose_header(path, table_index):
     """Propose repeating an existing, clearly identified first data-table row.
 
@@ -491,7 +540,7 @@ def propose_header(path, table_index):
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
               "word_render": "NOT_RUN", "content_modified": False}
-    if table["status"] != "SUPPORTED":
+    if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _ = _package(path)
     target = _tables(_xml(raw))[table_index]
@@ -546,7 +595,7 @@ def propose_unclip_row_height(path, table_index):
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
-    if table["status"] != "SUPPORTED":
+    if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _ = _package(path)
     tbl = _tables(_xml(raw))[table_index]
