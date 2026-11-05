@@ -13,6 +13,7 @@ import os
 import posixpath
 import re
 import tempfile
+import unicodedata
 from importlib.resources import files as package_files
 from pathlib import Path
 from zipfile import BadZipFile, ZipFile
@@ -35,6 +36,9 @@ HEADER_HINTS = ("stt", "họ tên", "họ và tên", "nội dung", "nhiệm vụ
                 "kết quả", "thời gian", "ngày", "số", "kinh phí", "ghi chú", "trách nhiệm",
                 "tiến độ", "sản phẩm", "chủ trì", "phối hợp", "tên", "thành tiền")
 LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng ủy", "đảng bộ", "nơi nhận", "người ký", "tổng giám đốc")
+LAYOUT_DASH_TRANSLATION = str.maketrans({
+    char: "-" for char in "\u2010\u2011\u2012\u2013\u2014\u2212"
+})
 DANGEROUS_IN_TABLE = [".//w:sdt", ".//w:ins", ".//w:del", ".//w:moveFrom", ".//w:moveTo",
                       ".//w:fldChar", ".//w:instrText", ".//w:drawing", ".//w:pict",
                       ".//w:object", ".//w:altChunk", ".//w:hyperlink",
@@ -271,6 +275,12 @@ def _text(cell):
                     for p in cell.xpath("./w:p", namespaces=NS)).strip()
 
 
+def _normalize_layout_text(value):
+    text = unicodedata.normalize("NFKC", value).casefold().translate(LAYOUT_DASH_TRANSLATION)
+    text = re.sub(r"\s*-\s*", " - ", text)
+    return " ".join(text.split())
+
+
 def _details(tbl, idx, geom, locks):
     rows = tbl.xpath("./w:tr", namespaces=NS)
     grid = tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS)
@@ -301,9 +311,9 @@ def _details(tbl, idx, geom, locks):
     # Layout and signature markers often occur in trailing rows or the body,
     # after a plausible data-looking first row. Scan the whole table before
     # allowing any operation that assumes this is an ordinary data table.
-    table_text = " ".join(
+    table_text = _normalize_layout_text(" ".join(
         _text(cell) for row in rows for cell in row.xpath("./w:tc", namespaces=NS)
-    ).casefold()
+    ))
     if any(x in table_text for x in LAYOUT_HINTS):
         reasons.append("POSSIBLE_LAYOUT_TABLE")
     elif len(rows) < 2 or sum(bool(x) for x in header) < 2 or not any(x in header_str for x in HEADER_HINTS):

@@ -89,6 +89,21 @@ def test_layout_marker_anywhere_in_table_forces_review(tmp_path):
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
+@pytest.mark.parametrize("marker", [
+    "Độc lập – Tự do – Hạnh phúc",
+    "Độc lập — Tự do — Hạnh phúc",
+])
+def test_official_slogan_with_typographic_dashes_forces_review(tmp_path, marker):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(2, 2).text = marker
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+    assert table["status"] == "REVIEW_REQUIRED"
+    assert "POSSIBLE_LAYOUT_TABLE" in table["reasons"]
+
+
 @pytest.mark.parametrize("story_name", ["header", "footer"])
 def test_audit_reports_story_tables_without_body_indices(tmp_path, story_name):
     path = fixture_docx(tmp_path)
