@@ -2,7 +2,7 @@
 
 **Baseline:** main 13be13e0d34ee7f603a2bdd24e84493d7cae4c33  
 **Implementation:** PR [#17](https://github.com/quanggiaphthh/ChuanhoaBang/pull/17), branch `feat/offline-docx-table-core-v01`.  
-**Latest verified code:** PR head `8155ec2965fc5186c0106cb0e0943c3eb9a90934`, [GitHub Actions run 42088771669](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42088771669): **78/78 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Wheel SHA-256: `9dfb26ea00c5b9b5dc94d2decec9b1bc5fa30d07d426da3ba0f3147e48ef63f8`. Word/WPS and source fixtures remain unverified.
+**Latest verified code:** PR head [`c5ddf6a8f092af52c43bf2a5e34696dbf0933c1d`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/c5ddf6a8f092af52c43bf2a5e34696dbf0933c1d), [GitHub Actions run 42090475384](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42090475384): **80/80 PASS** on Ubuntu/Python 3.10, 3.11, 3.12, 3.13 and Windows/Python 3.12. One canonical wheel was built twice with identical SHA-256, uploaded with its manifest, then the same wheel was hash-checked, installed, and smoke-tested in all five environments. Artifact: `chuanhoabang-preview-bcc56b41c36652e0a14fa811bf069e784d0ad5f3`, retained until 19/11/2026. Word/WPS and source fixtures remain unverified.
 
 > This is a technical preview. All issues remain open until their acceptance criteria are fully met and work is merged as appropriate. Not a production release.
 
@@ -14,15 +14,15 @@
 | [#2](https://github.com/quanggiaphthh/ChuanhoaBang/issues/2) policies | Packaged runtime registry; ND30/HD05 selection and proposal binding; sourced profile-specific width-metric size gate; orientation safety | Complete verified profile presets, authority classification, and legal rule coverage | PARTIAL |
 | [#3](https://github.com/quanggiaphthh/ChuanhoaBang/issues/3) fixtures | Fixture inventory and provenance notes; local/Drive search did not locate originals; 118-case synthetic evidence contains 0 DOCX fixtures | Obtain original checksum-verified F01–F08 & V15 binaries | BLOCKED_PARTIAL |
 | [#4](https://github.com/quanggiaphthh/ChuanhoaBang/issues/4) OPC reader | Read-only audit and table inventory; uncompressed-entry, ratio, and compressed-archive size guards | Broader document fixtures and source validation | PARTIAL |
-| [#5](https://github.com/quanggiaphthh/ChuanhoaBang/issues/5) classification | Layout/lock/complex refusal and 7 extra negative markup cases | Formal sample corpus, robust table semantics, authority validation | PARTIAL |
+| [#5](https://github.com/quanggiaphthh/ChuanhoaBang/issues/5) classification | Layout/lock/complex refusal, 7 negative markup cases, and layout-marker scan across every table row | Formal sample corpus, robust table semantics, authority validation | PARTIAL |
 | [#6](https://github.com/quanggiaphthh/ChuanhoaBang/issues/6) geometry | Single-section geometry, orientation/text-column gates, gutter subtraction, mirrored-margin plus gutter fail closed, diagnostics and bounded paragraph-style inheritance | Actual per-column width resolution, nested/story ownership, remaining style cascade and Word page-position evidence | PARTIAL |
 | [#7](https://github.com/quanggiaphthh/ChuanhoaBang/issues/7) glyphs | Optional local Pillow/RAQM; supported style chain and regular/bold/italic face metadata gates | Licensed genuine TNR face validation, Unicode shaping evidence | BLOCKED_PARTIAL |
 | [#8](https://github.com/quanggiaphthh/ChuanhoaBang/issues/8) width | Bounded optimizer on rectangular tables; no automatic landscape | Real font/renderer validation and historical fixture comparison | PARTIAL |
-| [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist; stale proposal guard; non-target parts/path safety; post-write validation failure removes temp output and preserves source | Broader DOCX interoperability, release/update rollback and remaining merge/review cases | PARTIAL |
+| [#9](https://github.com/quanggiaphthh/ChuanhoaBang/issues/9) patch | Operation-specific OOXML whitelist; stale proposal guard; non-target parts/path safety; post-write validation cleanup; atomic no-overwrite publish if a destination appears concurrently | Broader DOCX interoperability, release/update rollback and remaining merge/review cases | PARTIAL |
 | [#10](https://github.com/quanggiaphthh/ChuanhoaBang/issues/10) CLI/API | Public Python API and CLI audit/propose/explicit apply; JSON and Markdown; no-overwrite; canonical wheel and manifest installed/smoke-tested across five environments | End-to-end user document acceptance | PARTIAL |
 | [#11](https://github.com/quanggiaphthh/ChuanhoaBang/issues/11) pages | Repeat first header, exact→atLeast opt-in; supports valid horizontal gridSpan-only for paging; LO synthetic smoke | Conditional row split, Word Print Layout acceptance | PARTIAL |
 | [#12](https://github.com/quanggiaphthh/ChuanhoaBang/issues/12) complex | Narrow support for horizontal gridSpan paging; refuse vMerge/nested/merged AutoFit | Constraint-solving AutoFit for merged tables, broader topology/Word tests | PARTIAL |
-| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 78 PASS across 5 environments incl archive/profile/geometry/rollback guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
+| [#13](https://github.com/quanggiaphthh/ChuanhoaBang/issues/13) regression | GitHub Actions 80 PASS across 5 environments incl archive/profile/geometry/rollback/classifier guards and hash-verified canonical wheel | Original F01–F08/V15 plus target renderer cases | PARTIAL |
 | [#14](https://github.com/quanggiaphthh/ChuanhoaBang/issues/14) Word/WPS QA | LibreOffice secondary smoke; [repeatable Microsoft Word protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) | Independent Microsoft Word and WPS evidence on supported fixtures | NOT_RUN |
 | [#15](https://github.com/quanggiaphthh/ChuanhoaBang/issues/15) WordVN | GitHub `quanggiaphthh/WordVN` main inspected: only README | Editor importer/exporter, selection/Undo API must exist before adapter | BLOCKED |
 | [#16](https://github.com/quanggiaphthh/ChuanhoaBang/issues/16) release | Locked runtime/test dependencies; exact build backend pins; same-run repeat-build hash and manifest; canonical wheel install verified across 5 environments | Independent-builder reproducibility, release/update rollback, Word/WPS acceptance, original fixtures, remaining security/compatibility gates | PARTIAL |
@@ -36,6 +36,7 @@
 - Reduced CI duplication: push main / PR / optional manual dispatch, rather than double-running push and PR on a feature branch.
 - Added a locked runtime/test graph and a canonical preview-wheel build. CI repeats the build, records a SHA-256 manifest, and tests the same artifact on all supported environments.
 - Added fail-closed mirrored-margin/gutter geometry handling and a post-write validation rollback regression.
+- Layout/signature hints now fail closed when found in any table row; DOCX publication fails closed if another process creates the requested output after initial validation.
 
 ## Release decision
 
@@ -142,3 +143,9 @@ The absence of licensed Times New Roman validation, original corpus, Word/WPS ev
 
 - A regression injects a failure at the second invariant check, after the candidate ZIP is written. The source remains byte-identical, the output path remains absent, and the temporary `.docx` is removed.
 - Local full suite **78/78 PASS**; CI [42088771669](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42088771669) **78/78 PASS** on all five environments. This verifies validation-failure cleanup; release/update rollback and power-loss behavior remain **NOT_RUN**.
+
+## CB-05/09 follow-up — table-wide classification and no-clobber publication (05/11/2026)
+
+- CB-05 regression placed `Nơi nhận` in a trailing row after a plausible data header. It failed before the fix because only the first row was scanned; classifier now scans all table cells and returns `POSSIBLE_LAYOUT_TABLE` / `REVIEW_REQUIRED`.
+- CB-09 regression created a destination during the second, post-write invariant check. The old `os.replace` path overwrote it. Publication now uses an atomic same-directory hard link; an existing destination raises `OUTPUT_MUST_BE_NEW_PATH`, preserves both the existing file and the source, and cleans the temporary file.
+- Test-first check: each new regression failed before its fix and passed after it. Local full suite **80/80 PASS**. GitHub Actions [42090475384](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42090475384) **80/80 PASS** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12. Both issue scopes remain partial; broad classifier corpus, target-renderer proof, filesystem crash durability, and release/update rollback remain unverified.
