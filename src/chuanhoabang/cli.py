@@ -26,17 +26,21 @@ def render_markdown(result: dict) -> str:
             lines.append(f"| {safe(key)} | {safe(result[key])} |")
     if isinstance(result.get("tables"), list):
         lines += ["", "## Bảng được phát hiện", "",
-                  "| STT | Trạng thái | Hàng | Cột | Lý do |", "|---:|---|---:|---:|---|"]
+                  "| Table ID | Parent table ID | STT | Trạng thái | Hàng | Cột | Lý do |",
+                  "|---|---|---:|---|---:|---:|---|"]
         for table in result["tables"]:
-            lines.append(f"| {table.get('index', '?')} | {safe(table.get('status', 'UNKNOWN'))} | "
+            parent_id = table.get("parent_table_id") or "—"
+            lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
+                         f"`{safe(parent_id)}` | {table.get('index', '?')} | "
+                         f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{table.get('rows', '?')} | {table.get('columns', '?')} | "
                          f"{safe(', '.join(table.get('reasons', [])))} |")
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
                   "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp; "
                   "kế thừa header/footer giữa section chưa được phân giải.", "",
-                  "| Part | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
-                  "|---|---:|---|---|---|---|---|"]
+                  "| Part | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
+                  "|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
             references = "; ".join(
                 f"section {ref.get('section_index', '?')} "
@@ -44,6 +48,8 @@ def render_markdown(result: dict) -> str:
                 for ref in table.get("section_references", [])
             ) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
+                         f"`{safe(table.get('table_id', '?'))}` | "
+                         f"`{safe(table.get('parent_table_id') or '—')}` | "
                          f"{table.get('story_table_index', '?')} | "
                          f"`{safe(table.get('table_sha256', '?'))}` | "
                          f"{safe(table.get('owner_status', 'UNKNOWN'))} | "
@@ -51,7 +57,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
-            lines.append("| — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
+            lines.append("| — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])

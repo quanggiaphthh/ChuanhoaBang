@@ -21,24 +21,46 @@ def test_markdown_render_has_real_line_breaks():
 def test_markdown_render_exposes_non_body_story_table_inventory():
     report = render_markdown({
         "table_count": 1,
-        "non_body_story_table_count": 1,
-        "non_body_story_tables": [{
-            "part": "word/header1.xml",
-            "story_table_index": 0,
-            "table_sha256": "a" * 64,
-            "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
-            "section_references": [{
-                "section_index": 0,
-                "story_type": "header",
-                "reference_type": "default",
-            }],
-            "status": "REVIEW_REQUIRED",
-            "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
-        }],
+        "non_body_story_table_count": 2,
+        "non_body_story_tables": [
+            {
+                "part": "word/header1.xml",
+                "story_table_index": 0,
+                "table_id": "word/header1.xml#table=0:outer1234",
+                "parent_table_id": None,
+                "table_sha256": "a" * 64,
+                "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
+                "section_references": [{
+                    "section_index": 0,
+                    "story_type": "header",
+                    "reference_type": "default",
+                }],
+                "status": "REVIEW_REQUIRED",
+                "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
+            },
+            {
+                "part": "word/header1.xml",
+                "story_table_index": 1,
+                "table_id": "word/header1.xml#table=1:child1234",
+                "parent_table_id": "word/header1.xml#table=0:outer1234",
+                "table_sha256": "b" * 64,
+                "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
+                "section_references": [{
+                    "section_index": 0,
+                    "story_type": "header",
+                    "reference_type": "default",
+                }],
+                "status": "REVIEW_REQUIRED",
+                "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
+            },
+        ],
     })
-    assert "| non_body_story_table_count | 1 |" in report
+    assert "| non_body_story_table_count | 2 |" in report
     assert "## Bảng trong header/footer/footnote/endnote" in report
     assert "word/header1.xml" in report
+    assert "word/header1.xml#table=0:outer1234" in report
+    assert "word/header1.xml#table=1:child1234" in report
+    assert "Parent table ID" in report
     assert "a" * 64 in report
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report
     assert "section 0 header/default" in report

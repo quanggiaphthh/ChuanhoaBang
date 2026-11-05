@@ -203,6 +203,41 @@ def test_multiple_sections_map_direct_story_references_to_correct_owner(tmp_path
     ]
 
 
+@pytest.mark.parametrize("scope", ["body", "header"])
+def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path, scope):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    if scope == "body":
+        parent = doc.tables[0]
+    else:
+        parent = doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    parent.cell(0, 0).add_table(rows=1, cols=1).cell(0, 0).text = "Nested child"
+    doc.save(path)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    if scope == "body":
+        entries = report["tables"]
+        parent_id = entries[0]["table_id"]
+        assert report["table_count"] == 2
+        assert entries[0]["parent_table_id"] is None
+        child = entries[1]
+        assert child["parent_table_id"] == parent_id
+        assert "CONTAINS_NESTED_TABLE" in entries[0]["reasons"]
+        assert "NESTED_OR_CONTENT_CONTROL_TABLE" in child["reasons"]
+    else:
+        entries = report["non_body_story_tables"]
+        parent_id = entries[0]["table_id"]
+        assert [entry["story_table_index"] for entry in entries] == [0, 1]
+        assert entries[0]["parent_table_id"] is None
+        child = entries[1]
+        assert child["parent_table_id"] == parent_id
+
+    assert len({entry["table_id"] for entry in entries}) == len(entries)
+    assert audit(path)["tables" if scope == "body" else "non_body_story_tables"] == entries
+    assert path.read_bytes() == source_before
+
+
 def test_merged_is_not_auto_formatted(tmp_path):
     path = fixture_docx(tmp_path, merged=True)
     result = audit(path)

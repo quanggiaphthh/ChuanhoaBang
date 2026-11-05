@@ -171,11 +171,21 @@ def _non_body_story_tables(story_parts, section_references):
     for part, data in sorted(story_parts.items()):
         root = _xml(data)
         owners = section_references.get(part, [])
-        for index, table in enumerate(root.xpath(".//w:tbl", namespaces=NS)):
+        tables = root.xpath(".//w:tbl", namespaces=NS)
+        table_hashes = [digest(etree.tostring(table, method="c14n")) for table in tables]
+        table_ids = {
+            table: f"{part}#table={index}:{table_hash[:16]}"
+            for index, (table, table_hash) in enumerate(zip(tables, table_hashes))
+        }
+        for index, table in enumerate(tables):
+            ancestors = table.xpath("ancestor::w:tbl", namespaces=NS)
+            parent_id = table_ids.get(ancestors[-1]) if ancestors else None
             inventory.append({
                 "part": part,
                 "story_table_index": index,
-                "table_sha256": digest(etree.tostring(table, method="c14n")),
+                "table_id": table_ids[table],
+                "parent_table_id": parent_id,
+                "table_sha256": table_hashes[index],
                 "owner_status": ("DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
                                  "SECTION_RELATIONSHIP_NOT_RESOLVED"),
                 "section_references": owners,
@@ -281,7 +291,7 @@ def _normalize_layout_text(value):
     return " ".join(text.split())
 
 
-def _details(tbl, idx, geom, locks):
+def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     rows = tbl.xpath("./w:tr", namespaces=NS)
     grid = tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS)
     widths = []
@@ -330,9 +340,10 @@ def _details(tbl, idx, geom, locks):
                   "exact_line_spacing_paragraphs": len(tbl.xpath(".//w:pPr/w:spacing[@w:lineRule='exact']", namespaces=NS)),
                   "split_prevention_rows": len(tbl.xpath("./w:tr/w:trPr/w:cantSplit", namespaces=NS))}
     status = "SUPPORTED" if not reasons else "REVIEW_REQUIRED"
-    return {"index": idx, "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
+    return {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
+            "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
-            "table_sha256": digest(etree.tostring(tbl, method="c14n")),
+            "table_sha256": table_hash,
             "pagination_diagnostics": pagination,
             "overflow_declared": bool(widths and geom.get("available_twips") and
                 sum(widths) > geom["available_twips"])}
@@ -344,7 +355,18 @@ def audit(path, profile=None):
     root = _xml(raw)
     geometry = _geometry(root, settings)
     locks = _protected(settings, names, root)
-    tables = [_details(tbl, i, geometry, locks) for i, tbl in enumerate(_tables(root))]
+    body_tables = _tables(root)
+    table_hashes = [digest(etree.tostring(table, method="c14n")) for table in body_tables]
+    table_ids = {
+        table: f"body:{index}:{table_hash[:16]}"
+        for index, (table, table_hash) in enumerate(zip(body_tables, table_hashes))
+    }
+    tables = []
+    for index, table in enumerate(body_tables):
+        ancestors = table.xpath("ancestor::w:tbl", namespaces=NS)
+        parent_id = table_ids.get(ancestors[-1]) if ancestors else None
+        tables.append(_details(table, index, geometry, locks, table_ids[table], parent_id,
+                               table_hashes[index]))
     section_references = _section_story_references(root, document_rels, story_parts)
     story_tables = _non_body_story_tables(story_parts, section_references)
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
