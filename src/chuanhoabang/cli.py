@@ -44,6 +44,15 @@ def render_markdown(result: dict) -> str:
 
 
 def main(argv=None):
+    # CLI JSON and help may contain Vietnamese text and non-ASCII symbols. Keep
+    # console and redirected output predictable on Windows code pages as well.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            try:
+                reconfigure(encoding="utf-8")
+            except (OSError, ValueError):
+                pass
     parser = argparse.ArgumentParser(prog="chuanhoabang", description="Conservative offline DOCX table-width formatter")
     sub = parser.add_subparsers(dest="command", required=True)
     p_audit = sub.add_parser("audit", help="Read-only inspection of all body tables")

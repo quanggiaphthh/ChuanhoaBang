@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 
+from docx import Document
+
 
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="chuanhoabang-wheel-") as temp_dir:
@@ -42,6 +44,16 @@ assert chuanhoabang.available_profiles() == ('ND30', 'HD05')
         subprocess.run([sys.executable, "-c", smoke], cwd=temp, env=env, check=True)
         subprocess.run([sys.executable, "-m", "chuanhoabang", "--help"],
                        cwd=temp, env=env, check=True)
+        document = Document()
+        table = document.add_table(rows=2, cols=3)
+        for row, values in zip(table.rows, (("STT", "Nội dung", "Ghi chú"),
+                                            ("0012", "Nhiệm vụ ưu tiên", "Đang làm"))):
+            for cell, value in zip(row.cells, values):
+                cell.text = value
+        source = temp / "utf8-smoke.docx"
+        document.save(source)
+        subprocess.run([sys.executable, "-m", "chuanhoabang", "audit", str(source),
+                        "--profile", "ND30"], cwd=temp, env=env, check=True)
 
 
 if __name__ == "__main__":
