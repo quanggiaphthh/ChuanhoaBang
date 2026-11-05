@@ -118,13 +118,13 @@
     {
       "id": "CELL-MARGIN-GEOMETRY-001",
       "authority": "PROJECT_POLICY",
-      "scope": "body tables with explicit table-level or cell-level margins",
-      "preconditions": ["width optimization requested", "runtime does not resolve the effective table-style and cell-level margin cascade"],
+      "scope": "body tables with explicit table-level or cell-level horizontal margins",
+      "preconditions": ["width optimization requested", "direct table/cell margins are limited to resolved left/right dxa declarations"],
       "severity": "HARD",
-      "safe_action": "REVIEW_TARGET_TABLE",
+      "safe_action": "RESOLVE_SIMPLE_DXA_OR_REVIEW_TARGET",
       "requires_approval": false,
       "evidence_level": "SOURCE_XML",
-      "postconditions": ["explicit tblCellMar or tcMar keeps the target table REVIEW_REQUIRED", "no width, header-repeat, or row-height proposal is issued"]
+      "postconditions": ["valid left/right dxa margins feed per-cell width estimates", "unsupported, partial, duplicate, or malformed declarations keep the target REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
     },
     {
       "id": "TABLE-SCOPE-001",

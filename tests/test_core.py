@@ -862,11 +862,79 @@ def test_floating_or_indented_table_position_blocks_all_proposals(
     assert path.read_bytes() == before
 
 
+@pytest.mark.parametrize(("table_margin", "cell_margin", "expected_padding", "min_first_width"), [
+    ({"left": 300, "right": 400}, None, [[700, 700, 700]] * 3, 1507),
+    ({"left": 100, "right": 100}, {"left": 400, "right": 300},
+     [[700, 200, 200], [200, 200, 200], [200, 200, 200]], 1007),
+])
+def test_explicit_dxa_cell_margins_feed_width_metrics(
+        tmp_path, monkeypatch, table_margin, cell_margin, expected_padding, min_first_width):
+    class FakeFont:
+        def getlength(self, text):
+            return len(text) * 12
+
+    from chuanhoabang import propose_header, propose_unclip_row_height
+
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    first_body_text = table.xpath("./w:tr[2]/w:tc[1]//w:t", namespaces=core.NS)[0]
+    first_body_text.text += " abcdefghijklmnopqrstuvwx"
+    table_properties = table.find(core.W + "tblPr")
+    if table_margin is not None:
+        node = etree.SubElement(table_properties, core.W + "tblCellMar")
+        for side, value in table_margin.items():
+            etree.SubElement(node, core.W + side,
+                             {core.W + "w": str(value), core.W + "type": "dxa"})
+    if cell_margin is not None:
+        first_cell = table.find("./" + core.W + "tr/" + core.W + "tc")
+        cell_properties = first_cell.find(core.W + "tcPr")
+        node = etree.SubElement(cell_properties, core.W + "tcMar")
+        for side, value in cell_margin.items():
+            etree.SubElement(node, core.W + side,
+                             {core.W + "w": str(value), core.W + "type": "dxa"})
+    column_widths = (900, 6400, 1100)
+    for column, width in zip(table.xpath("./w:tblGrid/w:gridCol", namespaces=core.NS),
+                             column_widths):
+        column.set(core.W + "w", str(width))
+    for row in table.xpath("./w:tr", namespaces=core.NS):
+        cell_width = row.xpath("./w:tc[1]/w:tcPr/w:tcW", namespaces=core.NS)[0]
+        cell_width.set(core.W + "w", str(column_widths[0]))
+        cell_width.set(core.W + "type", "dxa")
+    table_width = table.find(core.W + "tblPr/" + core.W + "tblW")
+    table_width.set(core.W + "w", str(sum(column_widths)))
+    table_width.set(core.W + "type", "dxa")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+    before = path.read_bytes()
+    font_path = tmp_path / "synthetic-font.bin"
+    font_path.write_bytes(b"not-a-font; metric loader is patched")
+    monkeypatch.setattr(core, "_load_fonts", lambda *args: (FakeFont(), FakeFont()))
+
+    report = audit(path)["tables"][0]
+    proposal = propose(path, 0, font_regular=font_path, font_bold=font_path)
+
+    assert report["status"] == "SUPPORTED"
+    assert report["width_evidence"]["cell_padding"]["twips_by_row"] == expected_padding
+    assert proposal["decision"] == "PROPOSE_APPLY"
+    assert proposal["candidate_twips"][0] >= min_first_width
+    assert proposal["metrics"]["padding_twips_by_cell"] == expected_padding
+    assert propose_header(path, 0)["decision"] == "PROPOSE_APPLY"
+    assert propose_unclip_row_height(path, 0)["decision"] == "NO_OP_VALID"
+    assert path.read_bytes() == before
+
+
 @pytest.mark.parametrize(("owner", "margin_element"), [
     ("table", "tblCellMar"),
     ("cell", "tcMar"),
 ])
-def test_explicit_cell_margins_make_width_geometry_unknown(
+def test_unresolved_explicit_cell_margins_make_geometry_unknown(
         tmp_path, owner, margin_element):
     from chuanhoabang import propose_header, propose_unclip_row_height
 
@@ -882,7 +950,7 @@ def test_explicit_cell_margins_make_width_geometry_unknown(
     else:
         properties = table.find("./" + core.W + "tr/" + core.W + "tc/" + core.W + "tcPr")
     margins = etree.SubElement(properties, core.W + margin_element)
-    etree.SubElement(margins, core.W + "left", {core.W + "w": "900", core.W + "type": "dxa"})
+    etree.SubElement(margins, core.W + "left", {core.W + "w": "900", core.W + "type": "pct"})
     etree.SubElement(margins, core.W + "right", {core.W + "w": "900", core.W + "type": "dxa"})
     data["word/document.xml"] = (info, etree.tostring(root))
     with ZipFile(path, "w") as package:

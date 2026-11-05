@@ -460,6 +460,74 @@ def _declared_width(parent, tag):
             "raw_value": raw_value, "twips": None}
 
 
+def _cell_padding(tbl, rows):
+    """Resolve simple direct dxa horizontal margins; assume 150 twips otherwise."""
+    default_padding = 150
+
+    def margin_pair(node):
+        allowed = {W + "top", W + "bottom", W + "left", W + "right"}
+        if any(child.tag not in allowed for child in node):
+            raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+        pair = {}
+        for side in ("left", "right"):
+            values = node.findall(W + side)
+            if len(values) > 1:
+                raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+            if not values:
+                continue
+            value = values[0]
+            if value.get(W + "type") != "dxa" or value.get(W + "w") is None:
+                raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+            try:
+                twips = int(value.get(W + "w"))
+            except (TypeError, ValueError):
+                raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED") from None
+            if twips < 0:
+                raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+            pair[side] = twips
+        return pair or None
+
+    table_properties = tbl.find(W + "tblPr")
+    table_nodes = table_properties.findall(W + "tblCellMar") if table_properties is not None else []
+    if len(table_nodes) > 1:
+        raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+    table_pair = margin_pair(table_nodes[0]) if table_nodes else None
+    if table_pair and set(table_pair) != {"left", "right"}:
+        raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+
+    padding_rows = []
+    has_explicit_horizontal_margin = bool(table_pair)
+    for row in rows:
+        padding_row = []
+        for cell in row.xpath("./w:tc", namespaces=NS):
+            cell_properties = cell.find(W + "tcPr")
+            cell_nodes = cell_properties.findall(W + "tcMar") if cell_properties is not None else []
+            if len(cell_nodes) > 1:
+                raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+            cell_pair = margin_pair(cell_nodes[0]) if cell_nodes else None
+            if cell_pair:
+                has_explicit_horizontal_margin = True
+                if not table_pair and set(cell_pair) != {"left", "right"}:
+                    raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+                left = cell_pair.get("left", table_pair.get("left") if table_pair else None)
+                right = cell_pair.get("right", table_pair.get("right") if table_pair else None)
+                if left is None or right is None:
+                    raise TableError("CELL_MARGIN_GEOMETRY_UNRESOLVED")
+                padding_row.append(left + right)
+            elif table_pair:
+                padding_row.append(table_pair["left"] + table_pair["right"])
+            else:
+                padding_row.append(default_padding)
+        padding_rows.append(padding_row)
+    return {
+        "status": "RESOLVED",
+        "basis": "EXPLICIT_DXA_AND_DEFAULT_ASSUMPTION" if has_explicit_horizontal_margin
+                 else "ASSUMED_DEFAULT",
+        "assumed_default_twips": default_padding,
+        "twips_by_row": padding_rows,
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     rows = tbl.xpath("./w:tr", namespaces=NS)
     grid = tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS)
@@ -473,6 +541,11 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
     reasons = list(locks)
     if geom["status"] != "STRUCTURAL":
         reasons.append(geom["reason"])
+    try:
+        cell_padding = _cell_padding(tbl, rows)
+    except TableError:
+        cell_padding = {"status": "UNRESOLVED", "reason": "CELL_MARGIN_GEOMETRY_UNRESOLVED"}
+        reasons.append("CELL_MARGIN_GEOMETRY_UNRESOLVED")
     tblpr = tbl.find(W + "tblPr")
     table_preferred = _declared_width(tblpr, W + "tblW")
     cell_preferred = [
@@ -492,8 +565,6 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
         reasons.append("MERGED_OR_OMITTED_CELLS")
     if tbl.xpath(".//w:tblpPr | .//w:textDirection", namespaces=NS):
         reasons.append("FLOATING_OR_ROTATED_CONTENT")
-    if tbl.xpath(".//w:tblCellMar | .//w:tcMar", namespaces=NS):
-        reasons.append("CELL_MARGIN_GEOMETRY_UNRESOLVED")
     if any(tbl.xpath(q, namespaces=NS) for q in DANGEROUS_IN_TABLE):
         reasons.append("COMPLEX_CONTENT_OR_TRACKED_CHANGES")
     if not widths or not rows or any(len(r.xpath("./w:tc", namespaces=NS)) != len(widths) for r in rows):
@@ -529,6 +600,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash):
                 "table_preferred": table_preferred,
                 "cell_preferred": cell_preferred,
                 "grid_sum_twips": sum(widths) if widths else None,
+                "cell_padding": cell_padding,
                 "word_rendered": "NOT_RUN",
             },
             "pagination_diagnostics": pagination,
@@ -839,13 +911,20 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
     except TableError as exc:
         result["reasons"].append(str(exc))
         return result
-    padding = 150  # ~2.65mm combined horizontal padding; conservative estimate, not exact effective style.
+    padding = info["width_evidence"]["cell_padding"]
+    padding_by_cell = padding["twips_by_row"]
     current = info["grid_twips"]
     n = len(current)
     usable = base["geometry"]["available_twips"]
-    floors = [max(160, max(_width(token, pt, f) for r in matrix for content, pt, f in r[c]
-                           for token in (re.findall(r"\S+", content) or [""])) + padding)
-              for c in range(n)]
+    floors = [
+        max(160, max(
+            _width(token, pt, f) + padding_by_cell[row_index][c]
+            for row_index, row in enumerate(matrix)
+            for content, pt, f in row[c]
+            for token in (re.findall(r"\S+", content) or [""])
+        ))
+        for c in range(n)
+    ]
     if sum(floors) > usable:
         result["reasons"].append("NO_SAFE_FIT_BY_FONT_METRICS")
         result["evidence"] = "FONT_METRIC_ESTIMATE"
@@ -856,8 +935,9 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
         target = sum(floors)
     def score(widths):
         wrapped = 0
-        for row in matrix:
-            wrapped += max(_estimate_lines(cell, widths[col] - padding) for col, cell in enumerate(row))
+        for row_index, row in enumerate(matrix):
+            wrapped += max(_estimate_lines(cell, widths[col] - padding_by_cell[row_index][col])
+                           for col, cell in enumerate(row))
         return wrapped
     # Ensure baseline floors before swapping, distribute remaining width proportionally.
     residual = target - sum(floors)
@@ -892,7 +972,9 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
                          "font_regular_sha256": digest(Path(font_regular).read_bytes()),
                          "font_bold": Path(font_bold).name if font_bold else None,
                          "font_bold_sha256": digest(Path(font_bold).read_bytes()) if font_bold else None,
-                         "padding_twips_assumed": padding}
+                         "padding_twips_assumed": padding["assumed_default_twips"],
+                         "padding_twips_by_cell": padding_by_cell,
+                         "padding_basis": padding["basis"]}
     if base_feasible and (candidate_score >= baseline_score or candidate == current):
         result["decision"] = "NO_OP_VALID"
         result["reasons"].append("BASELINE_NOT_WORSE")
