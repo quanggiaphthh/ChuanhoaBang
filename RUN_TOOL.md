@@ -27,9 +27,9 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 ```
 
 - `--table` lấy index 0-based từ `audit`. `propose` không sửa DOCX; `apply` cần đề xuất `PROPOSE_APPLY` chưa bị chỉnh và đầu vào **chưa đổi**.
-- `--profile ND30|HD05` ghi profile được chọn vào báo cáo/đề xuất. Registry chưa xác minh preset pháp lý và runtime chưa áp dụng quy tắc riêng cho profile; kết quả vẫn là `REFERENCE_ONLY`, không phải chứng nhận tuân thủ.
+- `--profile ND30|HD05` ghi profile vào báo cáo/đề xuất. Với `propose` đo chiều rộng, runtime chỉ dùng giới hạn cỡ chữ trong `profile_constraints` để xác định run nào đủ điều kiện đo: ND30 13/14 pt; HD05 14 pt theo lựa chọn V16. Size ngoài phạm vi trả `REVIEW_REQUIRED`; không đổi font. Preset pháp lý đầy đủ vẫn chưa xác minh, trạng thái vẫn `REFERENCE_ONLY`, không phải chứng nhận tuân thủ.
 - Phông chữ phải là file Times New Roman hợp pháp có trên máy. **Không sử dụng Tinos/Liberation Serif như Times New Roman**. Runtime kiểm tra metadata family/style: slot regular từ chối face bold/italic; slot bold yêu cầu face bold không italic. Metadata không xác nhận giấy phép hay tính xác thực của font. Nếu không có face phù hợp, lệnh trả `REVIEW_REQUIRED`; không tạo giả phép đo.
-- Để tránh sửa nhầm, AutoFit bản thử nghiệm chỉ xử lý bảng dữ liệu phẳng, một section, khi TNR 13/14 được giải từ run trực tiếp hoặc chuỗi paragraph-style `basedOn` rõ ràng tới style mặc định. Table style, character style, theme font, chuỗi thiếu/cyclic hoặc hiệu ứng chưa hỗ trợ đều trả `REVIEW_REQUIRED`. Ngoại lệ hạn chế: `gridSpan` gộp ngang hợp lệ được phép lặp header hoặc nới chiều cao hàng (không đổi width); gộp dọc, bảng lồng hoặc bảng khóa vẫn bị chặn.
+- Để tránh sửa nhầm, width measurement chỉ xử lý bảng dữ liệu phẳng, một section, khi TNR và size hiệu dụng được giải từ run trực tiếp hoặc chuỗi paragraph-style `basedOn` rõ ràng tới style mặc định. Không chọn profile: 13/14 pt; ND30: 13/14 pt; HD05: 14 pt. Size ngoài scope trả `REVIEW_REQUIRED`. Table style, character style, theme font, chuỗi thiếu/cyclic hoặc hiệu ứng chưa hỗ trợ cũng trả `REVIEW_REQUIRED`. Ngoại lệ hạn chế: `gridSpan` gộp ngang hợp lệ được phép lặp header hoặc nới chiều cao hàng (không đổi width); gộp dọc, bảng lồng hoặc bảng khóa vẫn bị chặn.
 - Nếu `w:pgSz/@w:orient` mâu thuẫn với `w:w`/`w:h`, audit trả `GEOMETRY_UNKNOWN` và optimizer giữ `REVIEW_REQUIRED`; không suy đoán hướng trang hoặc bề rộng khả dụng.
 - Lệnh `propose` (width) chỉ sửa width của bảng được chọn; không thay font, số liệu, orientation, header/footer hoặc height. Điểm width chưa chứng minh độ vừa trang trong Word.
 - Lệnh `propose-header` chỉ bật `w:tblHeader` của **hàng đầu tiên** trên bảng nội dung đơn giản, khi được chọn và áp dụng rõ ràng; không ép `cantSplit`, không sửa nội dung, không tự lặp cho biểu mẫu khóa. Không chứng nhận Word đã lặp thực tế.
@@ -78,7 +78,7 @@ if proposal["decision"] == "PROPOSE_APPLY":
                    font_regular=regular_tnr, font_bold=bold_tnr, profile="ND30")
 ```
 
-The API uses the same offline core and explicit proposal checks as the CLI. A missing or unsupported font can return `REVIEW_REQUIRED`; apply only a `PROPOSE_APPLY` proposal. The selected profile is recorded as `REFERENCE_ONLY` with `profile_rules_applied: false` until profile rules are verified and implemented.
+The API uses the same offline core and explicit proposal checks as the CLI. A missing or unsupported font can return `REVIEW_REQUIRED`; apply only a `PROPOSE_APPLY` proposal. The selected profile is recorded as `REFERENCE_ONLY`; width proposals disclose the narrow metric-size scope in `profile_constraints`, while `profile_rules_applied: false` indicates that no complete profile formatting preset has been applied. This is not a compliance result.
 
 ## Phạm vi hỗ trợ bảng gộp ngang (technical preview)
 

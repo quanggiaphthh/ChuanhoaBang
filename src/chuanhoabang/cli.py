@@ -19,7 +19,7 @@ def render_markdown(result: dict) -> str:
              f"**Kết xuất Microsoft Word:** `{safe(result.get('word_render', 'NOT_RUN'))}`",
              "", "## Thông tin xử lý", "", "| Thuộc tính | Giá trị |", "|---|---|"]
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
-                "profile", "profile_status", "profile_rules_applied",
+                "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "operation", "evidence",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
@@ -50,7 +50,7 @@ def main(argv=None):
     p_audit.add_argument("input")
     p_audit.add_argument("--report-md", help="Write a Markdown QA report to a new file")
     p_audit.add_argument("--profile", choices=available_profiles(),
-                         help="Record ND30/HD05 context; profile rules remain reference-only")
+                         help="Record ND30/HD05 context; no formatting profile preset is applied")
     p_prop = sub.add_parser("propose", help="Generate a deterministic width proposal")
     p_prop.add_argument("input")
     p_prop.add_argument("--table", type=int, required=True, help="0-based table index from audit")
@@ -59,7 +59,7 @@ def main(argv=None):
     p_prop.add_argument("--output", help="Save JSON proposal to this new file")
     p_prop.add_argument("--report-md", help="Write a Markdown QA report to a new file")
     p_prop.add_argument("--profile", choices=available_profiles(),
-                        help="Record ND30/HD05 context; profile rules remain reference-only")
+                        help="Record ND30/HD05 context; width measurement uses profile size scope only")
     p_header = sub.add_parser("propose-header", help="Propose repeat-header for an eligible data table")
     p_header.add_argument("input")
     p_header.add_argument("--table", type=int, required=True, help="0-based table index from audit")

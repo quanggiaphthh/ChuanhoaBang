@@ -365,10 +365,11 @@ def _paragraph_run_props(cell, style_context):
     return props
 
 
-def _runs(cell, style_defaults=None):
+def _runs(cell, style_defaults=None, allowed_sizes=(26, 28), size_error="FONT_SIZE_NOT_13_OR_14"):
     if len(cell.xpath("./w:p", namespaces=NS)) != 1:
         raise TableError("MULTI_PARAGRAPH_CELL_REQUIRES_REVIEW")
     all_runs = cell.xpath("./w:p/w:r", namespaces=NS)
+    allowed_sizes = {str(size) for size in allowed_sizes}
     if not all_runs:
         raise TableError("NON_PLAIN_TEXT_OR_EMPTY_CELL")
     normalized = []
@@ -393,8 +394,8 @@ def _runs(cell, style_defaults=None):
         if props.get("ascii", "").casefold() != "times new roman" or \
                 props.get("hAnsi", "").casefold() != "times new roman":
             raise TableError("UNRESOLVED_EFFECTIVE_FONT")
-        if props.get("size") not in ("26", "28"):
-            raise TableError("FONT_SIZE_NOT_13_OR_14")
+        if props.get("size") not in allowed_sizes:
+            raise TableError(size_error)
         if props.get("italic", False):
             raise TableError("ITALIC_FACE_NOT_IMPLEMENTED")
         normalized.append((runtext, int(props["size"]) / 2, bool(props.get("bold", False))))
@@ -403,8 +404,9 @@ def _runs(cell, style_defaults=None):
     return normalized
 
 
-def _cell_measures(cell, fonts, style_defaults=None):
-    chunks = _runs(cell, style_defaults)
+def _cell_measures(cell, fonts, style_defaults=None, allowed_sizes=(26, 28),
+                   size_error="FONT_SIZE_NOT_13_OR_14"):
+    chunks = _runs(cell, style_defaults, allowed_sizes, size_error)
     measures = []
     for content, pt, is_bold in chunks:
         face = fonts[1] if is_bold else fonts[0]
@@ -448,6 +450,12 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
     if not isinstance(table_index, int) or table_index < 0 or table_index >= base["table_count"]:
         raise TableError("TABLE_INDEX_OUT_OF_RANGE")
     info = base["tables"][table_index]
+    profile_constraints = None
+    if profile is not None:
+        metric_policy = POLICY_REGISTRY["profiles"][profile]["table_width_measurement"]
+        profile_constraints = {"scope": metric_policy["scope"],
+                               "rule_id": metric_policy["rule_id"],
+                               "font_sizes_pt": metric_policy["font_sizes_pt"]}
     result = {"input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
               "profile": base["profile"], "profile_status": base["profile_status"],
@@ -455,6 +463,8 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
               "word_render": "NOT_RUN", "content_modified": False}
+    if profile_constraints is not None:
+        result["profile_constraints"] = profile_constraints
     if info["status"] != "SUPPORTED":
         return result
     if base["geometry"]["status"] != "STRUCTURAL":
@@ -468,7 +478,12 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
         # rather than accidentally measure typography using only Normal style.
         if tbl.xpath("./w:tblPr/w:tblStyle", namespaces=NS):
             raise TableError("TABLE_STYLE_CASCADE_NOT_SUPPORTED")
-        matrix = [[_cell_measures(c, fonts, inherited_styles) for c in row.xpath("./w:tc", namespaces=NS)]
+        allowed_sizes = ((26, 28) if profile_constraints is None else
+                         tuple(size * 2 for size in profile_constraints["font_sizes_pt"]))
+        size_error = ("FONT_SIZE_NOT_13_OR_14" if profile_constraints is None else
+                      "FONT_SIZE_OUTSIDE_PROFILE_METRIC_SCOPE")
+        matrix = [[_cell_measures(c, fonts, inherited_styles, allowed_sizes, size_error)
+                   for c in row.xpath("./w:tc", namespaces=NS)]
                   for row in tbl.xpath("./w:tr", namespaces=NS)]
     except TableError as exc:
         result["reasons"].append(str(exc))
@@ -820,6 +835,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         compare += ("candidate_twips",)
     if "profile" in proposal:
         compare += ("profile", "profile_status", "profile_rules_applied")
+        if not header_operation and not height_operation and selected_profile is not None:
+            compare += ("profile_constraints",)
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
     raw, settings, names = _package(src)
@@ -859,6 +876,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
     return {"decision": "APPLIED", "output": str(dst), "output_sha256": digest(dst.read_bytes()),
             "input_sha256": actual["input_sha256"],
             **profile_context,
+            **({"profile_constraints": actual["profile_constraints"]}
+               if "profile_constraints" in actual else {}),
             "operation": operation,
             "changed_properties": (["tblHeader"] if header_operation else ["trHeight.hRule"]
                                    if height_operation else ["tblGrid", "tblW", "tblLayout", "tcW"]),

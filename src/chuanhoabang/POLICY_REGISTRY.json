@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/USER-ORIENTATION-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -34,12 +34,23 @@
       "id": "FONT-PROFILE-001",
       "authority": "PROJECT_PROFILE_NOT_GENERAL_LAW",
       "scope": "supported content table runs",
-      "preconditions": ["explicit Times New Roman font properties", "13 or 14 pt font size", "licensed local font face provided"],
+      "preconditions": ["effective Times New Roman font properties are resolved", "profile-specific measurement scope permits the declared size", "licensed local font face provided"],
       "severity": "HARD",
       "safe_action": "REVIEW_IF_UNRESOLVED",
       "requires_approval": false,
       "evidence_level": "RESOLVED_EXPLICIT_RUN_FONT_OR_UNKNOWN",
       "postconditions": ["font properties not modified"]
+    },
+    {
+      "id": "PROFILE-METRIC-SIZE-001",
+      "authority": "PROJECT_PROFILE_SUBSET",
+      "scope": "font-size eligibility for table width measurement only",
+      "preconditions": ["profile explicitly selected", "declared effective run size is listed in that profile table_width_measurement"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_OUTSIDE_PROFILE_METRIC_SCOPE",
+      "requires_approval": false,
+      "evidence_level": "DECLARED_EFFECTIVE_RUN_SIZE",
+      "postconditions": ["font properties not modified", "no legal compliance conclusion"]
     },
     {
       "id": "TABLE-SCOPE-001",
@@ -54,8 +65,38 @@
     }
   ],
   "profiles": {
-    "ND30": {"type": "policy-binding", "verified_legal_presets": false},
-    "HD05": {"type": "policy-binding", "verified_legal_presets": false}
+    "ND30": {
+      "type": "policy-binding",
+      "verified_legal_presets": false,
+      "table_width_measurement": {
+        "scope": "WIDTH_METRIC_ELIGIBILITY",
+        "rule_id": "V16-FONT-01",
+        "font_sizes_pt": [13, 14],
+        "selection_basis": "Project policy V16-FONT-01 permits 13 or 14 pt for content-table runs; the official ND30 source gives 13–14 pt for document text.",
+        "official_sources": [{
+          "instrument": "Nghị định 30/2020/NĐ-CP",
+          "catalog_url": "https://vanban.chinhphu.vn/default.aspx?docid=199378&pageid=27160",
+          "text_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/30.signed.pdf",
+          "locator": "Phụ lục I, Phần I, mục II, khoản 6 điểm e (nội dung văn bản: cỡ chữ 13–14 pt)."
+        }]
+      }
+    },
+    "HD05": {
+      "type": "policy-binding",
+      "verified_legal_presets": false,
+      "table_width_measurement": {
+        "scope": "WIDTH_METRIC_ELIGIBILITY",
+        "rule_id": "V16-FONT-02",
+        "font_sizes_pt": [14],
+        "selection_basis": "The official HD05 source lists 14–15 pt for document text; project policy V16-FONT-02 selects 14 pt for table measurement and does not lower it automatically.",
+        "official_sources": [{
+          "instrument": "Hướng dẫn 05-HD/VPTW ngày 27/05/2026",
+          "catalog_url": "https://dangcongsan.vn/vanphongtrunguong/van-ban-cua-dang/huong-dan-so-05-hd-vptw-ngay-27-5-2026-cua-van-phong-trung-uong-dang-ve-the-thuc-va-ky-thuat-trinh-bay-van-ban-cua-dang.html?categoryId=3000525",
+          "text_url": "https://tulieuvankien.dangcongsan.vn/upload/2006988/20260529/HD_05_VPTW_e1550.pdf",
+          "locator": "Phụ lục 2, hàng 6 “Nội dung văn bản” (14–15 pt); V16-FONT-02 selects 14 pt for this project measurement scope."
+        }]
+      }
+    }
   },
-  "limitations": ["Policy registry is reference data; the v0.1 runtime implements only the enumerated safety subset."]
+  "limitations": ["Policy registry is reference data; the runtime implements only the enumerated safety subset.", "Profile-specific font sizes gate width-metric eligibility only; they do not apply formatting or establish legal compliance."]
 }
