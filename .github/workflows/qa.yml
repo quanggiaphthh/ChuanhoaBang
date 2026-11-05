@@ -6,8 +6,35 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-preview:
+    name: build canonical preview wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.13.4'
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked core and test requirements
+        run: uv sync --locked --extra test
+      - name: Build twice and smoke-test canonical wheel
+        run: uv run --locked python .github/scripts/wheel_smoke.py --output-dir work/release-candidate
+      - name: Preserve technical-preview wheel and manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: chuanhoabang-preview-${{ github.sha }}
+          path: work/release-candidate/
+          if-no-files-found: error
+          retention-days: 14
+
   python-tests:
     name: tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    needs: build-preview
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -26,6 +53,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Download canonical preview wheel and manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: chuanhoabang-preview-${{ github.sha }}
+          path: work/release-candidate
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -40,13 +72,5 @@ jobs:
         run: uv run --locked python -m pytest -q tests/
       - name: CLI import smoke
         run: uv run --locked python -m chuanhoabang --help
-      - name: Build and install wheel in isolated target
-        run: uv run --locked python .github/scripts/wheel_smoke.py --output-dir work/release-candidate
-      - name: Preserve technical-preview wheel and manifest
-        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
-        uses: actions/upload-artifact@v4
-        with:
-          name: chuanhoabang-preview-${{ github.sha }}
-          path: work/release-candidate/
-          if-no-files-found: error
-          retention-days: 14
+      - name: Install and smoke-test canonical preview wheel
+        run: uv run --locked python .github/scripts/wheel_smoke.py --candidate-dir work/release-candidate
