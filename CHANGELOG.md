@@ -85,7 +85,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Apply filesystem sync status
 
 - `apply` now syncs the validated candidate file before publication and reports parent-directory sync after publication as `PASS`, `UNVERIFIED`, or `NOT_SUPPORTED`; byte-identical `NO_OP_VALID` reports syncs as `NOT_REQUIRED`. File-sync errors prevent publication. Directory-sync errors are reported after the output exists, avoiding a false failure result for an already-published file. The JSON and Markdown reports expose each state; physical power-loss acceptance remains `NOT_RUN`.
-- Test-first regressions covered file and directory sync ordering, failed candidate sync cleanup, post-publication directory sync failure, no-op status, and Markdown reporting. Local locked suite: **221/221 PASS**. Cross-platform CI verification pending.
+- Test-first regressions covered file and directory sync ordering, failed candidate sync cleanup, post-publication directory sync failure, no-op status, and Markdown reporting. Local locked suite: **221/221 PASS**. GitHub Actions [run 42175255868](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42175255868) passed all six jobs: **221 tests passed** on Ubuntu/Python 3.10–3.13; Windows/Python 3.12 passed **220**, with the POSIX-only directory-sync test skipped. Canonical and independent-runner rebuilt wheel SHA-256: `c2f0b6cc8227d17a8935749523b4609c451222c6a9530a906856be3d5df55a83`. Preview artifact `chuanhoabang-preview-d39e5cfad10026326b552ddc11c06c050219fb1e` expires 20/11/2026. Actual power-loss behavior remains `NOT_RUN`.
 
 #### 06/11/2026 — Source-only table and cell border inventory
 
