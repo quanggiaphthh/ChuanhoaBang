@@ -25,6 +25,18 @@ pt for document text, while project rule `V16-FONT-02` selects 14 pt for table
 width measurement and forbids automatically lowering it. These are eligibility
 limits for measurement, not font-size corrections.
 
+A legal-currentness recheck on 06/11/2026 did not change that status. The
+[Ministry of Justice national legal database entry for ND30](https://vbpl.moj.gov.vn/bonoivu/Pages/vbpq-toanvan.aspx?ItemID=141142&dvid=320)
+was represented in the search index as “Còn hiệu lực”, but the index reported
+its page as last crawled four months earlier and the live record could not be
+opened during this review. Treat this only as stale, dated index evidence. The
+[official HD05 catalogue record](https://dangcongsan.vn/vanphongtrunguong/van-ban-cua-dang/huong-dan-so-05-hd-vptw-ngay-27-5-2026-cua-van-phong-trung-uong-dang-ve-the-thuc-va-ky-thuat-trinh-bay-van-ban-cua-dang.html?categoryId=3000525)
+was available on the review date and confirms its issue and effective dates;
+it has no current-status field. A current catalogue listing alone does not
+establish that the instrument has not since been changed or withdrawn. Both
+profile records therefore remain `currentness: NOT_ASSESSED`,
+`verified_legal_presets: false`, and `profile_status: REFERENCE_ONLY`.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.
