@@ -50,7 +50,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.
-- Local full suite: **189/189 PASS**. GitHub Actions verification for this border inventory is pending.
+- Local and GitHub Actions suites: **189/189 PASS**. Run [42160848709](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42160848709) passed all six jobs across five targets; the independent Ubuntu/Python 3.12 wheel SHA-256 is `b67794f673c0d84ea8f222117a46dc1c15af025d95b699889b57c8facd70b40a`. Preview artifact `chuanhoabang-preview-7cab25df4794eec6f533901916811cbf0e26a382` expires 20/11/2026.
 
 #### 06/11/2026 — Nested table parent-cell locator
 
