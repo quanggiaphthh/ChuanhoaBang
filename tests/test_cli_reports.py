@@ -456,6 +456,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "effective_type": "NOT_RESOLVED",
                 "issues": [],
             },
+            "table_direction_evidence": {
+                "status": "DIRECT_DECLARATION_REPORTED",
+                "declared_values": ["1"],
+                "right_to_left_visual_order": True,
+                "effective_direction": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "SOURCE_DECLARATIONS_REPORTED",
                 "table_borders": [{"edge": "top", "attributes": {"val": "single"}}],
@@ -478,6 +485,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "effective_type": "NOT_RESOLVED",
                 "issues": [],
             },
+            "table_direction_evidence": {
+                "status": "NO_DIRECT_DECLARATION",
+                "declared_values": [],
+                "right_to_left_visual_order": None,
+                "effective_direction": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "NO_DIRECT_DECLARATIONS",
                 "table_borders": [],
@@ -492,6 +506,7 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
     assert "body:0:abc123" in report
     assert "DIRECT_DECLARATION_REPORTED: autofit" in report
     assert "NO_DIRECT_DECLARATION: no direct declaration" in report
+    assert "RIGHT_TO_LEFT" in report
     assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report

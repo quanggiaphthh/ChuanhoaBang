@@ -459,6 +459,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                     table, rows, header, header_str, table_text,
                 ),
                 "table_layout_evidence": _table_layout_evidence(table),
+                "table_direction_evidence": _table_direction_evidence(table),
                 "border_evidence": _border_evidence(table),
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
@@ -1210,6 +1211,54 @@ def _table_layout_evidence(tbl):
     }
 
 
+def _table_direction_evidence(tbl):
+    """Report the direct bidiVisual toggle without resolving Word's full direction."""
+    properties = tbl.xpath("./w:tblPr", namespaces=NS)
+    declarations = [node for table_properties in properties
+                    for node in table_properties.xpath("./w:bidiVisual", namespaces=NS)]
+    issues = []
+    if len(properties) > 1:
+        issues.append("DUPLICATE_TABLE_PROPERTIES")
+    if len(declarations) > 1:
+        issues.append("DUPLICATE_BIDI_VISUAL_DECLARATION")
+
+    declared_values = []
+    parsed_values = []
+    on_values = {None, "1", "true", "on"}
+    off_values = {"0", "false", "off"}
+    for declaration in declarations:
+        value = declaration.get(W + "val")
+        declared_values.append(value)
+        if value in on_values:
+            parsed_values.append(True)
+        elif value in off_values:
+            parsed_values.append(False)
+        else:
+            parsed_values.append(None)
+            issues.append(f"UNSUPPORTED_BIDI_VISUAL_VALUE:{value}")
+        for raw_name in declaration.attrib:
+            if raw_name != W + "val":
+                issues.append(
+                    f"UNSUPPORTED_BIDI_VISUAL_ATTRIBUTE:{etree.QName(raw_name).localname}"
+                )
+        for child in declaration:
+            name = etree.QName(child).localname if isinstance(child.tag, str) else "NON_ELEMENT_NODE"
+            issues.append(f"UNSUPPORTED_BIDI_VISUAL_CONTENT:{name}")
+
+    issues = sorted(set(issues))
+    status = ("UNRESOLVED" if issues else
+              "DIRECT_DECLARATION_REPORTED" if declarations else
+              "NO_DIRECT_DECLARATION")
+    right_to_left = (parsed_values[0] if status == "DIRECT_DECLARATION_REPORTED" else None)
+    return {
+        "status": status,
+        "declared_values": declared_values,
+        "right_to_left_visual_order": right_to_left,
+        "effective_direction": "NOT_RESOLVED",
+        "issues": issues,
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -1227,6 +1276,11 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     table_layout_evidence = _table_layout_evidence(tbl)
     if table_layout_evidence["status"] == "UNRESOLVED":
         reasons.append("UNRESOLVED_TABLE_LAYOUT_DECLARATION")
+    table_direction_evidence = _table_direction_evidence(tbl)
+    if table_direction_evidence["status"] == "UNRESOLVED":
+        reasons.append("UNRESOLVED_TABLE_DIRECTION_DECLARATION")
+    elif table_direction_evidence["right_to_left_visual_order"] is True:
+        reasons.append("RIGHT_TO_LEFT_TABLE_VISUAL_ORDER")
     try:
         cell_padding = _cell_padding(tbl, rows, table_styles)
     except TableError as exc:
@@ -1289,6 +1343,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
             "columns": len(widths), "grid_twips": widths, "header": header,
             "role_classification": role_classification,
             "table_layout_evidence": table_layout_evidence,
+            "table_direction_evidence": table_direction_evidence,
             "border_evidence": _border_evidence(tbl),
             "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
@@ -1597,6 +1652,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "parent_cell_location": info["parent_cell_location"],
               "role_classification": info["role_classification"],
               "table_layout_evidence": info["table_layout_evidence"],
+              "table_direction_evidence": info["table_direction_evidence"],
               "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
@@ -1866,6 +1922,7 @@ def propose_header(path, table_index, profile=None):
               "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
               "table_layout_evidence": table["table_layout_evidence"],
+              "table_direction_evidence": table["table_direction_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
     if table.get("row_grid_omissions") is not None:
@@ -1934,6 +1991,7 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
               "table_layout_evidence": table["table_layout_evidence"],
+              "table_direction_evidence": table["table_direction_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if table.get("row_grid_omissions") is not None:
@@ -2031,7 +2089,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
                          profile=selected_profile)
     compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons",
                "parent_table_id", "parent_cell_location", "role_classification",
-               "table_layout_evidence")
+               "table_layout_evidence", "table_direction_evidence")
     if header_operation:
         compare += ("operation",)
     elif height_operation:
@@ -2091,6 +2149,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
                if "profile_constraints" in actual else {}),
             "role_classification": actual["role_classification"],
             "table_layout_evidence": actual["table_layout_evidence"],
+            "table_direction_evidence": actual["table_direction_evidence"],
             "parent_table_id": actual.get("parent_table_id"),
             "parent_cell_location": actual.get("parent_cell_location"),
             "operation": operation,

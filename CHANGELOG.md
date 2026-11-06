@@ -52,6 +52,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - Audit, proposals and Markdown reports expose direct `w:tblLayout` declarations for body and story tables. `fixed`/`autofit` remain source values; effective Word layout is `NOT_RESOLVED`, and missing declarations do not imply a default. Duplicate table properties/layout elements and unsupported types or markup force width proposals to `REVIEW_REQUIRED`.
 - `apply` binds the layout evidence into the proposal check. Local full suite: **192/192 PASS**. GitHub Actions [run 42163197147](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42163197147) passed all six jobs and 192/192 tests across five targets; the preview manifest records wheel SHA-256 `9ccc5fe4307891f8c22163c7b484b6594ccd68bf23a89cfa0c2abe460f6922d0` and a matching same-run rebuild. Artifact `chuanhoabang-preview-b99f7c68fb0ff9945e4d1775e7ac3770000a1206` expires 20/11/2026. Microsoft Word rendering remains `NOT_RUN`.
 
+#### 06/11/2026 — Direct table visual-order diagnostic
+
+- Audit and proposals report direct `w:bidiVisual` source state. Active right-to-left visual order and duplicate/unsupported declarations fail closed for width proposals; explicit off state is reported. No source cells are reordered, and effective direction remains `NOT_RESOLVED`.
+- Added tests for active/default-on/off values, duplicates, unsupported values, proposal refusal, and Markdown body/story reporting. Local full suite: **196/196 PASS**; GitHub Actions verification is pending for this change. Microsoft Word rendering remains `NOT_RUN`.
+
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.

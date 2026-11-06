@@ -58,6 +58,23 @@ def replace_docx_parts(path, replacements):
             target.writestr(item, content)
 
 
+def add_bidi_visual(table_properties, value=None):
+    node = etree.Element(core.W + "bidiVisual")
+    if value is not None:
+        node.set(core.W + "val", value)
+    later_properties = {
+        core.W + name for name in (
+            "tblStyleRowBandSize", "tblStyleColBandSize", "tblW", "jc",
+            "tblCellSpacing", "tblInd", "tblBorders", "shd", "tblLayout",
+            "tblCellMar", "tblLook", "tblCaption", "tblDescription", "tblPrChange",
+        )
+    }
+    index = next((i for i, child in enumerate(table_properties)
+                  if child.tag in later_properties), len(table_properties))
+    table_properties.insert(index, node)
+    return node
+
+
 def test_audit_read_only_and_header(tmp_path):
     path = fixture_docx(tmp_path)
     before = path.read_bytes()
@@ -126,6 +143,7 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
     entry = audit(path)["non_body_story_tables"][0]
 
     assert entry["table_layout_evidence"]["status"] == "NO_DIRECT_DECLARATION"
+    assert entry["table_direction_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
     assert entry["border_evidence"]["table_borders"] == [
         {"edge": "bottom", "attributes": {"val": "nil"}},
@@ -255,6 +273,54 @@ def test_audit_rejects_unsupported_table_layout_type(tmp_path):
 
     assert evidence["status"] == "UNRESOLVED"
     assert "UNSUPPORTED_TBL_LAYOUT_TYPE:auto" in evidence["issues"]
+
+
+@pytest.mark.parametrize(("raw_value", "expected_rtl"), [("1", True), (None, True), ("0", False)])
+def test_audit_reports_bidi_visual_flag_and_blocks_rtl_width_proposal(
+        tmp_path, raw_value, expected_rtl):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    add_bidi_visual(table.find(core.W + "tblPr"), raw_value)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+    evidence = table_report["table_direction_evidence"]
+
+    assert evidence == {
+        "status": "DIRECT_DECLARATION_REPORTED",
+        "declared_values": [raw_value],
+        "right_to_left_visual_order": expected_rtl,
+        "effective_direction": "NOT_RESOLVED",
+        "issues": [],
+    }
+    if expected_rtl:
+        assert table_report["status"] == "REVIEW_REQUIRED"
+        assert "RIGHT_TO_LEFT_TABLE_VISUAL_ORDER" in table_report["reasons"]
+        assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    else:
+        assert table_report["status"] == "SUPPORTED"
+        assert "RIGHT_TO_LEFT_TABLE_VISUAL_ORDER" not in table_report["reasons"]
+
+
+def test_audit_rejects_duplicate_and_unsupported_bidi_visual_declarations(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    add_bidi_visual(table_pr, "1")
+    add_bidi_visual(table_pr, "yes")
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["table_direction_evidence"]["status"] == "UNRESOLVED"
+    assert "DUPLICATE_BIDI_VISUAL_DECLARATION" in table_report["table_direction_evidence"]["issues"]
+    assert "UNSUPPORTED_BIDI_VISUAL_VALUE:yes" in table_report["table_direction_evidence"]["issues"]
+    assert "UNRESOLVED_TABLE_DIRECTION_DECLARATION" in table_report["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
 def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tmp_path):
@@ -1191,6 +1257,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
     table_layout = table.find("./" + core.W + "tblPr/" + core.W + "tblLayout")
     table_layout.set(core.W + "type", "autofit")
+    add_bidi_visual(table.find(core.W + "tblPr"), "0")
     table_borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
     top = etree.SubElement(table_borders, core.W + "top")
     top.set(core.W + "val", "single")
@@ -1215,7 +1282,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
                 "table_index": 0, "policy": core.POLICY_VERSION, "decision": "PROPOSE_APPLY",
                 "candidate_twips": candidate, "evidence": "MOCK_TEST_ONLY",
                 "role_classification": meta["role_classification"],
-                "table_layout_evidence": meta["table_layout_evidence"]}
+                "table_layout_evidence": meta["table_layout_evidence"],
+                "table_direction_evidence": meta["table_direction_evidence"]}
     # Isolate the patch/invariant writer from actual font shaping in this test.
     monkeypatch.setattr(core, "propose", lambda *a, **k: proposal)
     source_hash = core.digest(path.read_bytes())
@@ -1226,6 +1294,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert report["word_render"] == "NOT_RUN"
     assert report["table_layout_evidence"] == meta["table_layout_evidence"]
     assert report["table_layout_evidence"]["declared_types"] == ["autofit"]
+    assert report["table_direction_evidence"] == meta["table_direction_evidence"]
+    assert report["table_direction_evidence"]["right_to_left_visual_order"] is False
     assert "tblLayout" in report["changed_properties"]
     assert path.read_bytes() == source_before
     assert core.digest(path.read_bytes()) == source_hash
@@ -1244,6 +1314,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
         "effective_type": "NOT_RESOLVED",
         "issues": [],
     }
+    assert applied_table["table_direction_evidence"] == meta["table_direction_evidence"]
     repeated = apply(path, proposal, target)
     assert repeated["decision"] == "NO_OP_VALID"
 
@@ -1381,7 +1452,8 @@ def test_orientation_preserved_on_patch(tmp_path, monkeypatch):
             "table_index": 0, "policy": core.POLICY_VERSION,
             "decision": "PROPOSE_APPLY", "candidate_twips": list(base["grid_twips"]),
             "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"],
-            "table_layout_evidence": base["table_layout_evidence"]}
+            "table_layout_evidence": base["table_layout_evidence"],
+            "table_direction_evidence": base["table_direction_evidence"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: prop)
     result_file = tmp_path / "new.docx"
     apply(path, prop, result_file)

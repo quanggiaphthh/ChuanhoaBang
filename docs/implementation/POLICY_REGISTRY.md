@@ -77,6 +77,13 @@ not treated as a known default. Duplicate table-property/layout declarations
 and unsupported values or markup produce `UNRESOLVED` evidence and block width
 proposals.
 
+Rule `TABLE-DIRECTION-SOURCE-EVIDENCE-001` reports the direct `w:bidiVisual`
+flag. Active right-to-left visual order blocks width proposals because it
+reverses visible cell order; unsupported or duplicate declarations remain
+`UNRESOLVED`. The audit preserves source order, does not claim effective
+document direction, and leaves Word rendering `NOT_RUN` ([Microsoft Open XML
+`BiDiVisual`](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bidivisual?view=openxml-3.0.1)).
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.
