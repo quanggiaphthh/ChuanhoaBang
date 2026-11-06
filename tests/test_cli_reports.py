@@ -80,6 +80,11 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                 "table_id": "word/header1.xml#table=0:outer1234",
                 "parent_table_id": None,
                 "table_sha256": "a" * 64,
+                "role_classification": {
+                    "classification": "OFFICIAL_FORM_CANDIDATE",
+                    "evidence": ["OFFICIAL_FORM_TEXT_MARKER"],
+                    "authority": "NOT_ESTABLISHED",
+                },
                 "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
                 "section_references": [{
                     "section_index": 0,
@@ -129,6 +134,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "word/header1.xml#table=0:outer1234" in report
     assert "word/header1.xml#table=1:child1234" in report
     assert "Parent table ID" in report
+    assert "OFFICIAL_FORM_CANDIDATE; OFFICIAL_FORM_TEXT_MARKER; authority=NOT_ESTABLISHED" in report
     assert "a" * 64 in report
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report
     assert "section 0 header/default" in report

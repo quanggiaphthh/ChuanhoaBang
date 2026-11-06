@@ -39,6 +39,10 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - A small text-marker and data-header heuristic helps reviewers see why a table was held or considered a data candidate. It is not legal form recognition and needs validation against the original fixture corpus.
 - Local full suite: **180/180 PASS** with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/`; JSON registry parsing and `git diff --check` passed. Microsoft Word/WPS and original-fixture acceptance remain **NOT_RUN**.
 
+#### 06/11/2026 — Story table role candidates
+
+- Audit JSON and Markdown now report the same source-only role candidates for header, footer, footnote, and endnote tables. These entries remain `REVIEW_REQUIRED`, outside body-table indices, and without an ownership or edit-authority claim.
+
 #### 06/11/2026 — Source-only mapping for horizontal merged cells
 
 - Commit [`b8b20c8`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/b8b20c8318341cf071aa8690242916a1a0dae494) reports valid horizontal `gridSpan` cells as zero-based logical-grid start/span evidence in audit and proposal JSON/Markdown. Width proposals for merged tables remain `REVIEW_REQUIRED`; width-neutral paging operations retain their limited valid-horizontal-span support.

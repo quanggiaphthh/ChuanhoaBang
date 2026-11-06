@@ -321,7 +321,31 @@ def test_audit_reports_story_tables_without_body_indices(tmp_path, story_name):
     }]
     assert entry["status"] == "REVIEW_REQUIRED"
     assert entry["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
+    assert entry["role_classification"]["classification"] == "UNKNOWN"
+    assert entry["role_classification"]["authority"] == "NOT_ESTABLISHED"
     assert path.read_bytes() == source_before
+
+
+@pytest.mark.parametrize("story_name", ["header", "footer"])
+def test_non_body_story_role_candidate_is_reported_without_edit_permission(tmp_path, story_name):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    story = getattr(doc.sections[0], story_name)
+    table = story.add_table(rows=2, cols=3, width=Cm(15))
+    for cell, value in zip(table.rows[0].cells, ("STT", "Nội dung", "Ghi chú")):
+        cell.text = value
+    for cell, value in zip(table.rows[1].cells, ("01", "Công việc", "Hoàn thành")):
+        cell.text = value
+    table.cell(1, 2).text = "Cộng hòa xã hội chủ nghĩa Việt Nam"
+    doc.save(path)
+
+    entry = audit(path)["non_body_story_tables"][0]
+
+    assert entry["role_classification"]["classification"] == "OFFICIAL_FORM_CANDIDATE"
+    assert "OFFICIAL_FORM_TEXT_MARKER" in entry["role_classification"]["evidence"]
+    assert entry["role_classification"]["authority"] == "NOT_ESTABLISHED"
+    assert entry["status"] == "REVIEW_REQUIRED"
+    assert entry["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
 
 
 def test_unreferenced_story_part_has_unresolved_owner(tmp_path):

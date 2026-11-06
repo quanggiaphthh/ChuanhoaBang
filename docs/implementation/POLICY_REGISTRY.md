@@ -45,6 +45,11 @@ Text markers can suggest a layout or official-form candidate, but do not verify
 legal status. The role field does not grant edit permission; existing table
 status, proposal decision, and operation-specific checks still govern changes.
 
+Rule `TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001` reports the same candidates
+for header, footer, footnote, and endnote story tables in audit output. Story
+ownership remains source-derived, all non-body tables remain `REVIEW_REQUIRED`,
+and none enters the body table index or gains edit permission.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

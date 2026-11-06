@@ -80,7 +80,7 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 
 ## Table role candidate evidence
 
-Audit and proposal JSON/Markdown include `role_classification` for body tables. It labels only the source evidence as `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`; `authority` remains `NOT_ESTABLISHED`. A text candidate is not a legal classification and does not grant edit permission. Existing table status and operation checks continue to control proposals and `apply`.
+Audit and proposal JSON/Markdown include `role_classification` for body tables; audit JSON/Markdown also includes it for header, footer, footnote, and endnote tables. It labels only the source evidence as `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`; `authority` remains `NOT_ESTABLISHED`. A text candidate is not a legal classification and does not grant edit permission. Existing table status and operation checks continue to control body proposals and `apply`; non-body tables remain `REVIEW_REQUIRED` and outside body table indices.
 
 ## Báo cáo Markdown và giới hạn
 

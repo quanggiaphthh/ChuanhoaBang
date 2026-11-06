@@ -433,6 +433,12 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
         for index, table in enumerate(tables):
             ancestors = table.xpath("ancestor::w:tbl", namespaces=NS)
             parent_id = table_ids.get(ancestors[-1]) if ancestors else None
+            rows = table.xpath("./w:tr", namespaces=NS)
+            header = [_text(cell) for cell in rows[0].xpath("./w:tc", namespaces=NS)] if rows else []
+            header_str = " ".join(header).casefold()
+            table_text = _normalize_layout_text(" ".join(
+                _text(cell) for row in rows for cell in row.xpath("./w:tc", namespaces=NS)
+            ))
             entry = {
                 "part": part,
                 "story_types": list(story_part_types.get(part, ())),
@@ -448,6 +454,9 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "section_references": owners,
                 "default_inheritance_candidates": candidates,
                 "first_even_inheritance_candidates": special_candidates,
+                "role_classification": _role_classification(
+                    table, rows, header, header_str, table_text,
+                ),
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             }

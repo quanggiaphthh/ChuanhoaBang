@@ -156,9 +156,15 @@ def render_markdown(result: dict) -> str:
                   "Footnote/endnote ID chỉ được đối chiếu với reference trong document body XML; "
                   "đây là bằng chứng cấu trúc nguồn, không xác nhận Word hiển thị hoặc quyền sở hữu "
                   "hiệu lực. Ứng viên kế thừa cũng không xác nhận quyền sở hữu hiệu lực trong Word.", "",
-                  "| Part | Story type | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Reference evidence | Trạng thái | Lý do |",
-                  "|---|---|---|---|---:|---|---|---|---|---|"]
+                  "| Part | Story type | Role candidate / evidence | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Reference evidence | Trạng thái | Lý do |",
+                  "|---|---|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
+            role = table.get("role_classification") or {}
+            role_label = (
+                f"{role.get('classification', 'UNKNOWN')}; "
+                f"{', '.join(role.get('evidence', [])) or 'NO_EVIDENCE'}; "
+                f"authority={role.get('authority', 'NOT_ESTABLISHED')}"
+            )
             references = "; ".join(
                 f"section {ref.get('section_index', '?')} "
                 f"{ref.get('story_type', '?')}/{ref.get('reference_type', '?')}" +
@@ -207,6 +213,7 @@ def render_markdown(result: dict) -> str:
             ) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
                          f"{safe(', '.join(table.get('story_types', [])) or 'UNKNOWN')} | "
+                         f"{safe(role_label)} | "
                          f"`{safe(table.get('table_id', '?'))}` | "
                          f"`{safe(table.get('parent_table_id') or '—')}` | "
                          f"{table.get('story_table_index', '?')} | "
@@ -216,7 +223,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
-            lines.append("| — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
+            lines.append("| — | — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])
