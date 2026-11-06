@@ -75,7 +75,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Border style and missing-size gates
 
 - Direct table/cell border edges now require a supported `w:val`; missing styles and values outside the common line/no-border subset are `UNRESOLVED`. Visible direct styles without `w:sz` are listed by edge and source location and block width proposals; explicit `nil`/`none` styles do not need a size for this gate.
-- Markdown reports name missing-size edges; proposal/apply evidence includes the missing declarations. Source-only tests cover absent and unsupported styles, missing size, `nil`/`none`, and patch evidence preservation. Local full suite: **215/215 PASS**. Microsoft Word rendering and effective style/theme border geometry remain `NOT_RUN`/`NOT_RESOLVED`.
+- Markdown reports name missing-size edges; proposal/apply evidence includes the missing declarations. Source-only tests cover absent and unsupported styles, missing size, `nil`/`none`, and patch evidence preservation. Local full suite: **215/215 PASS**. GitHub Actions [run 42171610624](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42171610624) passed all six jobs; each of the five targets reports **215/215 PASS**, with hash-enforced offline installation, CLI/DOCX audit smoke, and wheel smoke. Canonical and same-run rebuilt wheel SHA-256: `5c9c80542399b23e709d1843cadd0a13117da80f7ddb3ea95944cd665bddd625`. Preview artifact `chuanhoabang-preview-8ea131611fe9219a4cf846c25c65fed5266e99d9` expires 20/11/2026. Microsoft Word rendering and effective style/theme border geometry remain `NOT_RUN`/`NOT_RESOLVED`.
 
 #### 06/11/2026 — Source-only table and cell border inventory
 
