@@ -6,7 +6,6 @@ A structural pass does not imply Microsoft Word layout acceptance.
 from __future__ import annotations
 
 import copy
-from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
@@ -16,7 +15,9 @@ import re
 import tempfile
 import unicodedata
 from collections import Counter
+from decimal import Decimal, InvalidOperation
 from importlib.resources import files as package_files
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from zipfile import BadZipFile, ZipFile
@@ -154,38 +155,67 @@ def _non_body_story_part_types(document_rels, package_names):
     return {part: tuple(sorted(story_types)) for part, story_types in types.items()}
 
 
+def _read_docx_snapshot(path: str | Path) -> bytes:
+    try:
+        with Path(path).open("rb") as source:
+            data = source.read(MAX_COMPRESSED_DOCX_BYTES + 1)
+    except OSError as exc:
+        raise TableError("INVALID_OR_UNREADABLE_ZIP") from exc
+    if len(data) > MAX_COMPRESSED_DOCX_BYTES:
+        raise TableError("COMPRESSED_DOCX_SIZE_LIMIT")
+    return data
+
+
+def _package_archive(archive):
+    items = archive.infolist()
+    names = [x.filename for x in items]
+    if len(names) != len(set(names)) or len(names) > 3000:
+        raise TableError("DUPLICATE_OR_TOO_MANY_ZIP_ENTRIES")
+    if any(n.startswith("/") or "\\" in n or ".." in n.split("/") for n in names):
+        raise TableError("UNSAFE_ZIP_PATH")
+    total = 0
+    for item in items:
+        total += item.file_size
+        if item.flag_bits & 0x1 or item.file_size > MAX_ENTRY or total > MAX_UNCOMPRESSED:
+            raise TableError("ENCRYPTED_OR_OVERSIZED_DOCX")
+        if item.file_size and item.file_size / max(1, item.compress_size) > MAX_RATIO:
+            raise TableError("ZIP_RATIO_LIMIT")
+    if not {"[Content_Types].xml", "word/document.xml", "_rels/.rels"}.issubset(names):
+        raise TableError("INCOMPLETE_OPC_PACKAGE")
+    raw = archive.read("word/document.xml")
+    settings = archive.read("word/settings.xml") if "word/settings.xml" in names else b""
+    document_rels_name = "word/_rels/document.xml.rels"
+    document_rels = archive.read(document_rels_name) if document_rels_name in names else b""
+    story_part_types = _non_body_story_part_types(document_rels, set(names))
+    story_parts = {name: archive.read(name) for name in story_part_types}
+    return raw, settings, names, story_parts, document_rels, story_part_types
+
+
+def _package_bytes(data: bytes):
+    if len(data) > MAX_COMPRESSED_DOCX_BYTES:
+        raise TableError("COMPRESSED_DOCX_SIZE_LIMIT")
+    try:
+        with ZipFile(BytesIO(data)) as archive:
+            return _package_archive(archive)
+    except (BadZipFile, OSError, RuntimeError) as exc:
+        raise TableError("INVALID_OR_UNREADABLE_ZIP") from exc
+
+
 def _package(path: str | Path):
     path = Path(path)
     if path.suffix.lower() != ".docx" or not path.is_file():
         raise TableError("INPUT_MUST_BE_EXISTING_DOCX")
+    return _package_bytes(_read_docx_snapshot(path))
+
+
+def _validated_source_snapshot(path: str | Path, expected_sha256: str) -> bytes:
     try:
-        if path.stat().st_size > MAX_COMPRESSED_DOCX_BYTES:
-            raise TableError("COMPRESSED_DOCX_SIZE_LIMIT")
-        with ZipFile(path) as z:
-            items = z.infolist()
-            names = [x.filename for x in items]
-            if len(names) != len(set(names)) or len(names) > 3000:
-                raise TableError("DUPLICATE_OR_TOO_MANY_ZIP_ENTRIES")
-            if any(n.startswith("/") or "\\" in n or ".." in n.split("/") for n in names):
-                raise TableError("UNSAFE_ZIP_PATH")
-            total = 0
-            for item in items:
-                total += item.file_size
-                if item.flag_bits & 0x1 or item.file_size > MAX_ENTRY or total > MAX_UNCOMPRESSED:
-                    raise TableError("ENCRYPTED_OR_OVERSIZED_DOCX")
-                if item.file_size and item.file_size / max(1, item.compress_size) > MAX_RATIO:
-                    raise TableError("ZIP_RATIO_LIMIT")
-            if not {"[Content_Types].xml", "word/document.xml", "_rels/.rels"}.issubset(names):
-                raise TableError("INCOMPLETE_OPC_PACKAGE")
-            raw = z.read("word/document.xml")
-            settings = z.read("word/settings.xml") if "word/settings.xml" in names else b""
-            document_rels_name = "word/_rels/document.xml.rels"
-            document_rels = z.read(document_rels_name) if document_rels_name in names else b""
-            story_part_types = _non_body_story_part_types(document_rels, set(names))
-            story_parts = {name: z.read(name) for name in story_part_types}
-            return raw, settings, names, story_parts, document_rels, story_part_types
-    except (BadZipFile, OSError, RuntimeError) as exc:
-        raise TableError("INVALID_OR_UNREADABLE_ZIP") from exc
+        snapshot = _read_docx_snapshot(path)
+    except TableError as exc:
+        raise TableError("STALE_SOURCE") from exc
+    if digest(snapshot) != expected_sha256:
+        raise TableError("STALE_SOURCE")
+    return snapshot
 
 
 def _tables(root):
@@ -2334,7 +2364,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             compare += ("profile_constraints",)
     if any(actual.get(k) != proposal.get(k) for k in compare):
         raise TableError("STALE_OR_MODIFIED_PROPOSAL")
-    raw, settings, names, _, _, _ = _package(src)
+    source_snapshot = _validated_source_snapshot(src, actual["input_sha256"])
+    raw, settings, names, _, _, _ = _package_bytes(source_snapshot)
     old_root = _xml(raw)
     new_root = copy.deepcopy(old_root)
     if header_operation:
@@ -2351,7 +2382,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
     fd, temp_path = tempfile.mkstemp(suffix=".docx", prefix=".chuanhoabang-", dir=str(dst.parent))
     os.close(fd)
     try:
-        with ZipFile(src, "r") as zin, ZipFile(temp_path, "w") as zout:
+        with ZipFile(BytesIO(source_snapshot), "r") as zin, ZipFile(temp_path, "w") as zout:
             for entry in zin.infolist():
                 data = new_raw if entry.filename == "word/document.xml" else zin.read(entry.filename)
                 zout.writestr(entry, data)
@@ -2361,9 +2392,10 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         _assert_safe(raw, out_raw, actual["table_index"],
                      allow_first_row_header=header_operation, allow_height_rule=height_operation,
                      height_rows=tuple(actual["row_indices"]) if height_operation else ())
-        with ZipFile(src) as zi, ZipFile(temp_path) as zo:
+        with ZipFile(BytesIO(source_snapshot)) as zi, ZipFile(temp_path) as zo:
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
+        _validated_source_snapshot(src, actual["input_sha256"])
         if dst.exists() or dst.is_symlink():
             if dst.is_symlink() or not dst.is_file() or not _files_equal(temp_path, dst):
                 raise TableError("OUTPUT_MUST_BE_NEW_PATH")

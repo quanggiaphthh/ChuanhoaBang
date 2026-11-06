@@ -58,6 +58,16 @@ def replace_docx_parts(path, replacements):
             target.writestr(item, content)
 
 
+def replace_first_table_cell_text(path, text):
+    with ZipFile(path) as archive:
+        document = etree.fromstring(archive.read("word/document.xml"))
+    first_cell_text = document.xpath(
+        ".//w:tbl[1]/w:tr[1]/w:tc[1]//w:t", namespaces=core.NS
+    )[0]
+    first_cell_text.text = text
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(document)})
+
+
 def add_bidi_visual(table_properties, value=None):
     node = etree.Element(core.W + "bidiVisual")
     if value is not None:
@@ -1626,6 +1636,57 @@ def test_apply_does_not_replace_different_existing_output(tmp_path):
 
     assert source.read_bytes() == source_before
     assert target.read_bytes() == sentinel
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
+def test_apply_rejects_source_changed_after_proposal_revalidation(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "stale-source.docx"
+    original_propose_header = core.propose_header
+
+    def propose_then_change_source(*args, **kwargs):
+        result = original_propose_header(*args, **kwargs)
+        replace_first_table_cell_text(source, "Changed after proposal validation")
+        return result
+
+    monkeypatch.setattr(core, "propose_header", propose_then_change_source)
+    with pytest.raises(TableError, match="STALE_SOURCE"):
+        apply(source, proposal, target)
+
+    assert source.read_bytes() != source_before
+    assert not target.exists()
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
+def test_apply_rejects_source_changed_during_output_validation(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "source-changed-during-apply.docx"
+    original_assert_safe = core._assert_safe
+    validation_calls = 0
+
+    def validate_then_change_source(*args, **kwargs):
+        nonlocal validation_calls
+        validation_calls += 1
+        result = original_assert_safe(*args, **kwargs)
+        if validation_calls == 2:
+            replace_first_table_cell_text(source, "Changed during apply validation")
+        return result
+
+    monkeypatch.setattr(core, "_assert_safe", validate_then_change_source)
+    with pytest.raises(TableError, match="STALE_SOURCE"):
+        apply(source, proposal, target)
+
+    assert validation_calls == 2
+    assert source.read_bytes() != source_before
+    assert not target.exists()
     assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
 
 
