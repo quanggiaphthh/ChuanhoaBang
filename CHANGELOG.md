@@ -60,7 +60,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Table cell-spacing geometry gate
 
 - Audit and proposals report direct `w:tblCellSpacing`; only a single explicit `dxa=0` declaration is supported by the width metric. Nonzero spacing and malformed, unsupported, or duplicate declarations force review; effective spacing is not inferred.
-- Added source evidence and preservation/refusal tests. Local full suite: **199/199 PASS**; GitHub Actions verification is pending for this change. Microsoft Word rendering remains `NOT_RUN`.
+- Added source evidence and preservation/refusal tests. Local locked full suite: **199/199 PASS**. GitHub Actions [run 42165784806](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42165784806) passed all six jobs and **199/199 tests** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12. Offline hash installs, CLI audit, and wheel smoke passed on all five targets; canonical and same-run rebuilt wheel SHA-256: `427443faba991cd6f0e49c2be4e9316ee985fda17cd9984f1fc275c22149c737`. Preview artifact `chuanhoabang-preview-e9bd1ee71bf14ef7e1a7e4cbccc9f0b8b93740e7` expires 20/11/2026. Microsoft Word rendering remains `NOT_RUN`.
 
 #### 06/11/2026 — Source-only table and cell border inventory
 
