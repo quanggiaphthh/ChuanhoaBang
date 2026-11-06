@@ -43,6 +43,31 @@ def test_markdown_render_exposes_non_authoritative_table_role_evidence():
     assert "NOT_ESTABLISHED" in report
 
 
+def test_markdown_render_exposes_nested_parent_cell_source_location():
+    report = render_markdown({
+        "tables": [{
+            "table_id": "body:1:child",
+            "parent_table_id": "body:0:parent",
+            "parent_cell_location": {
+                "status": "LOCATED_IN_SOURCE_XML",
+                "parent_table_id": "body:0:parent",
+                "row_index": 0,
+                "cell_index": 0,
+                "evidence": "SOURCE_XML_TOPOLOGY",
+            },
+            "role_classification": {"classification": "NESTED",
+                                    "evidence": ["NESTING_RELATIONSHIP"]},
+            "index": 1,
+            "status": "REVIEW_REQUIRED",
+            "rows": 1,
+            "columns": 1,
+            "reasons": ["NESTED_OR_CONTENT_CONTROL_TABLE"],
+        }],
+    })
+
+    assert "row 0, cell 0 (SOURCE_XML_TOPOLOGY)" in report
+
+
 def test_markdown_render_exposes_profile_source_locator():
     report = render_markdown({
         "profile": "HD05",
@@ -85,6 +110,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                     "evidence": ["OFFICIAL_FORM_TEXT_MARKER"],
                     "authority": "NOT_ESTABLISHED",
                 },
+                "parent_cell_location": None,
                 "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
                 "section_references": [{
                     "section_index": 0,
@@ -104,6 +130,13 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                 "story_table_index": 1,
                 "table_id": "word/header1.xml#table=1:child1234",
                 "parent_table_id": "word/header1.xml#table=0:outer1234",
+                "parent_cell_location": {
+                    "status": "LOCATED_IN_SOURCE_XML",
+                    "parent_table_id": "word/header1.xml#table=0:outer1234",
+                    "row_index": 0,
+                    "cell_index": 0,
+                    "evidence": "SOURCE_XML_TOPOLOGY",
+                },
                 "table_sha256": "b" * 64,
                 "owner_status": "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED",
                 "section_references": [{
@@ -134,6 +167,8 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "word/header1.xml#table=0:outer1234" in report
     assert "word/header1.xml#table=1:child1234" in report
     assert "Parent table ID" in report
+    assert "Parent cell" in report
+    assert "row 0, cell 0" in report
     assert "OFFICIAL_FORM_CANDIDATE; OFFICIAL_FORM_TEXT_MARKER; authority=NOT_ESTABLISHED" in report
     assert "a" * 64 in report
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report

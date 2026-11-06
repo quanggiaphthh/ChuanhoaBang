@@ -50,6 +50,13 @@ for header, footer, footnote, and endnote story tables in audit output. Story
 ownership remains source-derived, all non-body tables remain `REVIEW_REQUIRED`,
 and none enters the body table index or gains edit permission.
 
+Rule `NESTED-PARENT-CELL-SOURCE-LOCATION-001` adds the immediate parent cell's
+zero-based row/cell location when the source XML table-row-cell chain resolves.
+Malformed or unsupported topology is reported as `UNRESOLVED`; the locator is
+not an effective ownership determination and grants no edit permission. Body
+proposals carry the parent table/cell metadata, and `apply` checks it against a
+fresh proposal before changing the DOCX.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

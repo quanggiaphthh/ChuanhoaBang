@@ -43,6 +43,10 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 
 - Audit JSON and Markdown now report the same source-only role candidates for header, footer, footnote, and endnote tables. These entries remain `REVIEW_REQUIRED`, outside body-table indices, and without an ownership or edit-authority claim.
 
+#### 06/11/2026 — Nested table parent-cell locator
+
+- Body and story inventories report the zero-based parent row/cell for nested tables when direct source XML topology resolves, and report `UNRESOLVED` with a reason otherwise. Body proposals carry this scope metadata and `apply` rechecks it. The locator does not grant edit permission.
+
 #### 06/11/2026 — Source-only mapping for horizontal merged cells
 
 - Commit [`b8b20c8`](https://github.com/quanggiaphthh/ChuanhoaBang/commit/b8b20c8318341cf071aa8690242916a1a0dae494) reports valid horizontal `gridSpan` cells as zero-based logical-grid start/span evidence in audit and proposal JSON/Markdown. Width proposals for merged tables remain `REVIEW_REQUIRED`; width-neutral paging operations retain their limited valid-horizontal-span support.

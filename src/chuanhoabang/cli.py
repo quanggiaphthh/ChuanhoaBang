@@ -24,6 +24,14 @@ def render_markdown(result: dict) -> str:
             label += " twips"
         return label
 
+    def parent_cell_label(owner):
+        if not isinstance(owner, dict):
+            return "—"
+        if owner.get("status") != "LOCATED_IN_SOURCE_XML":
+            return owner.get("reason", owner.get("status", "UNRESOLVED"))
+        return (f"row {owner.get('row_index', '?')}, cell {owner.get('cell_index', '?')} "
+                f"({owner.get('evidence', 'UNKNOWN')})")
+
     lines = ["# ChuanhoaBang — Báo cáo xử lý DOCX", "",
              f"**Quyết định:** `{safe(result.get('decision', result.get('status', 'AUDIT_ONLY')))}`",
              f"**Kết xuất Microsoft Word:** `{safe(result.get('word_render', 'NOT_RUN'))}`",
@@ -31,12 +39,14 @@ def render_markdown(result: dict) -> str:
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
-                "role_classification", "cell_grid_spans", "row_grid_omissions",
+                "parent_table_id", "parent_cell_location", "role_classification",
+                "cell_grid_spans", "row_grid_omissions",
                 "vertical_merge_chain_validation",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             value = (json.dumps(result[key], ensure_ascii=False)
-                     if key in ("role_classification", "cell_grid_spans", "row_grid_omissions",
+                     if key in ("parent_cell_location", "role_classification",
+                                "cell_grid_spans", "row_grid_omissions",
                                 "vertical_merge_chain_validation") else result[key])
             lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
@@ -57,8 +67,8 @@ def render_markdown(result: dict) -> str:
         lines.append(f"| word_rendered_width | {safe(result.get('word_render', 'NOT_RUN'))} |")
     if isinstance(result.get("tables"), list):
         lines += ["", "## Bảng được phát hiện", "",
-                  "| Table ID | Parent table ID | Role candidate / evidence | STT | Trạng thái | Hàng | Cột | Lý do |",
-                  "|---|---|---|---:|---|---:|---:|---|"]
+                  "| Table ID | Parent table ID | Parent cell | Role candidate / evidence | STT | Trạng thái | Hàng | Cột | Lý do |",
+                  "|---|---|---|---|---:|---|---:|---:|---|"]
         for table in result["tables"]:
             parent_id = table.get("parent_table_id") or "—"
             role = table.get("role_classification") or {}
@@ -68,7 +78,9 @@ def render_markdown(result: dict) -> str:
                 f"authority={role.get('authority', 'NOT_ESTABLISHED')}"
             )
             lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
-                         f"`{safe(parent_id)}` | {safe(role_label)} | "
+                         f"`{safe(parent_id)}` | "
+                         f"{safe(parent_cell_label(table.get('parent_cell_location')))} | "
+                         f"{safe(role_label)} | "
                          f"{table.get('index', '?')} | "
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{table.get('rows', '?')} | {table.get('columns', '?')} | "
@@ -156,8 +168,8 @@ def render_markdown(result: dict) -> str:
                   "Footnote/endnote ID chỉ được đối chiếu với reference trong document body XML; "
                   "đây là bằng chứng cấu trúc nguồn, không xác nhận Word hiển thị hoặc quyền sở hữu "
                   "hiệu lực. Ứng viên kế thừa cũng không xác nhận quyền sở hữu hiệu lực trong Word.", "",
-                  "| Part | Story type | Role candidate / evidence | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Reference evidence | Trạng thái | Lý do |",
-                  "|---|---|---|---|---|---:|---|---|---|---|---|"]
+                  "| Part | Story type | Role candidate / evidence | Table ID | Parent table ID | Parent cell | Chỉ số trong part | SHA-256 | Owner evidence | Reference evidence | Trạng thái | Lý do |",
+                  "|---|---|---|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
             role = table.get("role_classification") or {}
             role_label = (
@@ -216,6 +228,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(role_label)} | "
                          f"`{safe(table.get('table_id', '?'))}` | "
                          f"`{safe(table.get('parent_table_id') or '—')}` | "
+                         f"{safe(parent_cell_label(table.get('parent_cell_location')))} | "
                          f"{table.get('story_table_index', '?')} | "
                          f"`{safe(table.get('table_sha256', '?'))}` | "
                          f"{safe(table.get('owner_status', 'UNKNOWN'))} | "
@@ -223,7 +236,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
-            lines.append("| — | — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
+            lines.append("| — | — | — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])

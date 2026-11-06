@@ -151,14 +151,23 @@ def test_role_evidence_is_bound_to_header_proposal_and_reported_after_apply(tmp_
     proposal = core.propose_header(path, 0)
     assert proposal["decision"] == "PROPOSE_APPLY"
     assert proposal["role_classification"]["classification"] == "DATA_CANDIDATE"
+    assert proposal["parent_table_id"] is None
+    assert proposal["parent_cell_location"] is None
 
     altered = copy.deepcopy(proposal)
     altered["role_classification"]["classification"] = "OFFICIAL_FORM_CANDIDATE"
     with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
         apply(path, altered, tmp_path / "altered-role.docx")
 
+    altered_scope = copy.deepcopy(proposal)
+    altered_scope["parent_table_id"] = "body:9:forged-parent"
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(path, altered_scope, tmp_path / "altered-scope.docx")
+
     applied = apply(path, proposal, tmp_path / "header-role.docx")
     assert applied["role_classification"]["classification"] == "DATA_CANDIDATE"
+    assert applied["parent_table_id"] is None
+    assert applied["parent_cell_location"] is None
 
 
 def test_audit_separates_declared_widths_from_grid_and_word_measurement(tmp_path):
@@ -856,10 +865,21 @@ def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path,
         assert entries[0]["parent_table_id"] is None
         child = entries[1]
         assert child["parent_table_id"] == parent_id
+        assert child["parent_cell_location"] == {
+            "status": "LOCATED_IN_SOURCE_XML",
+            "parent_table_id": parent_id,
+            "row_index": 0,
+            "cell_index": 0,
+            "evidence": "SOURCE_XML_TOPOLOGY",
+        }
         assert "CONTAINS_NESTED_TABLE" in entries[0]["reasons"]
         assert "NESTED_OR_CONTENT_CONTROL_TABLE" in child["reasons"]
         assert entries[0]["role_classification"]["classification"] == "NESTED"
         assert child["role_classification"]["classification"] == "NESTED"
+        review = core.propose_header(path, 1)
+        assert review["decision"] == "REVIEW_REQUIRED"
+        assert review["parent_table_id"] == parent_id
+        assert review["parent_cell_location"] == child["parent_cell_location"]
     else:
         entries = report["non_body_story_tables"]
         parent_id = entries[0]["table_id"]
@@ -867,10 +887,27 @@ def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path,
         assert entries[0]["parent_table_id"] is None
         child = entries[1]
         assert child["parent_table_id"] == parent_id
+        assert child["parent_cell_location"] == {
+            "status": "LOCATED_IN_SOURCE_XML",
+            "parent_table_id": parent_id,
+            "row_index": 0,
+            "cell_index": 0,
+            "evidence": "SOURCE_XML_TOPOLOGY",
+        }
 
     assert len({entry["table_id"] for entry in entries}) == len(entries)
     assert audit(path)["tables" if scope == "body" else "non_body_story_tables"] == entries
     assert path.read_bytes() == source_before
+
+
+def test_nested_parent_cell_locator_fails_closed_when_source_cell_is_missing():
+    parent = etree.Element(core.W + "tbl")
+    child = etree.SubElement(parent, core.W + "tbl")
+
+    assert core._parent_cell_location(child, "body:0:parent") == {
+        "status": "UNRESOLVED",
+        "reason": "PARENT_CELL_NOT_FOUND",
+    }
 
 
 def test_merged_is_not_auto_formatted(tmp_path):

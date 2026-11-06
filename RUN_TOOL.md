@@ -82,6 +82,8 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 
 Audit and proposal JSON/Markdown include `role_classification` for body tables; audit JSON/Markdown also includes it for header, footer, footnote, and endnote tables. It labels only the source evidence as `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`; `authority` remains `NOT_ESTABLISHED`. A text candidate is not a legal classification and does not grant edit permission. Existing table status and operation checks continue to control body proposals and `apply`; non-body tables remain `REVIEW_REQUIRED` and outside body table indices.
 
+Nested tables expose `parent_cell_location` with zero-based `row_index` and `cell_index` when the immediate parent row/cell path resolves from source XML. Body proposals carry the parent table and cell location, and `apply` rechecks those fields with the proposal. Unsupported topology is `UNRESOLVED` with a reason code. This locator does not establish effective ownership or enable editing.
+
 ## Báo cáo Markdown và giới hạn
 
 - `--report-md PATH.md` tạo báo cáo đọc được cho `audit`, `propose`, `propose-header`, `propose-unclip` và `apply`.

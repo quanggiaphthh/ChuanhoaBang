@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -196,6 +196,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
       "postconditions": ["report NESTED, OFFICIAL_FORM_CANDIDATE, LAYOUT_CANDIDATE, DATA_CANDIDATE, or UNKNOWN with evidence codes", "classification does not establish legal authority, effective story ownership, or edit permission", "non-body story tables remain REVIEW_REQUIRED and outside body table indices"]
+    },
+    {
+      "id": "NESTED-PARENT-CELL-SOURCE-LOCATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "source XML locator for the immediate parent cell of a nested table",
+      "preconditions": ["a parent table and containing cell can be followed through direct table-row-cell topology"],
+      "severity": "HARD",
+      "safe_action": "REPORT_SOURCE_CELL_LOCATOR_AND_KEEP_REVIEW_STATUS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TOPOLOGY",
+      "postconditions": ["report zero-based parent table row and cell indexes only when directly resolved", "otherwise report UNRESOLVED with a reason code", "body proposals carry the parent table and cell location in metadata rechecked by apply", "source location does not establish effective ownership or grant edit permission"]
     },
     {
       "id": "TABLE-SCOPE-001",

@@ -445,6 +445,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "story_table_index": index,
                 "table_id": table_ids[table],
                 "parent_table_id": parent_id,
+                "parent_cell_location": _parent_cell_location(table, parent_id),
                 "table_sha256": table_hashes[index],
                 "owner_status": ("DIRECT_AND_INHERITED_DEFAULT_CANDIDATES" if owners and candidates else
                                  "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
@@ -1040,6 +1041,35 @@ def _role_classification(tbl, rows, header, header_str, table_text):
     }
 
 
+def _parent_cell_location(tbl, parent_table_id):
+    """Locate a nested table's immediate containing cell in source XML."""
+    if parent_table_id is None:
+        return None
+    cells = tbl.xpath("ancestor::w:tc", namespaces=NS)
+    parents = tbl.xpath("ancestor::w:tbl", namespaces=NS)
+    if not cells or not parents:
+        return {"status": "UNRESOLVED", "reason": "PARENT_CELL_NOT_FOUND"}
+    cell = cells[-1]
+    row = cell.getparent()
+    parent_table = parents[-1]
+    if row is None or row.tag != W + "tr" or row.getparent() is not parent_table:
+        return {"status": "UNRESOLVED", "reason": "PARENT_CELL_TOPOLOGY_UNSUPPORTED"}
+    rows = parent_table.xpath("./w:tr", namespaces=NS)
+    cells_in_row = row.xpath("./w:tc", namespaces=NS)
+    try:
+        row_index = rows.index(row)
+        cell_index = cells_in_row.index(cell)
+    except ValueError:
+        return {"status": "UNRESOLVED", "reason": "PARENT_CELL_INDEX_UNRESOLVED"}
+    return {
+        "status": "LOCATED_IN_SOURCE_XML",
+        "parent_table_id": parent_table_id,
+        "row_index": row_index,
+        "cell_index": cell_index,
+        "evidence": "SOURCE_XML_TOPOLOGY",
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -1111,6 +1141,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
                   "split_prevention_rows": len(tbl.xpath("./w:tr/w:trPr/w:cantSplit", namespaces=NS))}
     status = "SUPPORTED" if not reasons else "REVIEW_REQUIRED"
     details = {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
+            "parent_cell_location": _parent_cell_location(tbl, parent_table_id),
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
             "role_classification": role_classification,
@@ -1417,6 +1448,8 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
               "profile": base["profile"], "profile_status": base["profile_status"],
               "profile_rules_applied": base["profile_rules_applied"],
+              "parent_table_id": info["parent_table_id"],
+              "parent_cell_location": info["parent_cell_location"],
               "role_classification": info["role_classification"],
               "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
@@ -1683,6 +1716,8 @@ def propose_header(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "parent_table_id": table["parent_table_id"],
+              "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
@@ -1748,6 +1783,8 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "parent_table_id": table["parent_table_id"],
+              "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
@@ -1845,7 +1882,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         actual = propose(src, proposal.get("table_index"), font_regular, font_bold,
                          profile=selected_profile)
     compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons",
-               "role_classification")
+               "parent_table_id", "parent_cell_location", "role_classification")
     if header_operation:
         compare += ("operation",)
     elif height_operation:
@@ -1904,6 +1941,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             **({"profile_constraints": actual["profile_constraints"]}
                if "profile_constraints" in actual else {}),
             "role_classification": actual["role_classification"],
+            "parent_table_id": actual.get("parent_table_id"),
+            "parent_cell_location": actual.get("parent_cell_location"),
             "operation": operation,
             "reasons": (["OUTPUT_MATCHES_VALIDATED_PROPOSAL"]
                         if decision == "NO_OP_VALID" else []),
