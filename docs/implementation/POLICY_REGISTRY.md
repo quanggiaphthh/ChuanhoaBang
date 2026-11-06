@@ -53,6 +53,7 @@ stay `REVIEW_REQUIRED` for every proposal. Horizontal-merge tables also stay
 `REVIEW_REQUIRED` for width proposals. Only the existing width-neutral
 header-repeat and row-height operations accept valid horizontal spans; omitted
 cells, malformed spans or merge markers, and nested tables remain unsupported.
+The marker semantics follow Microsoft's [VerticalMerge.Val documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge.val?view=openxml-3.0.1); the continuation-chain grid-column rule is not validated here.
 
 The custom-column interpretation follows Microsoft's
 [equalWidth](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1)

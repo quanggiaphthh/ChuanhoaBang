@@ -31,7 +31,7 @@
 ## Các giới hạn chủ ý của bản đầu
 
 - Chỉ bảng trong `word/document.xml`, không sửa header/footer. Body tables bên trong wrappers vẫn được thống kê, nhưng không tự sửa bảng trong content control hoặc bảng lồng.
-- Chỉ AutoFit bảng chữ đơn giản, không merged/field/object/track. Hai phép phân trang không đổi width có thể xử lý **gridSpan ngang đơn giản hợp lệ**, không xử lý vMerge/nested. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
+- Chỉ AutoFit bảng chữ đơn giản, không merged/field/object/track. Hai phép phân trang không đổi width có thể xử lý **gridSpan ngang đơn giản hợp lệ**; `vMerge` chỉ có marker source trong audit và không xử lý bằng các phép sửa. Không xử lý nested. Một section; font khai báo trực tiếp TNR 13/14, không automatic fallback.
 - Vùng width từ OOXML là ràng buộc khai báo, không phải kết quả render. Direct left/right `dxa` table/cell margins được đưa vào bound từng ô; khi không có cặp ngang trực tiếp đã phân giải, estimator dùng ngân sách giả định 240 twips tổng (120 mỗi phía) theo policy registry. Báo cáo chỉ ghi giá trị giả định khi fallback thực sự được dùng; với margin trực tiếp đầy đủ, trường giả định là null. Nếu bảng có `tblStyle`, padding status được đặt `UNRESOLVED` cho đến khi cascade được phân giải. Đây là gợi ý nội bộ V15, không phải margin mặc định của Word. Table-style cascade và Word render vẫn chưa được xác minh.
 - Có `audit → propose / propose-header / propose-unclip → explicit apply`; không tự chạy background; nguồn DOCX không bị ghi đè.
 
@@ -46,5 +46,5 @@
 
 - Bộ so sánh L0 đã chuyển sang **allowlist riêng cho từng operation**. OPTIMIZE_WIDTH chỉ bỏ qua phép đo width; SET_REPEAT_HEADER_FIRST_ROW chỉ bỏ qua `tblHeader` ở hàng đầu; EXACT_ROW_HEIGHT_TO_AT_LEAST chỉ bỏ qua thuộc tính `hRule` tại đúng `row_indices` đã phê duyệt.
 - Không còn bỏ qua thay đổi `tblGrid/tcW/tblW` khi sửa header/height, hoặc bỏ qua hRule của hàng **không** thuộc đề xuất.
-- Audit exposes source-only `gridSpan` cell-to-grid ranges; valid horizontal spans are allowed only for the two width-neutral paging operations. The width optimizer still refuses merged tables pending licensed TNR and Microsoft Word geometry gates.
+- Audit exposes source-only cell-to-grid ranges and local `vMerge` markers; it does not validate vertical continuation chains. Valid horizontal spans are allowed only for the two width-neutral paging operations. The width optimizer and all vertical-merge edits remain blocked pending licensed TNR and Microsoft Word geometry gates.
 - CI 43/43 PASS theo fixture tổng hợp; chưa có Word Print Layout hoặc TNR bản quyền.

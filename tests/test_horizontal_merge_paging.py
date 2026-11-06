@@ -51,7 +51,7 @@ def test_hmerge_header_is_safe_but_width_optimizer_stays_blocked(tmp_path):
     ]
     from chuanhoabang.cli import render_markdown
     markdown = render_markdown(audit(path))
-    assert "Cell grid spans (zero-based start/count)" in markdown
+    assert "Cell grid spans / vertical merge markers (source XML)" in markdown
     assert '"start_column":0' in markdown
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
     header = propose_header(path, 0)

@@ -66,7 +66,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(', '.join(table.get('reasons', [])))} |")
         if any("width_evidence" in table for table in result["tables"]):
             lines += ["", "## Width evidence (OOXML declarations; not Word measurements)", "",
-                      "| Table ID | Grid and sum | Cell grid spans (zero-based start/count) | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
+                      "| Table ID | Grid and sum | Cell grid spans / vertical merge markers (source XML) | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
                       "|---|---|---|---|---|---|---|"]
             for table in result["tables"]:
                 evidence = table.get("width_evidence", {})
