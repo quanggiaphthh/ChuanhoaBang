@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -197,7 +197,13 @@
           "instrument": "Nghị định 30/2020/NĐ-CP",
           "catalog_url": "https://vanban.chinhphu.vn/default.aspx?docid=199378&pageid=27160",
           "text_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/30.signed.pdf",
-          "locator": "Phụ lục I, Phần I, mục II, khoản 6 điểm e (nội dung văn bản: cỡ chữ 13–14 pt)."
+          "gazette_url": "https://congbao.chinhphu.vn/tai-ve-van-ban-so-30-2020-nd-cp-30858-30246?format=pdf",
+          "locator": "Phụ lục I, Phần I, mục II, khoản 6 điểm e (nội dung văn bản: cỡ chữ 13–14 pt).",
+          "source_review": {
+            "status": "PRIMARY_SOURCE_EXCERPT_CHECKED",
+            "checked_on": "2026-11-06",
+            "currentness": "NOT_ASSESSED"
+          }
         }]
       }
     },
@@ -213,7 +219,12 @@
           "instrument": "Hướng dẫn 05-HD/VPTW ngày 27/05/2026",
           "catalog_url": "https://dangcongsan.vn/vanphongtrunguong/van-ban-cua-dang/huong-dan-so-05-hd-vptw-ngay-27-5-2026-cua-van-phong-trung-uong-dang-ve-the-thuc-va-ky-thuat-trinh-bay-van-ban-cua-dang.html?categoryId=3000525",
           "text_url": "https://tulieuvankien.dangcongsan.vn/upload/2006988/20260529/HD_05_VPTW_e1550.pdf",
-          "locator": "Phụ lục 2, hàng 6 “Nội dung văn bản” (14–15 pt); V16-FONT-02 selects 14 pt for this project measurement scope."
+          "locator": "Phụ lục 2, hàng 6 “Nội dung văn bản” (14–15 pt); V16-FONT-02 selects 14 pt for this project measurement scope.",
+          "source_review": {
+            "status": "PRIMARY_SOURCE_EXCERPT_CHECKED",
+            "checked_on": "2026-11-06",
+            "currentness": "NOT_ASSESSED"
+          }
         }]
       }
     }

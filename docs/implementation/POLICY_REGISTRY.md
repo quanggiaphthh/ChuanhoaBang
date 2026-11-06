@@ -14,18 +14,24 @@ profile formatting preset has been applied. Neither field claims ND30/HD05
 compliance.
 
 The registry records the official source URLs and exact text locators used for
-the narrow size policy. ND30 permits 13 or 14 pt for this project measurement
-scope. HD05 lists 14–15 pt for document text, while project rule `V16-FONT-02`
-selects 14 pt for table width measurement and forbids automatically lowering it.
-These are eligibility limits for measurement, not font-size corrections.
+the narrow size policy. A source review on 06/11/2026 checked the cited primary
+text excerpts: the official Government Gazette copy of ND30, printed page 27,
+Appendix I, Part I, Section II, item 6(e), states 13–14 pt for document text;
+the official HD05 PDF, Appendix 2, row 6, lists 14–15 pt. ND30 and HD05 remain
+reference-only; the registry marks legal currentness `NOT_ASSESSED` and does not
+claim the excerpts establish complete or currently effective legal presets.
+ND30 permits 13 or 14 pt for this project measurement scope. HD05 lists 14–15
+pt for document text, while project rule `V16-FONT-02` selects 14 pt for table
+width measurement and forbids automatically lowering it. These are eligibility
+limits for measurement, not font-size corrections.
 
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.
 The proposal checker compares this metadata again during `apply`, so a changed
-profile constraint or citation makes the proposal stale. The source records
-support traceability; they do not change `profile_status: REFERENCE_ONLY` or
-turn `profile_rules_applied` on.
+profile constraint, source URL, excerpt-review status, or citation makes the
+proposal stale. The source records support traceability; they do not change
+`profile_status: REFERENCE_ONLY` or turn `profile_rules_applied` on.
 
 Rule `TEXT-COLUMN-GEOMETRY-001` (registry revision `TEXT-COLUMN-GEOMETRY-003`)
 supports explicit equal-width columns and explicit `equalWidth=0` custom

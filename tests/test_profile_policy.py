@@ -63,6 +63,13 @@ def test_policy_registry_is_packaged_and_profiles_remain_unverified():
         source = policy["profiles"][profile]["table_width_measurement"]["official_sources"][0]
         assert source["text_url"].startswith("https://")
         assert source["locator"]
+        assert source["source_review"] == {
+            "status": "PRIMARY_SOURCE_EXCERPT_CHECKED",
+            "checked_on": "2026-11-06",
+            "currentness": "NOT_ASSESSED",
+        }
+    assert policy["profiles"]["ND30"]["table_width_measurement"][
+        "official_sources"][0]["gazette_url"].startswith("https://congbao.chinhphu.vn/")
 
 
 def test_proposal_profile_is_checked_again_before_apply(tmp_path):
@@ -113,6 +120,12 @@ def test_tampered_profile_metric_constraints_are_rejected_on_apply(tmp_path, mon
     with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
         apply(source, altered, tmp_path / "altered.docx", profile="HD05")
     assert not (tmp_path / "altered.docx").exists()
+    tampered_review = json.loads(json.dumps(actual))
+    tampered_review["profile_constraints"]["official_sources"][0][
+        "source_review"]["currentness"] = "CURRENT"
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(source, tampered_review, tmp_path / "tampered-review.docx", profile="HD05")
+    assert not (tmp_path / "tampered-review.docx").exists()
     without_constraints = dict(actual)
     without_constraints.pop("profile_constraints")
     with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
