@@ -1086,6 +1086,16 @@ _BORDER_ATTRIBUTES = frozenset((
     "val", "sz", "space", "color", "themeColor", "themeTint", "themeShade",
     "frame", "shadow",
 ))
+_SUPPORTED_BORDER_STYLES = frozenset((
+    "nil", "none", "single", "thick", "double", "dotted", "dashed",
+    "dotDash", "dotDotDash", "triple", "thinThickSmallGap",
+    "thickThinSmallGap", "thinThickThinSmallGap", "thinThickMediumGap",
+    "thickThinMediumGap", "thinThickThinMediumGap", "thinThickLargeGap",
+    "thickThinLargeGap", "thinThickThinLargeGap", "wave", "doubleWave",
+    "dashSmallGap", "dashDotStroked", "threeDEmboss", "threeDEngrave",
+    "outset", "inset",
+))
+_NON_VISIBLE_BORDER_STYLES = frozenset(("nil", "none"))
 
 
 def _border_evidence(tbl):
@@ -1129,6 +1139,13 @@ def _border_evidence(tbl):
                 evidence = {"edge": edge, "attributes": attributes}
                 if unresolved_attributes:
                     evidence["unresolved_attributes"] = unresolved_attributes
+                border_style = attributes.get("val")
+                if border_style is None:
+                    issues.append(f"MISSING_BORDER_STYLE:{scope}:{edge}")
+                elif border_style not in _SUPPORTED_BORDER_STYLES:
+                    issues.append(
+                        f"UNSUPPORTED_BORDER_STYLE:{scope}:{edge}:{border_style}"
+                    )
                 edges.append(evidence)
         return edges
 
@@ -1181,16 +1198,33 @@ def _border_geometry_evidence(border_evidence):
     """Report direct border spacing and thickness without resolving border geometry."""
     declared_values = []
     size_declarations = []
+    missing_size_declarations = []
     issues = []
     nonzero_space = False
     nonzero_size = False
     invalid_space = False
     invalid_size = False
+    missing_size = False
 
     def collect(scope, row_index, cell_index, edges):
-        nonlocal nonzero_space, nonzero_size, invalid_space, invalid_size
+        nonlocal nonzero_space, nonzero_size, invalid_space, invalid_size, missing_size
         for edge in edges:
             attributes = edge.get("attributes", {})
+            border_style = attributes.get("val")
+            if (border_style is not None and
+                    border_style not in _NON_VISIBLE_BORDER_STYLES and
+                    "sz" not in attributes):
+                missing_size = True
+                missing_size_declarations.append({
+                    "scope": scope,
+                    "row_index": row_index,
+                    "cell_index": cell_index,
+                    "edge": edge.get("edge"),
+                    "border_style": border_style,
+                })
+                issues.append(
+                    f"MISSING_DIRECT_BORDER_SIZE:{scope}:{edge.get('edge', 'UNKNOWN')}:{border_style}"
+                )
             if "space" in attributes:
                 raw_space = attributes["space"]
                 value = None
@@ -1265,7 +1299,7 @@ def _border_geometry_evidence(border_evidence):
         space_status = "DIRECT_ZERO_ONLY"
     else:
         space_status = "NO_DIRECT_BORDER_SPACE"
-    if unresolved_source or invalid_size:
+    if unresolved_source or invalid_size or missing_size:
         size_status = "UNRESOLVED"
     elif nonzero_size:
         size_status = "NONZERO_DIRECT_BORDER_SIZE"
@@ -1273,7 +1307,7 @@ def _border_geometry_evidence(border_evidence):
         size_status = "DIRECT_ZERO_ONLY"
     else:
         size_status = "NO_DIRECT_BORDER_SIZE"
-    if unresolved_source or invalid_space or invalid_size:
+    if unresolved_source or invalid_space or invalid_size or missing_size:
         status = "UNRESOLVED"
     elif nonzero_space or nonzero_size:
         status = "UNMODELED_DIRECT_BORDER_GEOMETRY"
@@ -1287,6 +1321,7 @@ def _border_geometry_evidence(border_evidence):
         "size_status": size_status,
         "declared_values": declared_values,
         "size_declarations": size_declarations,
+        "missing_size_declarations": missing_size_declarations,
         "effective_border_geometry": "NOT_RESOLVED",
         "issues": issues,
     }

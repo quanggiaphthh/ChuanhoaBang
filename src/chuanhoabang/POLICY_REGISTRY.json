@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001+TABLE-DIRECTION-SOURCE-EVIDENCE-001+TABLE-CELL-SPACING-SOURCE-EVIDENCE-001+TABLE-BORDER-GEOMETRY-GATE-001+TABLE-BORDER-SIZE-GATE-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001+TABLE-DIRECTION-SOURCE-EVIDENCE-001+TABLE-CELL-SPACING-SOURCE-EVIDENCE-001+TABLE-BORDER-GEOMETRY-GATE-001+TABLE-BORDER-SIZE-GATE-001+TABLE-BORDER-STYLE-VALIDATION-001+TABLE-BORDER-SIZE-PRESENCE-GATE-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -20,6 +20,7 @@
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tablecellspacing?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.border?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordertype.size?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordervalues?view=openxml-3.0.1",
     "https://unicode.org/reports/tr14/"
   ],
   "rules": [
@@ -287,7 +288,29 @@
       "safe_action": "REPORT_DIRECT_BORDER_SIZE_AND_BLOCK_UNMODELED_WIDTH_PROPOSALS",
       "requires_approval": false,
       "evidence_level": "SOURCE_OOXML",
-      "postconditions": ["direct table and cell border sizes are reported in eighth-points with edge and source location", "nonzero border size and invalid or ambiguous direct border declarations make width proposals REVIEW_REQUIRED", "explicit zero border size does not establish effective border geometry", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+      "postconditions": ["direct table and cell border sizes are reported in eighth-points with edge and source location", "nonzero, missing, or malformed sizes on visible direct border styles make width proposals REVIEW_REQUIRED", "explicit zero border size does not establish effective border geometry", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-STYLE-VALIDATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "w:val on direct table and cell border edges in body and non-body story tables",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_MISSING_OR_UNSUPPORTED_BORDER_STYLE_AND_BLOCK_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["a direct border edge without required w:val is UNRESOLVED", "border styles outside the supported line and no-border subset are UNRESOLVED", "effective style precedence remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-SIZE-PRESENCE-GATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "missing direct w:sz on visible table and cell border edges in body and non-body story tables and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_MISSING_SIZE_AND_BLOCK_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["visible direct border styles without w:sz are listed with source location", "missing size makes border geometry UNRESOLVED and width proposals REVIEW_REQUIRED", "nil and none styles do not require a direct size for this gate", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN"]
     },
     {
       "id": "TABLE-SCOPE-001",

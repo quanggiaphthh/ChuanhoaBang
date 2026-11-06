@@ -489,9 +489,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                                      "edge": "left", "raw_space": "2.5", "space_points": 2.5}],
                 "size_declarations": [{"scope": "cell", "row_index": 0, "cell_index": 1,
                                         "edge": "right", "raw_size": "8", "size_points": "1"}],
+                "missing_size_declarations": [{"scope": "table", "row_index": None,
+                                                "cell_index": None, "edge": "top",
+                                                "border_style": "single"}],
                 "effective_border_geometry": "NOT_RESOLVED",
                 "issues": ["NONZERO_DIRECT_BORDER_SPACE:table:left:2.5",
-                           "NONZERO_DIRECT_BORDER_SIZE:cell:0:1:right:8"],
+                           "NONZERO_DIRECT_BORDER_SIZE:cell:0:1:right:8",
+                           "MISSING_DIRECT_BORDER_SIZE:table:top:single"],
             },
         }],
         "non_body_story_tables": [{
@@ -545,6 +549,7 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
     assert "120 twips" in report
     assert "row0:cell1:left 2.5 pt" in report
     assert "row0:cell1:right 1 pt border (w:sz=8)" in report
+    assert "table:top single border missing w:sz" in report
     assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report

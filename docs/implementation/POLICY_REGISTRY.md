@@ -99,12 +99,27 @@ style conflicts, and Word rendering remain `NOT_RESOLVED`/`NOT_RUN`.
 
 Rule `TABLE-BORDER-SIZE-GATE-001` reports direct `w:sz` values in eighths of a
 point on table and cell border edges, including source cell coordinates. A
-positive thickness or malformed, duplicate, or unsupported border declaration
-blocks width proposals because border thickness is not modeled. An explicit
-zero declaration does not establish effective border geometry. The field is
-documented as border width by the [Open XML SDK](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordertype.size?view=openxml-3.0.1);
+positive thickness, a missing size on a direct visible border style, or a
+malformed, duplicate, or unsupported border declaration blocks width proposals
+because border thickness is not modeled. An explicit zero declaration does not
+establish effective border geometry. The field is documented as border width by
+the [Open XML SDK](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordertype.size?view=openxml-3.0.1);
 the audit does not resolve style precedence, effective border selection, or
 Word rendering, which remain `NOT_RESOLVED`/`NOT_RUN`.
+
+Rule `TABLE-BORDER-STYLE-VALIDATION-001` requires `w:val` on each direct border
+edge and accepts only the supported no-border and common line-style subset.
+Missing style values and styles outside that subset produce `UNRESOLVED`
+evidence and block width proposals. Microsoft documents the available
+`BorderValues` and maps the value to the schema's border-style enumeration in
+the [Open XML SDK](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordervalues?view=openxml-3.0.1).
+Style/theme inheritance and Word rendering remain `NOT_RESOLVED`/`NOT_RUN`.
+
+Rule `TABLE-BORDER-SIZE-PRESENCE-GATE-001` lists direct border edges with a
+visible style and no `w:sz`, including their source coordinates, and marks
+border geometry `UNRESOLVED`. `nil` and `none` do not require a direct size for
+this gate; this does not resolve inherited borders or effective border
+geometry.
 
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source

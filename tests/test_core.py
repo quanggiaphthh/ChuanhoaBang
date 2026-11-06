@@ -97,6 +97,7 @@ def add_table_border_space(table, raw_space):
     borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
     edge = etree.SubElement(borders, core.W + "left")
     edge.set(core.W + "val", "single")
+    edge.set(core.W + "sz", "0")
     edge.set(core.W + "space", raw_space)
     return edge
 
@@ -372,6 +373,50 @@ def test_audit_reports_direct_border_size_and_blocks_unmodeled_width_geometry(
         altered["border_geometry_evidence"]["size_declarations"][0]["size_points"] = "0.1"
         with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
             apply(path, altered, tmp_path / "altered-border-size.docx")
+
+
+@pytest.mark.parametrize(("style", "size", "expected_border_status", "expected_geometry_status",
+                          "expected_gate"), [
+    (None, None, "UNRESOLVED", "UNRESOLVED", True),
+    ("unrecognized-style", "0", "UNRESOLVED", "UNRESOLVED", True),
+    ("single", None, "SOURCE_DECLARATIONS_REPORTED", "UNRESOLVED", True),
+    ("nil", None, "SOURCE_DECLARATIONS_REPORTED", "NO_DIRECT_BORDER_GEOMETRY", False),
+    ("none", None, "SOURCE_DECLARATIONS_REPORTED", "NO_DIRECT_BORDER_GEOMETRY", False),
+])
+def test_audit_gates_invalid_border_styles_and_missing_visible_border_size(
+        tmp_path, style, size, expected_border_status, expected_geometry_status, expected_gate):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
+    edge = etree.SubElement(borders, core.W + "left")
+    if style is not None:
+        edge.set(core.W + "val", style)
+    if size is not None:
+        edge.set(core.W + "sz", size)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+    border_evidence = table_report["border_evidence"]
+    geometry_evidence = table_report["border_geometry_evidence"]
+
+    assert border_evidence["status"] == expected_border_status
+    assert geometry_evidence["status"] == expected_geometry_status
+    assert (table_report["status"] == "REVIEW_REQUIRED") is expected_gate
+    if style is None:
+        assert "MISSING_BORDER_STYLE:table:left" in border_evidence["issues"]
+    elif style == "unrecognized-style":
+        assert "UNSUPPORTED_BORDER_STYLE:table:left:unrecognized-style" in border_evidence["issues"]
+    elif style == "single":
+        assert geometry_evidence["size_status"] == "UNRESOLVED"
+        assert geometry_evidence["missing_size_declarations"] == [{
+            "scope": "table", "row_index": None, "cell_index": None,
+            "edge": "left", "border_style": "single",
+        }]
+        assert "MISSING_DIRECT_BORDER_SIZE:table:left:single" in geometry_evidence["issues"]
+    else:
+        assert geometry_evidence["missing_size_declarations"] == []
 
 
 def test_audit_rejects_duplicate_table_layout_declarations(tmp_path):
@@ -1478,9 +1523,9 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     source_before = path.read_bytes()
     meta = audit(path)["tables"][0]
     border_evidence = meta["border_evidence"]
-    assert meta["border_geometry_evidence"]["status"] == "UNMODELED_DIRECT_BORDER_GEOMETRY"
+    assert meta["border_geometry_evidence"]["status"] == "UNRESOLVED"
     assert meta["border_geometry_evidence"]["space_status"] == "NONZERO_DIRECT_BORDER_SPACE"
-    assert meta["border_geometry_evidence"]["size_status"] == "NONZERO_DIRECT_BORDER_SIZE"
+    assert meta["border_geometry_evidence"]["size_status"] == "UNRESOLVED"
     assert meta["border_geometry_evidence"]["declared_values"] == [{
         "scope": "cell", "row_index": 0, "cell_index": 0,
         "edge": "left", "raw_space": "2", "space_points": "2",
@@ -1488,6 +1533,10 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert meta["border_geometry_evidence"]["size_declarations"] == [{
         "scope": "table", "row_index": None, "cell_index": None,
         "edge": "top", "raw_size": "8", "size_points": "1",
+    }]
+    assert meta["border_geometry_evidence"]["missing_size_declarations"] == [{
+        "scope": "cell", "row_index": 0, "cell_index": 0,
+        "edge": "left", "border_style": "single",
     }]
     base = meta["grid_twips"]
     candidate = [base[0] + 200, base[1] - 400, base[2] + 200]

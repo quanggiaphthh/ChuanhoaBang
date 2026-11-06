@@ -89,7 +89,8 @@ def render_markdown(result: dict) -> str:
         status = evidence.get("status", "UNKNOWN")
         values = evidence.get("declared_values", [])
         size_values = evidence.get("size_declarations", [])
-        if not values and not size_values:
+        missing_size_values = evidence.get("missing_size_declarations", [])
+        if not values and not size_values and not missing_size_values:
             label = ("NO_DIRECT_BORDER_GEOMETRY" if status == "NO_DIRECT_BORDER_GEOMETRY"
                      else status)
         else:
@@ -107,6 +108,13 @@ def render_markdown(result: dict) -> str:
                 f"{value.get('size_points', 'INVALID')} pt border "
                 f"(w:sz={value.get('raw_size', '?')})"
                 for value in size_values
+            )
+            entries.extend(
+                (f"row{value.get('row_index', '?')}:cell{value.get('cell_index', '?')}"
+                 if value.get("scope") == "cell" else value.get("scope", "unknown"))
+                + f":{value.get('edge', 'unknown')} {value.get('border_style', 'UNKNOWN')} "
+                "border missing w:sz"
+                for value in missing_size_values
             )
             label = status + ": " + ", ".join(entries)
         label += f"; effective={evidence.get('effective_border_geometry', 'NOT_RESOLVED')}"

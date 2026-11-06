@@ -72,6 +72,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - Audit reports direct border `w:sz` in eighths of a point at table/cell edges, with source coordinates. Positive thickness and invalid/ambiguous declarations block width proposals; zero values remain source-only and effective border geometry stays unresolved.
 - Added conversion, malformed/range, proposal/apply evidence-binding, body/story Markdown, and patch-preservation cases. Local locked full suite: **210/210 PASS**. GitHub Actions [run 42169656269](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42169656269) passed all six jobs and **210/210 tests** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12; all five targets passed hash-enforced offline install, CLI/DOCX audit smoke, and wheel smoke. Canonical and same-run rebuilt wheel SHA-256: `d3f7825941d68bf2ecf823cf6a1c8472cb0fe06300b699472712dc7277bbdf13`. Preview artifact `chuanhoabang-preview-58962bd54f4c724fef6548a314024760f994b038` expires 20/11/2026. Microsoft Word rendering remains `NOT_RUN`.
 
+#### 06/11/2026 — Border style and missing-size gates
+
+- Direct table/cell border edges now require a supported `w:val`; missing styles and values outside the common line/no-border subset are `UNRESOLVED`. Visible direct styles without `w:sz` are listed by edge and source location and block width proposals; explicit `nil`/`none` styles do not need a size for this gate.
+- Markdown reports name missing-size edges; proposal/apply evidence includes the missing declarations. Source-only tests cover absent and unsupported styles, missing size, `nil`/`none`, and patch evidence preservation. Local full suite: **215/215 PASS**. Microsoft Word rendering and effective style/theme border geometry remain `NOT_RUN`/`NOT_RESOLVED`.
+
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.
