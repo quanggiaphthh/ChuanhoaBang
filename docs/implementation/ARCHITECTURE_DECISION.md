@@ -46,5 +46,5 @@
 
 - Bộ so sánh L0 đã chuyển sang **allowlist riêng cho từng operation**. OPTIMIZE_WIDTH chỉ bỏ qua phép đo width; SET_REPEAT_HEADER_FIRST_ROW chỉ bỏ qua `tblHeader` ở hàng đầu; EXACT_ROW_HEIGHT_TO_AT_LEAST chỉ bỏ qua thuộc tính `hRule` tại đúng `row_indices` đã phê duyệt.
 - Không còn bỏ qua thay đổi `tblGrid/tcW/tblW` khi sửa header/height, hoặc bỏ qua hRule của hàng **không** thuộc đề xuất.
-- Audit exposes source-only cell-to-grid ranges and local `vMerge` markers; it does not validate vertical continuation chains. Valid horizontal spans are allowed only for the two width-neutral paging operations. The width optimizer and all vertical-merge edits remain blocked pending licensed TNR and Microsoft Word geometry gates.
+- Audit exposes source-only cell-to-grid ranges, local `vMerge` markers, and validated per-row `gridBefore`/`gridAfter` counts. It does not validate vertical continuation chains. Tables with omitted grid cells remain review-only. Valid horizontal spans are allowed only for the two width-neutral paging operations. The width optimizer and all vertical-merge edits remain blocked pending licensed TNR and Microsoft Word geometry gates.
 - CI 43/43 PASS theo fixture tổng hợp; chưa có Word Print Layout hoặc TNR bản quyền.

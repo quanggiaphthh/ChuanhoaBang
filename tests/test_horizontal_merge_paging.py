@@ -39,6 +39,31 @@ def _table_text(path):
     return [n.text for n in core._tables(xml)[0].xpath(".//w:t", namespaces=core.NS)]
 
 
+def _omit_edge_cells(path, *, before, after):
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                row = root.xpath(".//w:body/w:tbl/w:tr[2]", namespaces=core.NS)[0]
+                cells = row.xpath("./w:tc", namespaces=core.NS)
+                row.remove(cells[-1])
+                row.remove(cells[0])
+                tr_pr_nodes = row.xpath("./w:trPr", namespaces=core.NS)
+                if tr_pr_nodes:
+                    tr_pr = tr_pr_nodes[0]
+                else:
+                    tr_pr = etree.Element(core.W + "trPr")
+                    row.insert(0, tr_pr)
+                grid_before = etree.SubElement(tr_pr, core.W + "gridBefore")
+                grid_before.set(core.W + "val", str(before))
+                grid_after = etree.SubElement(tr_pr, core.W + "gridAfter")
+                grid_after.set(core.W + "val", str(after))
+                data = etree.tostring(root)
+            z.writestr(info, data)
+
+
 def test_hmerge_header_is_safe_but_width_optimizer_stays_blocked(tmp_path):
     path = fixture(tmp_path)
     original_bytes = path.read_bytes()
@@ -129,6 +154,81 @@ def test_malformed_vertical_merge_marker_does_not_produce_grid_mapping(tmp_path)
                     namespaces=core.NS,
                 )[0]
                 marker.set(core.W + "val", "join")
+                data = etree.tostring(root)
+            z.writestr(info, data)
+    assert audit(path)["tables"][0]["cell_grid_spans"] is None
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_omitted_edge_cells_map_to_declared_logical_grid_and_stay_review_only(tmp_path):
+    path = fixture(tmp_path, mode="plain")
+    _omit_edge_cells(path, before=1, after=1)
+    table_info = audit(path)["tables"][0]
+    assert table_info["cell_grid_spans"][1] == [{"start_column": 1, "span": 1}]
+    assert table_info["row_grid_omissions"] == [
+        {"grid_before": 0, "grid_after": 0},
+        {"grid_before": 1, "grid_after": 1},
+        {"grid_before": 0, "grid_after": 0},
+    ]
+    assert table_info["status"] == "REVIEW_REQUIRED"
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose(path, 0)["row_grid_omissions"] == table_info["row_grid_omissions"]
+    header = propose_header(path, 0)
+    assert header["decision"] == "REVIEW_REQUIRED"
+    assert header["row_grid_omissions"] == table_info["row_grid_omissions"]
+    unclip = propose_unclip_row_height(path, 0)
+    assert unclip["decision"] == "REVIEW_REQUIRED"
+    assert unclip["row_grid_omissions"] == table_info["row_grid_omissions"]
+    from chuanhoabang.cli import render_markdown
+    assert '"row_grid_omissions"' in render_markdown(audit(path))
+    assert "row_grid_omissions" in render_markdown(propose(path, 0))
+
+
+@pytest.mark.parametrize(("before", "after"), [(2, 1), (4, 0)])
+def test_inconsistent_grid_omissions_do_not_produce_grid_mapping(tmp_path, before, after):
+    path = fixture(tmp_path, mode="plain")
+    _omit_edge_cells(path, before=before, after=after)
+    table_info = audit(path)["tables"][0]
+    assert table_info["cell_grid_spans"] is None
+    assert "row_grid_omissions" not in table_info
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_malformed_grid_omission_value_does_not_produce_grid_mapping(tmp_path):
+    path = fixture(tmp_path, mode="plain")
+    _omit_edge_cells(path, before=1, after=1)
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                marker = root.xpath(
+                    ".//w:body/w:tbl/w:tr[2]/w:trPr/w:gridBefore",
+                    namespaces=core.NS,
+                )[0]
+                marker.set(core.W + "val", "-1")
+                data = etree.tostring(root)
+            z.writestr(info, data)
+    assert audit(path)["tables"][0]["cell_grid_spans"] is None
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_duplicate_grid_omission_marker_does_not_produce_grid_mapping(tmp_path):
+    path = fixture(tmp_path, mode="plain")
+    _omit_edge_cells(path, before=1, after=1)
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                tr_pr = root.xpath(
+                    ".//w:body/w:tbl/w:tr[2]/w:trPr",
+                    namespaces=core.NS,
+                )[0]
+                duplicate = etree.SubElement(tr_pr, core.W + "gridBefore")
+                duplicate.set(core.W + "val", "1")
                 data = etree.tostring(root)
             z.writestr(info, data)
     assert audit(path)["tables"][0]["cell_grid_spans"] is None

@@ -55,6 +55,18 @@ header-repeat and row-height operations accept valid horizontal spans; omitted
 cells, malformed spans or merge markers, and nested tables remain unsupported.
 The marker semantics follow Microsoft's [VerticalMerge.Val documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge.val?view=openxml-3.0.1); the continuation-chain grid-column rule is not validated here.
 
+`GRID-OMISSION-SOURCE-MAPPING-001` maps each physical cell after applying a
+row's direct `w:gridBefore` count and verifies that its cells plus
+`w:gridAfter` account for the declared table grid. Missing counts mean zero;
+malformed, duplicate, nested, or grid-inconsistent declarations leave the
+mapping unresolved. The report exposes nonzero counts as `row_grid_omissions`
+in audit/proposal JSON and Markdown. Tables using omitted grid cells remain
+`REVIEW_REQUIRED` for every edit. Microsoft's [GridBefore](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridbefore?view=openxml-3.0.1)
+and [GridAfter](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridafter?view=openxml-3.0.1)
+documentation defines the counts as skipped leading and trailing grid columns;
+this mapper fails closed on conflicting declarations rather than relying on
+Word's conflict recovery.
+
 The custom-column interpretation follows Microsoft's
 [equalWidth](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1)
 and [column spacing](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1)

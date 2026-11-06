@@ -31,11 +31,11 @@ def render_markdown(result: dict) -> str:
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
-                "cell_grid_spans",
+                "cell_grid_spans", "row_grid_omissions",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             value = (json.dumps(result[key], ensure_ascii=False)
-                     if key == "cell_grid_spans" else result[key])
+                     if key in ("cell_grid_spans", "row_grid_omissions") else result[key])
             lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
     if isinstance(geometry, dict):
@@ -74,7 +74,13 @@ def render_markdown(result: dict) -> str:
                 grid_sum = evidence.get("grid_sum_twips")
                 grid_label = (f"grid={grid if grid is not None else 'UNKNOWN'} twips; "
                               f"sum={grid_sum if grid_sum is not None else 'UNKNOWN'} twips")
-                span_label = json.dumps(table.get("cell_grid_spans"), ensure_ascii=False,
+                span_evidence = table.get("cell_grid_spans")
+                if table.get("row_grid_omissions") is not None:
+                    span_evidence = {
+                        "cell_grid_spans": span_evidence,
+                        "row_grid_omissions": table["row_grid_omissions"],
+                    }
+                span_label = json.dumps(span_evidence, ensure_ascii=False,
                                         separators=(",", ":"))
                 cell_labels = []
                 for row_index, row in enumerate(evidence.get("cell_preferred", [])):

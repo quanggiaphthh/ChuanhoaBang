@@ -859,27 +859,54 @@ def _cell_padding(tbl, rows, table_styles=None):
     return result
 
 
-def _cell_grid_spans(tbl):
+def _cell_grid_mapping(tbl):
     """Map physical cells to logical grid spans when source XML is unambiguous.
 
     A vertical-merge value is reported as a source marker only; this mapping
     does not validate continuation chains or make vertical merges editable.
+    Leading and trailing omitted grid columns are included only when their
+    per-row declarations resolve cleanly against the table grid.
     """
     grid_count = len(tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS))
     rows = tbl.xpath("./w:tr", namespaces=NS)
     direct_spans = tbl.xpath("./w:tr/w:tc/w:tcPr/w:gridSpan", namespaces=NS)
     direct_vertical_merges = tbl.xpath("./w:tr/w:tc/w:tcPr/w:vMerge", namespaces=NS)
+    direct_grid_before = tbl.xpath("./w:tr/w:trPr/w:gridBefore", namespaces=NS)
+    direct_grid_after = tbl.xpath("./w:tr/w:trPr/w:gridAfter", namespaces=NS)
     if (grid_count < 1 or not rows or tbl.xpath(
-            ".//w:gridBefore | .//w:gridAfter | .//w:tbl", namespaces=NS) or
+            ".//w:tbl", namespaces=NS) or
             len(tbl.xpath(".//w:gridSpan", namespaces=NS)) != len(direct_spans) or
-            len(tbl.xpath(".//w:vMerge", namespaces=NS)) != len(direct_vertical_merges)):
+            len(tbl.xpath(".//w:vMerge", namespaces=NS)) != len(direct_vertical_merges) or
+            len(tbl.xpath(".//w:gridBefore", namespaces=NS)) != len(direct_grid_before) or
+            len(tbl.xpath(".//w:gridAfter", namespaces=NS)) != len(direct_grid_after)):
         return None
     result = []
+    row_omissions = []
+    has_omissions = False
     for row in rows:
         cells = row.xpath("./w:tc", namespaces=NS)
         if not cells:
             return None
-        cursor = 0
+        before_nodes = row.xpath("./w:trPr/w:gridBefore", namespaces=NS)
+        after_nodes = row.xpath("./w:trPr/w:gridAfter", namespaces=NS)
+        if len(before_nodes) > 1 or len(after_nodes) > 1:
+            return None
+        omissions = []
+        for nodes in (before_nodes, after_nodes):
+            if not nodes:
+                omissions.append(0)
+                continue
+            value = nodes[0].get(W + "val")
+            if value is None or not re.fullmatch(r"[0-9]+", value):
+                return None
+            omissions.append(int(value))
+        grid_before, grid_after = omissions
+        if grid_before + grid_after > grid_count:
+            return None
+        if grid_before or grid_after:
+            has_omissions = True
+        row_omissions.append({"grid_before": grid_before, "grid_after": grid_after})
+        cursor = grid_before
         row_spans = []
         for cell in cells:
             spans = cell.xpath("./w:tcPr/w:gridSpan", namespaces=NS)
@@ -892,7 +919,7 @@ def _cell_grid_spans(tbl):
                 span = int(value)
             else:
                 span = 1
-            if span < 1 or cursor + span > grid_count:
+            if span < 1 or cursor + span > grid_count - grid_after:
                 return None
             cell_span = {"start_column": cursor, "span": span}
             vertical_merges = cell.xpath("./w:tcPr/w:vMerge", namespaces=NS)
@@ -905,10 +932,13 @@ def _cell_grid_spans(tbl):
                 cell_span["vertical_merge"] = value.upper()
             row_spans.append(cell_span)
             cursor += span
-        if cursor != grid_count:
+        if cursor != grid_count - grid_after:
             return None
         result.append(row_spans)
-    return result
+    return {
+        "cell_grid_spans": result,
+        "row_grid_omissions": row_omissions if has_omissions else None,
+    }
 
 
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
@@ -945,7 +975,9 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
         reasons.append("NESTED_OR_CONTENT_CONTROL_TABLE")
     if tbl.xpath(".//w:tbl", namespaces=NS):
         reasons.append("CONTAINS_NESTED_TABLE")
-    cell_grid_spans = _cell_grid_spans(tbl)
+    grid_mapping = _cell_grid_mapping(tbl)
+    cell_grid_spans = (None if grid_mapping is None else
+                       grid_mapping["cell_grid_spans"])
     if tbl.xpath(".//w:gridSpan | .//w:vMerge | .//w:gridBefore | .//w:gridAfter", namespaces=NS):
         reasons.append("MERGED_OR_OMITTED_CELLS")
     if tbl.xpath(".//w:tblpPr | .//w:textDirection", namespaces=NS):
@@ -977,7 +1009,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
                   "exact_line_spacing_paragraphs": len(tbl.xpath(".//w:pPr/w:spacing[@w:lineRule='exact']", namespaces=NS)),
                   "split_prevention_rows": len(tbl.xpath("./w:tr/w:trPr/w:cantSplit", namespaces=NS))}
     status = "SUPPORTED" if not reasons else "REVIEW_REQUIRED"
-    return {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
+    details = {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
             "cell_grid_spans": cell_grid_spans,
@@ -992,6 +1024,9 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
             "pagination_diagnostics": pagination,
             "overflow_declared": bool(widths and geom.get("available_twips") and
                 sum(widths) > geom["available_twips"])}
+    if grid_mapping is not None and grid_mapping["row_grid_omissions"] is not None:
+        details["row_grid_omissions"] = grid_mapping["row_grid_omissions"]
+    return details
 
 
 def audit(path, profile=None):
@@ -1282,6 +1317,8 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
               "word_render": "NOT_RUN", "content_modified": False}
+    if info.get("row_grid_omissions") is not None:
+        result["row_grid_omissions"] = info["row_grid_omissions"]
     if profile_constraints is not None:
         result["profile_constraints"] = profile_constraints
     if info["status"] != "SUPPORTED":
@@ -1537,7 +1574,10 @@ def propose_header(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
+    if table.get("row_grid_omissions") is not None:
+        result["row_grid_omissions"] = table["row_grid_omissions"]
     if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _, _, _, _ = _package(path)
@@ -1594,7 +1634,10 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
+    if table.get("row_grid_omissions") is not None:
+        result["row_grid_omissions"] = table["row_grid_omissions"]
     if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _, _, _, _ = _package(path)
