@@ -19,6 +19,14 @@ scope. HD05 lists 14–15 pt for document text, while project rule `V16-FONT-02`
 selects 14 pt for table width measurement and forbids automatically lowering it.
 These are eligibility limits for measurement, not font-size corrections.
 
+For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
+allowed sizes, project selection rationale, and the registry's official source
+records (`instrument`, URLs, and exact locator) into `profile_constraints`.
+The proposal checker compares this metadata again during `apply`, so a changed
+profile constraint or citation makes the proposal stale. The source records
+support traceability; they do not change `profile_status: REFERENCE_ONLY` or
+turn `profile_rules_applied` on.
+
 Rule `TEXT-COLUMN-GEOMETRY-001` (registry revision `TEXT-COLUMN-GEOMETRY-003`)
 supports explicit equal-width columns and explicit `equalWidth=0` custom
 columns. Custom columns require a matching count, positive `w:w` values,
