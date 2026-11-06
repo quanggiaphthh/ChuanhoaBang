@@ -126,8 +126,10 @@ def render_markdown(result: dict) -> str:
                   "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp "
                   "và ứng viên kế thừa cùng loại cho default cùng first/even khi control nguồn "
                   "đang bật; story type lấy từ tên part chuẩn hoặc document relationship. "
-                  "Ứng viên không xác nhận quyền sở hữu hiệu lực trong Word.", "",
-                  "| Part | Story type | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
+                  "Footnote/endnote ID chỉ được đối chiếu với reference trong document body XML; "
+                  "đây là bằng chứng cấu trúc nguồn, không xác nhận Word hiển thị hoặc quyền sở hữu "
+                  "hiệu lực. Ứng viên kế thừa cũng không xác nhận quyền sở hữu hiệu lực trong Word.", "",
+                  "| Part | Story type | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Reference evidence | Trạng thái | Lý do |",
                   "|---|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
             references = "; ".join(
@@ -161,7 +163,21 @@ def render_markdown(result: dict) -> str:
                     )
                 candidate_labels.append(label)
             candidates = "; ".join(candidate_labels)
-            references = "; ".join(value for value in (references, candidates) if value) or "unresolved"
+            note_reference = table.get("note_reference")
+            note_label = ""
+            if isinstance(note_reference, dict):
+                note_id = note_reference.get("note_id") or "UNKNOWN"
+                reference_count = note_reference.get("body_reference_count")
+                note_label = (
+                    f"{note_reference.get('note_type') or 'note'} id {note_id} "
+                    f"{note_reference.get('status', 'UNKNOWN')} "
+                    f"(body_reference_count={reference_count if reference_count is not None else 'UNKNOWN'}; "
+                    f"{note_reference.get('reference_scope', 'UNKNOWN')}; "
+                    f"{note_reference.get('evidence', 'UNKNOWN')})"
+                )
+            reference_evidence = "; ".join(
+                value for value in (references, candidates, note_label) if value
+            ) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
                          f"{safe(', '.join(table.get('story_types', [])) or 'UNKNOWN')} | "
                          f"`{safe(table.get('table_id', '?'))}` | "
@@ -169,7 +185,7 @@ def render_markdown(result: dict) -> str:
                          f"{table.get('story_table_index', '?')} | "
                          f"`{safe(table.get('table_sha256', '?'))}` | "
                          f"{safe(table.get('owner_status', 'UNKNOWN'))} | "
-                         f"{safe(references)} | "
+                         f"{safe(reference_evidence)} | "
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:

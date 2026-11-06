@@ -307,8 +307,21 @@ def test_malformed_internal_relationship_target_is_unresolved():
     assert core._relationship_target_part("//[") is None
 
 
-@pytest.mark.parametrize("story_type", ["footnotes", "endnotes"])
-def test_custom_named_note_part_is_inventoried_read_only(tmp_path, story_type):
+@pytest.mark.parametrize(
+    "story_type,body_reference_count,duplicate_id,note_id_value,has_container,expected_status",
+    [
+        ("footnotes", 1, False, "1", True, "BODY_REFERENCE_FOUND"),
+        ("footnotes", 2, False, "1", True, "BODY_REFERENCE_FOUND"),
+        ("endnotes", 1, False, "1", True, "BODY_REFERENCE_FOUND"),
+        ("footnotes", 0, False, "1", True, "NO_BODY_REFERENCE_FOUND"),
+        ("footnotes", 1, True, "1", True, "AMBIGUOUS_NOTE_ID"),
+        ("footnotes", 1, False, "not-an-id", True, "UNKNOWN_NOTE_ID"),
+        ("footnotes", 1, False, "1", False, "NOTE_CONTAINER_MISSING"),
+    ],
+)
+def test_custom_named_note_part_is_inventoried_read_only(
+        tmp_path, story_type, body_reference_count, duplicate_id, note_id_value, has_container,
+        expected_status):
     path = fixture_docx(tmp_path)
     with ZipFile(path) as source_zip:
         entries = {item.filename: source_zip.read(item.filename) for item in source_zip.infolist()}
@@ -317,13 +330,38 @@ def test_custom_named_note_part_is_inventoried_read_only(tmp_path, story_type):
     table = copy.deepcopy(document.xpath("./w:body/w:tbl", namespaces=core.NS)[0])
     story_root = etree.Element(core.W + story_type, nsmap={"w": core.NS["w"]})
     note_tag = "footnote" if story_type == "footnotes" else "endnote"
-    for note_id, note_type in (("-1", "separator"), ("0", "continuationSeparator"), ("1", None)):
-        attributes = {core.W + "id": note_id}
-        if note_type:
-            attributes[core.W + "type"] = note_type
-        note = etree.SubElement(story_root, core.W + note_tag, attributes)
-        if note_id == "1":
-            note.append(table)
+    etree.SubElement(story_root, core.W + note_tag, {
+        core.W + "id": "-1", core.W + "type": "separator",
+    })
+    etree.SubElement(story_root, core.W + note_tag, {
+        core.W + "id": "0", core.W + "type": "continuationSeparator",
+    })
+    if has_container:
+        note_attributes = {core.W + "id": note_id_value}
+        note = etree.SubElement(story_root, core.W + note_tag, note_attributes)
+        note.append(table)
+        if duplicate_id:
+            duplicate = etree.SubElement(story_root, core.W + note_tag,
+                                         {core.W + "id": note_id_value})
+            etree.SubElement(duplicate, core.W + "p")
+    else:
+        story_root.append(table)
+    if body_reference_count:
+        body = document.find(core.W + "body")
+        body_paragraph = etree.Element(core.W + "p")
+        section_properties = body.find(core.W + "sectPr")
+        if section_properties is None:
+            body.append(body_paragraph)
+        else:
+            body.insert(body.index(section_properties), body_paragraph)
+        for _ in range(body_reference_count):
+            run = etree.SubElement(body_paragraph, core.W + "r")
+            etree.SubElement(run, core.W + ("footnoteReference" if story_type == "footnotes"
+                                             else "endnoteReference"),
+                             {core.W + "id": "1"})
+        entries["word/document.xml"] = etree.tostring(
+            document, xml_declaration=True, encoding="UTF-8"
+        )
     custom_part = f"word/stories/custom-{story_type}.xml"
     entries[custom_part] = etree.tostring(story_root, xml_declaration=True, encoding="UTF-8")
 
@@ -365,6 +403,18 @@ def test_custom_named_note_part_is_inventoried_read_only(tmp_path, story_type):
     assert notes[0]["section_references"] == []
     assert notes[0]["status"] == "REVIEW_REQUIRED"
     assert notes[0]["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
+    expected_note_id = note_id_value if has_container else None
+    expected_reference_count = (
+        body_reference_count if has_container and note_id_value == "1" else None
+    )
+    assert notes[0]["note_reference"] == {
+        "note_type": "footnote" if story_type == "footnotes" else "endnote",
+        "note_id": expected_note_id,
+        "status": expected_status,
+        "body_reference_count": expected_reference_count,
+        "reference_scope": "WORD_DOCUMENT_BODY_XML_ONLY",
+        "evidence": "SOURCE_XML_ONLY",
+    }
     assert path.read_bytes() == source_before
 
 

@@ -86,6 +86,34 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "possible inherited section 1 header/even from section 0 " \
            "(section activation ENABLED; w:evenAndOddHeaders; SOURCE_XML_ONLY)" in report
 
+    note_report = render_markdown({
+        "non_body_story_tables": [{
+            "part": "word/footnotes.xml",
+            "story_types": ["footnotes"],
+            "story_table_index": 0,
+            "table_id": "word/footnotes.xml#table=0:note1234",
+            "parent_table_id": None,
+            "table_sha256": "c" * 64,
+            "owner_status": "SECTION_RELATIONSHIP_NOT_RESOLVED",
+            "section_references": [],
+            "note_reference": {
+                "note_type": "footnote",
+                "note_id": "1",
+                "status": "BODY_REFERENCE_FOUND",
+                "body_reference_count": 1,
+                "reference_scope": "WORD_DOCUMENT_BODY_XML_ONLY",
+                "evidence": "SOURCE_XML_ONLY",
+            },
+            "status": "REVIEW_REQUIRED",
+            "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
+        }],
+    })
+    assert "Reference evidence" in note_report
+    assert "footnote id 1 BODY_REFERENCE_FOUND" in note_report
+    assert "body_reference_count=1" in note_report
+    assert "WORD_DOCUMENT_BODY_XML_ONLY" in note_report
+    assert "SOURCE_XML_ONLY" in note_report
+
 
 def test_markdown_render_distinguishes_declared_grid_and_word_widths():
     report = render_markdown({

@@ -14,6 +14,7 @@ import posixpath
 import re
 import tempfile
 import unicodedata
+from collections import Counter
 from importlib.resources import files as package_files
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -319,8 +320,90 @@ def _section_story_references(root, document_rels, story_parts, settings=b""):
     return owners, inheritance_candidates, first_even_candidates
 
 
+def _note_id_value(value):
+    if value is None:
+        return None
+    lexical = value.strip()
+    if not re.fullmatch(r"[+-]?[0-9]+", lexical):
+        return None
+    return int(lexical)
+
+
+def _note_reference_evidence(table, part_root, story_types, note_definition_counts,
+                             body_reference_counts):
+    note = table.getparent()
+    while note is not None and note.tag not in (W + "footnote", W + "endnote"):
+        note = note.getparent()
+    part_note_types = {
+        "footnote" if story_type == "footnotes" else "endnote"
+        for story_type in story_types
+        if story_type in ("footnotes", "endnotes")
+    }
+    note_type = note.tag.rsplit("}", 1)[-1] if note is not None else None
+    if note_type is None:
+        root_note_type = part_root.tag.rsplit("}", 1)[-1]
+        if root_note_type == "footnotes":
+            note_type = "footnote"
+        elif root_note_type == "endnotes":
+            note_type = "endnote"
+        elif len(part_note_types) == 1:
+            note_type = next(iter(part_note_types))
+    raw_id = note.get(W + "id") if note is not None else None
+    parsed_id = _note_id_value(raw_id)
+    if note is None:
+        status = "NOTE_CONTAINER_MISSING"
+        body_reference_count = None
+    elif parsed_id is None:
+        status = "UNKNOWN_NOTE_ID"
+        body_reference_count = None
+    else:
+        key = (note_type, parsed_id)
+        body_reference_count = body_reference_counts.get(key, 0)
+        if note_definition_counts.get(key, 0) != 1:
+            status = "AMBIGUOUS_NOTE_ID"
+        elif body_reference_count:
+            status = "BODY_REFERENCE_FOUND"
+        else:
+            status = "NO_BODY_REFERENCE_FOUND"
+    return {
+        "note_type": note_type,
+        "note_id": raw_id,
+        "status": status,
+        "body_reference_count": body_reference_count,
+        "reference_scope": "WORD_DOCUMENT_BODY_XML_ONLY",
+        "evidence": "SOURCE_XML_ONLY",
+    }
+
+
+def _note_reference_counts(document_root, story_parts, story_part_types):
+    body_reference_counts = Counter()
+    body = document_root.find(W + "body")
+    if body is not None:
+        for note_type, element_name in (("footnote", "footnoteReference"),
+                                        ("endnote", "endnoteReference")):
+            for reference in body.xpath(f".//w:{element_name}", namespaces=NS):
+                note_id = _note_id_value(reference.get(W + "id"))
+                if note_id is not None:
+                    body_reference_counts[(note_type, note_id)] += 1
+
+    note_definition_counts = Counter()
+    for part, data in story_parts.items():
+        for story_type, element_name in (("footnotes", "footnote"),
+                                         ("endnotes", "endnote")):
+            if story_type not in story_part_types.get(part, ()):
+                continue
+            root = _xml(data)
+            for note in root.xpath(f"./w:{element_name}", namespaces=NS):
+                note_id = _note_id_value(note.get(W + "id"))
+                if note_id is not None:
+                    singular_type = "footnote" if story_type == "footnotes" else "endnote"
+                    note_definition_counts[(singular_type, note_id)] += 1
+    return note_definition_counts, body_reference_counts
+
+
 def _non_body_story_tables(story_parts, section_references, inheritance_candidates,
-                           first_even_candidates, story_part_types):
+                           first_even_candidates, story_part_types, note_definition_counts,
+                           body_reference_counts):
     inventory = []
     for part, data in sorted(story_parts.items()):
         root = _xml(data)
@@ -336,7 +419,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
         for index, table in enumerate(tables):
             ancestors = table.xpath("ancestor::w:tbl", namespaces=NS)
             parent_id = table_ids.get(ancestors[-1]) if ancestors else None
-            inventory.append({
+            entry = {
                 "part": part,
                 "story_types": list(story_part_types.get(part, ())),
                 "story_table_index": index,
@@ -353,7 +436,13 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "first_even_inheritance_candidates": special_candidates,
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
-            })
+            }
+            if set(story_part_types.get(part, ())) & {"footnotes", "endnotes"}:
+                entry["note_reference"] = _note_reference_evidence(
+                    table, root, story_part_types.get(part, ()), note_definition_counts,
+                    body_reference_counts,
+                )
+            inventory.append(entry)
     return inventory
 
 
@@ -867,9 +956,12 @@ def audit(path, profile=None):
     section_references, inheritance_candidates, first_even_candidates = _section_story_references(
         root, document_rels, story_parts, settings
     )
+    note_definition_counts, body_reference_counts = _note_reference_counts(
+        root, story_parts, story_part_types
+    )
     story_tables = _non_body_story_tables(
         story_parts, section_references, inheritance_candidates, first_even_candidates,
-        story_part_types
+        story_part_types, note_definition_counts, body_reference_counts,
     )
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
             "policy": POLICY_VERSION, **profile_context, "geometry": geometry,
