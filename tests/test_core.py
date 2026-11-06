@@ -79,6 +79,7 @@ def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tm
     assert set(role["evidence"]) == {
         "MULTIROW_TABLE", "AT_LEAST_TWO_NONEMPTY_HEADER_CELLS", "RECOGNIZED_HEADER_HINT",
     }
+    assert {"stt", "nội dung", "ghi chú"}.issubset(role["matched_markers"])
     assert role["evidence_level"] == "SOURCE_XML_TEXT_AND_TOPOLOGY"
     assert role["authority"] == "NOT_ESTABLISHED"
 
@@ -94,6 +95,9 @@ def test_audit_labels_official_heading_text_as_a_review_only_form_candidate(tmp_
 
     assert table["role_classification"]["classification"] == "OFFICIAL_FORM_CANDIDATE"
     assert "OFFICIAL_FORM_TEXT_MARKER" in table["role_classification"]["evidence"]
+    assert set(table["role_classification"]["matched_markers"]) == {
+        "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc",
+    }
     assert table["status"] == "REVIEW_REQUIRED"
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
@@ -108,6 +112,7 @@ def test_audit_labels_non_form_layout_text_as_a_layout_candidate(tmp_path):
 
     assert table["role_classification"]["classification"] == "LAYOUT_CANDIDATE"
     assert table["role_classification"]["evidence"] == ["LAYOUT_TEXT_HINT"]
+    assert "nơi nhận" in table["role_classification"]["matched_markers"]
     assert table["status"] == "REVIEW_REQUIRED"
 
 
@@ -120,6 +125,7 @@ def test_audit_recognizes_common_vietnamese_layout_spelling_variant(tmp_path):
     table = audit(path)["tables"][0]
 
     assert table["role_classification"]["classification"] == "LAYOUT_CANDIDATE"
+    assert "đảng uỷ" in table["role_classification"]["matched_markers"]
     assert "POSSIBLE_LAYOUT_TABLE" in table["reasons"]
 
 
@@ -130,6 +136,7 @@ def test_audit_labels_unclear_table_role_as_unknown(tmp_path):
 
     assert table["role_classification"]["classification"] == "UNKNOWN"
     assert table["role_classification"]["authority"] == "NOT_ESTABLISHED"
+    assert table["role_classification"]["matched_markers"] == []
     assert table["status"] == "REVIEW_REQUIRED"
 
 
@@ -352,6 +359,7 @@ def test_non_body_story_role_candidate_is_reported_without_edit_permission(tmp_p
 
     assert entry["role_classification"]["classification"] == "OFFICIAL_FORM_CANDIDATE"
     assert "OFFICIAL_FORM_TEXT_MARKER" in entry["role_classification"]["evidence"]
+    assert "cộng hòa xã hội chủ nghĩa việt nam" in entry["role_classification"]["matched_markers"]
     assert entry["role_classification"]["authority"] == "NOT_ESTABLISHED"
     assert entry["status"] == "REVIEW_REQUIRED"
     assert entry["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"

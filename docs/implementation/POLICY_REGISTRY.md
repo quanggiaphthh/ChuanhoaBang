@@ -40,15 +40,21 @@ profile records therefore remain `currentness: NOT_ASSESSED`,
 Rule `TABLE-ROLE-SOURCE-CLASSIFICATION-001` adds source-only role candidates to
 body-table audits and proposals: `NESTED`, `OFFICIAL_FORM_CANDIDATE`,
 `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`. Each label carries evidence
-codes, `authority: NOT_ESTABLISHED`, and `edit_gate: TABLE_STATUS_AND_OPERATION_RULES`.
-Text markers can suggest a layout or official-form candidate, but do not verify
-legal status. The role field does not grant edit permission; existing table
-status, proposal decision, and operation-specific checks still govern changes.
+codes and `matched_markers` from a fixed hint vocabulary, plus
+`authority: NOT_ESTABLISHED` and `edit_gate: TABLE_STATUS_AND_OPERATION_RULES`.
+Arbitrary cell text is not copied into the marker list. Text markers can
+suggest a layout or official-form candidate, but do not verify legal status.
+The role field does not grant edit permission; existing table status, proposal
+decision, and operation-specific checks still govern changes.
 
 Rule `TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001` reports the same candidates
 for header, footer, footnote, and endnote story tables in audit output. Story
 ownership remains source-derived, all non-body tables remain `REVIEW_REQUIRED`,
 and none enters the body table index or gains edit permission.
+
+Rule `TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001` records the exact matched terms
+from the classifier's fixed hint vocabulary and recognized header hints. It
+does not copy arbitrary cell text into evidence fields.
 
 Rule `NESTED-PARENT-CELL-SOURCE-LOCATION-001` adds the immediate parent cell's
 zero-based row/cell location when the source XML table-row-cell chain resolves.

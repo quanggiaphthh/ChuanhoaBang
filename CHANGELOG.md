@@ -35,13 +35,17 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 
 #### 06/11/2026 — Source-only table role candidate labels
 
-- Body-table audit and proposal output now reports `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN` with evidence codes. The report marks authority as unestablished, and the role label does not grant edit permission or bypass existing status/operation gates.
+- Body-table audit and proposal output now reports `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN` with evidence codes and matched terms from a fixed hint vocabulary. Arbitrary cell text is not copied into the marker list. The report marks authority as unestablished, and the role label does not grant edit permission or bypass existing status/operation gates.
 - A small text-marker and data-header heuristic helps reviewers see why a table was held or considered a data candidate. It is not legal form recognition and needs validation against the original fixture corpus.
 - Local full suite: **180/180 PASS** with `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest -q tests/`; JSON registry parsing and `git diff --check` passed. Microsoft Word/WPS and original-fixture acceptance remain **NOT_RUN**.
 
 #### 06/11/2026 — Story table role candidates
 
-- Audit JSON and Markdown now report the same source-only role candidates for header, footer, footnote, and endnote tables. These entries remain `REVIEW_REQUIRED`, outside body-table indices, and without an ownership or edit-authority claim.
+- Audit JSON and Markdown now report the same source-only role candidates for header, footer, footnote, and endnote tables, with matched terms from a fixed hint vocabulary. These entries remain `REVIEW_REQUIRED`, outside body-table indices, and without an ownership or edit-authority claim.
+
+#### 06/11/2026 — Matched role-marker evidence
+
+- Role-candidate reports now list the exact generic terms matched from the fixed hint vocabulary or recognized header hints. They do not copy arbitrary cell text into the marker list.
 
 #### 06/11/2026 — Nested table parent-cell locator
 

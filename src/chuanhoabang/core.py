@@ -1005,7 +1005,7 @@ def _role_classification(tbl, rows, header, header_str, table_text):
     if tbl.xpath("ancestor::w:tbl | .//w:tbl", namespaces=NS):
         classification = "NESTED"
         evidence = ["NESTING_RELATIONSHIP"]
-        marker_count = 0
+        matched_markers = []
     else:
         official_markers = [hint for hint in OFFICIAL_FORM_HINTS if hint in table_text]
         layout_markers = [hint for hint in LAYOUT_HINTS if hint in table_text]
@@ -1017,24 +1017,25 @@ def _role_classification(tbl, rows, header, header_str, table_text):
         if official_markers:
             classification = "OFFICIAL_FORM_CANDIDATE"
             evidence = ["OFFICIAL_FORM_TEXT_MARKER"]
-            marker_count = len(official_markers)
+            matched_markers = official_markers
         elif layout_markers:
             classification = "LAYOUT_CANDIDATE"
             evidence = ["LAYOUT_TEXT_HINT"]
-            marker_count = len(layout_markers)
+            matched_markers = layout_markers
         elif data_shape:
             classification = "DATA_CANDIDATE"
             evidence = ["MULTIROW_TABLE", "AT_LEAST_TWO_NONEMPTY_HEADER_CELLS",
                         "RECOGNIZED_HEADER_HINT"]
-            marker_count = 0
+            matched_markers = [hint for hint in HEADER_HINTS if hint in header_str]
         else:
             classification = "UNKNOWN"
             evidence = ["INSUFFICIENT_ROLE_MARKERS"]
-            marker_count = 0
+            matched_markers = []
     return {
         "classification": classification,
         "evidence": evidence,
-        "markers_matched": marker_count,
+        "markers_matched": len(matched_markers),
+        "matched_markers": matched_markers,
         "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
         "authority": "NOT_ESTABLISHED",
         "edit_gate": "TABLE_STATUS_AND_OPERATION_RULES",

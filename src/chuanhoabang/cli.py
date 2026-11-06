@@ -75,6 +75,7 @@ def render_markdown(result: dict) -> str:
             role_label = (
                 f"{role.get('classification', 'UNKNOWN')}; "
                 f"{', '.join(role.get('evidence', [])) or 'NO_EVIDENCE'}; "
+                f"markers={', '.join(role.get('matched_markers', [])) or 'NONE'}; "
                 f"authority={role.get('authority', 'NOT_ESTABLISHED')}"
             )
             lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
@@ -175,6 +176,7 @@ def render_markdown(result: dict) -> str:
             role_label = (
                 f"{role.get('classification', 'UNKNOWN')}; "
                 f"{', '.join(role.get('evidence', [])) or 'NO_EVIDENCE'}; "
+                f"markers={', '.join(role.get('matched_markers', [])) or 'NONE'}; "
                 f"authority={role.get('authority', 'NOT_ESTABLISHED')}"
             )
             references = "; ".join(

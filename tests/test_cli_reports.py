@@ -32,6 +32,7 @@ def test_markdown_render_exposes_non_authoritative_table_role_evidence():
             "role_classification": {
                 "classification": "DATA_CANDIDATE",
                 "evidence": ["MULTIROW_TABLE", "RECOGNIZED_HEADER_HINT"],
+                "matched_markers": ["stt", "nội dung"],
                 "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
                 "authority": "NOT_ESTABLISHED",
             },
@@ -40,6 +41,7 @@ def test_markdown_render_exposes_non_authoritative_table_role_evidence():
 
     assert "DATA_CANDIDATE" in report
     assert "MULTIROW_TABLE" in report
+    assert "markers=stt, nội dung" in report
     assert "NOT_ESTABLISHED" in report
 
 
@@ -108,6 +110,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                 "role_classification": {
                     "classification": "OFFICIAL_FORM_CANDIDATE",
                     "evidence": ["OFFICIAL_FORM_TEXT_MARKER"],
+                    "matched_markers": ["cộng hòa xã hội chủ nghĩa việt nam"],
                     "authority": "NOT_ESTABLISHED",
                 },
                 "parent_cell_location": None,
@@ -169,7 +172,8 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "Parent table ID" in report
     assert "Parent cell" in report
     assert "row 0, cell 0" in report
-    assert "OFFICIAL_FORM_CANDIDATE; OFFICIAL_FORM_TEXT_MARKER; authority=NOT_ESTABLISHED" in report
+    assert "OFFICIAL_FORM_CANDIDATE; OFFICIAL_FORM_TEXT_MARKER; " \
+           "markers=cộng hòa xã hội chủ nghĩa việt nam; authority=NOT_ESTABLISHED" in report
     assert "a" * 64 in report
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report
     assert "section 0 header/default" in report

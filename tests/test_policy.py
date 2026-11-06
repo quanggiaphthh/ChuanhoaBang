@@ -25,6 +25,7 @@ def test_policy_machine_readable():
     assert "TABLE-ROLE-SOURCE-CLASSIFICATION-001" in ids
     assert "TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001" in ids
     assert "NESTED-PARENT-CELL-SOURCE-LOCATION-001" in ids
+    assert "TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001" in ids
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",
                                       "requires_approval", "evidence_level", "postconditions"))
