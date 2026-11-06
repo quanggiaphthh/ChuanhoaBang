@@ -1105,7 +1105,28 @@ def test_line_estimate_does_not_break_nonbreaking_spaces(no_break_space):
 
 def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
+    top = etree.SubElement(table_borders, core.W + "top")
+    top.set(core.W + "val", "single")
+    top.set(core.W + "sz", "8")
+    top.set(core.W + "color", "0066CC")
+    first_cell = table.find("./" + core.W + "tr/" + core.W + "tc")
+    cell_borders = etree.SubElement(first_cell.find(core.W + "tcPr"), core.W + "tcBorders")
+    left = etree.SubElement(cell_borders, core.W + "left")
+    left.set(core.W + "val", "single")
+    left.set(core.W + "space", "2")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
     meta = audit(path)["tables"][0]
+    border_evidence = meta["border_evidence"]
     base = meta["grid_twips"]
     candidate = [base[0] + 200, base[1] - 400, base[2] + 200]
     assert min(candidate) > 0
@@ -1129,6 +1150,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert before == after
     assert after[1][0] == "0012"
     assert after[2][0] == "0"
+    assert audit(target)["tables"][0]["border_evidence"] == border_evidence
     repeated = apply(path, proposal, target)
     assert repeated["decision"] == "NO_OP_VALID"
 
