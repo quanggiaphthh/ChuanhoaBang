@@ -1189,6 +1189,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     info, document_xml = data["word/document.xml"]
     root = core._xml(document_xml)
     table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_layout = table.find("./" + core.W + "tblPr/" + core.W + "tblLayout")
+    table_layout.set(core.W + "type", "autofit")
     table_borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
     top = etree.SubElement(table_borders, core.W + "top")
     top.set(core.W + "val", "single")
@@ -1203,6 +1205,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     with ZipFile(path, "w") as package:
         for item, content in data.values():
             package.writestr(item, content)
+    source_before = path.read_bytes()
     meta = audit(path)["tables"][0]
     border_evidence = meta["border_evidence"]
     base = meta["grid_twips"]
@@ -1221,6 +1224,10 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert report["decision"] == "APPLIED"
     assert report["content_integrity"] == "PASS"
     assert report["word_render"] == "NOT_RUN"
+    assert report["table_layout_evidence"] == meta["table_layout_evidence"]
+    assert report["table_layout_evidence"]["declared_types"] == ["autofit"]
+    assert "tblLayout" in report["changed_properties"]
+    assert path.read_bytes() == source_before
     assert core.digest(path.read_bytes()) == source_hash
     original = Document(path)
     result = Document(target)
@@ -1229,7 +1236,14 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert before == after
     assert after[1][0] == "0012"
     assert after[2][0] == "0"
-    assert audit(target)["tables"][0]["border_evidence"] == border_evidence
+    applied_table = audit(target)["tables"][0]
+    assert applied_table["border_evidence"] == border_evidence
+    assert applied_table["table_layout_evidence"] == {
+        "status": "DIRECT_DECLARATION_REPORTED",
+        "declared_types": ["fixed"],
+        "effective_type": "NOT_RESOLVED",
+        "issues": [],
+    }
     repeated = apply(path, proposal, target)
     assert repeated["decision"] == "NO_OP_VALID"
 
