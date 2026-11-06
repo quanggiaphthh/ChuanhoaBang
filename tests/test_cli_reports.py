@@ -25,6 +25,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
         "non_body_story_tables": [
             {
                 "part": "word/header1.xml",
+                "story_types": ["header"],
                 "story_table_index": 0,
                 "table_id": "word/header1.xml#table=0:outer1234",
                 "parent_table_id": None,
@@ -40,6 +41,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
             },
             {
                 "part": "word/header1.xml",
+                "story_types": ["header"],
                 "story_table_index": 1,
                 "table_id": "word/header1.xml#table=1:child1234",
                 "parent_table_id": "word/header1.xml#table=0:outer1234",
@@ -57,6 +59,8 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     })
     assert "| non_body_story_table_count | 2 |" in report
     assert "## Bảng trong header/footer/footnote/endnote" in report
+    assert "Story type" in report
+    assert "| header |" in report
     assert "word/header1.xml" in report
     assert "word/header1.xml#table=0:outer1234" in report
     assert "word/header1.xml#table=1:child1234" in report

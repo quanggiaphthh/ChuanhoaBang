@@ -298,6 +298,67 @@ def test_malformed_internal_relationship_target_is_unresolved():
     assert core._relationship_target_part("//[") is None
 
 
+@pytest.mark.parametrize("story_type", ["footnotes", "endnotes"])
+def test_custom_named_note_part_is_inventoried_read_only(tmp_path, story_type):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as source_zip:
+        entries = {item.filename: source_zip.read(item.filename) for item in source_zip.infolist()}
+
+    document = core._xml(entries["word/document.xml"])
+    table = copy.deepcopy(document.xpath("./w:body/w:tbl", namespaces=core.NS)[0])
+    story_root = etree.Element(core.W + story_type, nsmap={"w": core.NS["w"]})
+    note_tag = "footnote" if story_type == "footnotes" else "endnote"
+    for note_id, note_type in (("-1", "separator"), ("0", "continuationSeparator"), ("1", None)):
+        attributes = {core.W + "id": note_id}
+        if note_type:
+            attributes[core.W + "type"] = note_type
+        note = etree.SubElement(story_root, core.W + note_tag, attributes)
+        if note_id == "1":
+            note.append(table)
+    custom_part = f"word/stories/custom-{story_type}.xml"
+    entries[custom_part] = etree.tostring(story_root, xml_declaration=True, encoding="UTF-8")
+
+    relationship_root = core._xml(entries["word/_rels/document.xml.rels"])
+    relationship_root.append(etree.Element(
+        "{http://schemas.openxmlformats.org/package/2006/relationships}Relationship",
+        {
+            "Id": f"rIdCustom{story_type.title()}",
+            "Type": f"http://schemas.openxmlformats.org/officeDocument/2006/relationships/{story_type}",
+            "Target": f"stories/custom-{story_type}.xml",
+        },
+    ))
+    entries["word/_rels/document.xml.rels"] = etree.tostring(
+        relationship_root, xml_declaration=True, encoding="UTF-8"
+    )
+
+    content_types = core._xml(entries["[Content_Types].xml"])
+    etree.SubElement(
+        content_types,
+        "{http://schemas.openxmlformats.org/package/2006/content-types}Override",
+        {
+            "PartName": f"/{custom_part}",
+            "ContentType": f"application/vnd.openxmlformats-officedocument.wordprocessingml.{story_type}+xml",
+        },
+    )
+    entries["[Content_Types].xml"] = etree.tostring(
+        content_types, xml_declaration=True, encoding="UTF-8"
+    )
+    with ZipFile(path, "w") as target_zip:
+        for name, data in entries.items():
+            target_zip.writestr(name, data)
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    notes = [item for item in report["non_body_story_tables"] if item["part"] == custom_part]
+
+    assert len(notes) == 1
+    assert notes[0]["story_types"] == [story_type]
+    assert notes[0]["section_references"] == []
+    assert notes[0]["status"] == "REVIEW_REQUIRED"
+    assert notes[0]["reason"] == "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX"
+    assert path.read_bytes() == source_before
+
+
 def test_ambiguous_document_relationship_id_does_not_assign_story_owner(tmp_path):
     path = fixture_docx(tmp_path)
     doc = Document(path)

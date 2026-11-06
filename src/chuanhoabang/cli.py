@@ -124,10 +124,11 @@ def render_markdown(result: dict) -> str:
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
                   "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp "
-                  "và ứng viên kế thừa cùng loại cho header/footer mặc định. Ứng viên không xác "
-                  "nhận quyền sở hữu trong Word; kế thừa kiểu first/even chưa được phân giải.", "",
-                  "| Part | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
-                  "|---|---|---|---:|---|---|---|---|---|"]
+                  "và ứng viên kế thừa cùng loại cho header/footer mặc định; story type lấy từ tên "
+                  "part chuẩn hoặc document relationship. Ứng viên không xác nhận quyền sở hữu "
+                  "trong Word; kế thừa kiểu first/even chưa được phân giải.", "",
+                  "| Part | Story type | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
+                  "|---|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
             references = "; ".join(
                 f"section {ref.get('section_index', '?')} "
@@ -142,6 +143,7 @@ def render_markdown(result: dict) -> str:
             )
             references = "; ".join(value for value in (references, candidates) if value) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
+                         f"{safe(', '.join(table.get('story_types', [])) or 'UNKNOWN')} | "
                          f"`{safe(table.get('table_id', '?'))}` | "
                          f"`{safe(table.get('parent_table_id') or '—')}` | "
                          f"{table.get('story_table_index', '?')} | "
@@ -151,7 +153,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
-            lines.append("| — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
+            lines.append("| — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])
