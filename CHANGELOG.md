@@ -46,6 +46,7 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Nested table parent-cell locator
 
 - Body and story inventories report the zero-based parent row/cell for nested tables when direct source XML topology resolves, and report `UNRESOLVED` with a reason otherwise. Body proposals carry this scope metadata and `apply` rechecks it. The locator does not grant edit permission.
+- GitHub Actions [run 42157549045](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42157549045) passed all six jobs and **184/184 tests** across five targets. The independent Ubuntu/Python 3.12 wheel matched SHA-256 `5a98a3a6f8e5e1da38a479f9c3c8017307e95b37b35a6f574979c416fdae92a1`; preview artifact `chuanhoabang-preview-0c9d55f29fc1d846dbe7adc0ed90b584d97ce1ea` expires 20/11/2026. Word/WPS and original fixture acceptance remain `NOT_RUN`.
 
 #### 06/11/2026 — Source-only mapping for horizontal merged cells
 
