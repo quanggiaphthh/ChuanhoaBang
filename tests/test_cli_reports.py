@@ -18,6 +18,21 @@ def test_markdown_render_has_real_line_breaks():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_filesystem_durability_status():
+    report = render_markdown({
+        "decision": "APPLIED",
+        "filesystem_durability": {
+            "candidate_file_sync": "PASS",
+            "output_directory_sync": "UNVERIFIED",
+            "power_loss_acceptance": "NOT_RUN",
+        },
+    })
+    assert "filesystem_durability" in report
+    assert '"candidate_file_sync": "PASS"' in report
+    assert '"output_directory_sync": "UNVERIFIED"' in report
+    assert '"power_loss_acceptance": "NOT_RUN"' in report
+
+
 def test_markdown_render_exposes_non_authoritative_table_role_evidence():
     report = render_markdown({
         "decision": "AUDIT_ONLY",

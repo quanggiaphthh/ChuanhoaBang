@@ -82,6 +82,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - `apply` now rechecks the proposal's input hash against a bounded source snapshot, builds the candidate ZIP from that exact snapshot, and checks the source hash again before publication. A source changed after proposal revalidation or during output validation is rejected as `STALE_SOURCE`; no output is published and the temporary ZIP is removed.
 - Two injected-race regressions first reproduced the stale-apply behavior, then passed after the fix. Local locked full suite: **217/217 PASS**. GitHub Actions [run 42173328569](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42173328569) passed all six jobs; each of five targets reports **217/217 PASS**. Canonical and independent-runner rebuilt wheel SHA-256: `725e8ceb9c6f80771c39d6577ff513d4ee7ff2d1e5719e50a4d1cd0f11b0aef8`. Preview artifact `chuanhoabang-preview-2ed938e51eeae05aad45cbd6f55c45d313eb218d` expires 20/11/2026. Actual power-loss durability and Microsoft Word rendering remain `NOT_RUN`.
 
+#### 06/11/2026 — Apply filesystem sync status
+
+- `apply` now syncs the validated candidate file before publication and reports parent-directory sync after publication as `PASS`, `UNVERIFIED`, or `NOT_SUPPORTED`; byte-identical `NO_OP_VALID` reports syncs as `NOT_REQUIRED`. File-sync errors prevent publication. Directory-sync errors are reported after the output exists, avoiding a false failure result for an already-published file. The JSON and Markdown reports expose each state; physical power-loss acceptance remains `NOT_RUN`.
+- Test-first regressions covered file and directory sync ordering, failed candidate sync cleanup, post-publication directory sync failure, no-op status, and Markdown reporting. Local locked suite: **221/221 PASS**. Cross-platform CI verification pending.
+
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.

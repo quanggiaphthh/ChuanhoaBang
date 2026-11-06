@@ -1,7 +1,9 @@
 """Focused L0/L1 tests. Test-only mock font is NOT TNR acceptance."""
 import copy
 import json
+import os
 from pathlib import Path
+import stat
 from zipfile import ZipFile
 
 import pytest
@@ -1614,6 +1616,11 @@ def test_reapplying_same_proposal_to_identical_output_is_noop(tmp_path):
     assert first["decision"] == "APPLIED"
     assert second["decision"] == "NO_OP_VALID"
     assert second["reasons"] == ["OUTPUT_MATCHES_VALIDATED_PROPOSAL"]
+    assert second["filesystem_durability"] == {
+        "candidate_file_sync": "NOT_REQUIRED",
+        "output_directory_sync": "NOT_REQUIRED",
+        "power_loss_acceptance": "NOT_RUN",
+    }
     assert second["output_sha256"] == core.digest(output_before)
     assert target.read_bytes() == output_before
     assert source.read_bytes() == source_before
@@ -1688,6 +1695,86 @@ def test_apply_rejects_source_changed_during_output_validation(tmp_path, monkeyp
     assert source.read_bytes() != source_before
     assert not target.exists()
     assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
+def test_apply_reports_candidate_and_directory_sync_results(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "synced-output.docx"
+    original_fsync = os.fsync
+    sync_kinds = []
+
+    def record_fsync(file_descriptor):
+        kind = "directory" if stat.S_ISDIR(os.fstat(file_descriptor).st_mode) else "file"
+        sync_kinds.append((kind, target.exists()))
+        return original_fsync(file_descriptor)
+
+    monkeypatch.setattr(core.os, "fsync", record_fsync)
+    result = apply(source, proposal, target)
+
+    assert result["decision"] == "APPLIED"
+    assert sync_kinds[0] == ("file", False)
+    if os.name == "posix":
+        assert sync_kinds == [("file", False), ("directory", True)]
+        assert result["filesystem_durability"]["output_directory_sync"] == "PASS"
+    else:
+        assert sync_kinds == [("file", False)]
+        assert result["filesystem_durability"]["output_directory_sync"] == "NOT_SUPPORTED"
+    assert result["filesystem_durability"]["candidate_file_sync"] == "PASS"
+    assert result["filesystem_durability"]["power_loss_acceptance"] == "NOT_RUN"
+    assert source.read_bytes() == source_before
+    assert target.is_file()
+
+
+def test_apply_refuses_to_publish_when_candidate_file_sync_fails(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    source_before = source.read_bytes()
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "failed-file-sync.docx"
+    original_fsync = os.fsync
+
+    def fail_file_fsync(file_descriptor):
+        if not stat.S_ISDIR(os.fstat(file_descriptor).st_mode):
+            raise OSError("injected file sync failure")
+        return original_fsync(file_descriptor)
+
+    monkeypatch.setattr(core.os, "fsync", fail_file_fsync)
+    with pytest.raises(TableError, match="OUTPUT_FILE_SYNC_FAILED"):
+        apply(source, proposal, target)
+
+    assert source.read_bytes() == source_before
+    assert not target.exists()
+    assert list(target.parent.glob(".chuanhoabang-*.docx")) == []
+
+
+@pytest.mark.skipif(os.name != "posix", reason="portable directory fsync is POSIX-only")
+def test_apply_reports_unverified_directory_sync_after_output_publish(tmp_path, monkeypatch):
+    from chuanhoabang import propose_header
+
+    source = fixture_docx(tmp_path)
+    proposal = propose_header(source, 0)
+    target = tmp_path / "output" / "directory-sync-unknown.docx"
+    original_fsync = os.fsync
+
+    def fail_directory_fsync(file_descriptor):
+        if stat.S_ISDIR(os.fstat(file_descriptor).st_mode):
+            raise OSError("injected directory sync failure")
+        return original_fsync(file_descriptor)
+
+    monkeypatch.setattr(core.os, "fsync", fail_directory_fsync)
+    result = apply(source, proposal, target)
+
+    assert result["decision"] == "APPLIED"
+    assert result["filesystem_durability"]["candidate_file_sync"] == "PASS"
+    assert result["filesystem_durability"]["output_directory_sync"] == "UNVERIFIED"
+    assert result["filesystem_durability"]["power_loss_acceptance"] == "NOT_RUN"
+    assert target.is_file()
+    assert core._package(target)
 
 
 def test_post_write_validation_failure_rolls_back_output_and_temp_file(tmp_path, monkeypatch):

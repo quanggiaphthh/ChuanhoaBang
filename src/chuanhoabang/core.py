@@ -2307,6 +2307,34 @@ def _publish_new_file(temp_path, destination):
     except FileExistsError as exc:
         raise TableError("OUTPUT_MUST_BE_NEW_PATH") from exc
     os.unlink(temp_path)
+    return _sync_directory(os.path.dirname(os.fspath(destination)) or ".")
+
+
+def _sync_file(path):
+    try:
+        with open(path, "rb+") as candidate:
+            os.fsync(candidate.fileno())
+    except OSError as exc:
+        raise TableError("OUTPUT_FILE_SYNC_FAILED") from exc
+    return "PASS"
+
+
+def _sync_directory(path):
+    if os.name != "posix":
+        return "NOT_SUPPORTED"
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    except OSError:
+        # The new output is already visible. Report incomplete directory
+        # synchronization without turning a successful publication into an
+        # apparent failure that leaves an unreported output behind.
+        return "UNVERIFIED"
+    return "PASS"
 
 
 def _files_equal(first, second):
@@ -2396,12 +2424,15 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             if any(zi.read(name) != zo.read(name) for name in names if name != "word/document.xml"):
                 raise TableError("NON_DOCUMENT_PART_CHANGED")
         _validated_source_snapshot(src, actual["input_sha256"])
+        candidate_file_sync = "NOT_REQUIRED"
+        output_directory_sync = "NOT_REQUIRED"
         if dst.exists() or dst.is_symlink():
             if dst.is_symlink() or not dst.is_file() or not _files_equal(temp_path, dst):
                 raise TableError("OUTPUT_MUST_BE_NEW_PATH")
             decision = "NO_OP_VALID"
         else:
-            _publish_new_file(temp_path, dst)
+            candidate_file_sync = _sync_file(temp_path)
+            output_directory_sync = _publish_new_file(temp_path, dst)
             decision = "APPLIED"
     finally:
         if os.path.exists(temp_path):
@@ -2424,4 +2455,9 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             "changed_properties": (["tblHeader"] if header_operation else ["trHeight.hRule"]
                                    if height_operation else ["tblGrid", "tblW", "tblLayout", "tcW"]),
             "content_integrity": "PASS", "non_target_package_parts": "PASS", "word_render": "NOT_RUN",
+            "filesystem_durability": {
+                "candidate_file_sync": candidate_file_sync,
+                "output_directory_sync": output_directory_sync,
+                "power_loss_acceptance": "NOT_RUN",
+            },
             "width_proposal_evidence": actual["evidence"], "table_index": actual["table_index"]}

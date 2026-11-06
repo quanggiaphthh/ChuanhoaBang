@@ -145,7 +145,8 @@ def render_markdown(result: dict) -> str:
                 "border_geometry_evidence",
                 "cell_grid_spans", "row_grid_omissions",
                 "vertical_merge_chain_validation",
-                "content_integrity", "non_target_package_parts"):
+                "content_integrity", "non_target_package_parts",
+                "filesystem_durability"):
         if key in result:
             value = (json.dumps(result[key], ensure_ascii=False)
                      if key in ("parent_cell_location", "role_classification",
@@ -154,7 +155,8 @@ def render_markdown(result: dict) -> str:
                                 "table_cell_spacing_evidence",
                                 "border_geometry_evidence",
                                 "cell_grid_spans", "row_grid_omissions",
-                                "vertical_merge_chain_validation") else result[key])
+                                "vertical_merge_chain_validation",
+                                "filesystem_durability") else result[key])
             lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
     if isinstance(geometry, dict):
