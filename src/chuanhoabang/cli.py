@@ -124,9 +124,9 @@ def render_markdown(result: dict) -> str:
     if "non_body_story_tables" in result:
         lines += ["", "## Bảng trong header/footer/footnote/endnote", "",
                   "Các chỉ số này không dùng làm `--table`. Báo cáo liệt kê liên kết trực tiếp "
-                  "và ứng viên kế thừa cùng loại cho header/footer mặc định; story type lấy từ tên "
-                  "part chuẩn hoặc document relationship. Ứng viên không xác nhận quyền sở hữu "
-                  "trong Word; kế thừa kiểu first/even chưa được phân giải.", "",
+                  "và ứng viên kế thừa cùng loại cho default cùng first/even khi control nguồn "
+                  "đang bật; story type lấy từ tên part chuẩn hoặc document relationship. "
+                  "Ứng viên không xác nhận quyền sở hữu hiệu lực trong Word.", "",
                   "| Part | Story type | Table ID | Parent table ID | Chỉ số trong part | SHA-256 | Owner evidence | Section references | Trạng thái | Lý do |",
                   "|---|---|---|---|---:|---|---|---|---|---|"]
         for table in result["non_body_story_tables"]:
@@ -140,12 +140,27 @@ def render_markdown(result: dict) -> str:
                  if ref.get("activation") else "")
                 for ref in table.get("section_references", [])
             )
-            candidates = "; ".join(
-                f"possible inherited section {candidate.get('section_index', '?')} "
-                f"{candidate.get('story_type', '?')}/{candidate.get('reference_type', '?')} "
-                f"from section {candidate.get('inherited_from_section_index', '?')}"
-                for candidate in table.get("default_inheritance_candidates", [])
-            )
+            candidate_labels = []
+            for candidate in [
+                *table.get("default_inheritance_candidates", []),
+                *table.get("first_even_inheritance_candidates", []),
+            ]:
+                label = (
+                    f"possible inherited section {candidate.get('section_index', '?')} "
+                    f"{candidate.get('story_type', '?')}/"
+                    f"{candidate.get('reference_type', '?')} "
+                    f"from section {candidate.get('inherited_from_section_index', '?')}"
+                )
+                activation = candidate.get("activation")
+                if activation:
+                    label += (
+                        " (section activation "
+                        f"{activation.get('status', 'UNKNOWN')}; "
+                        f"{activation.get('control', 'UNKNOWN')}; "
+                        f"{activation.get('evidence', 'UNKNOWN')})"
+                    )
+                candidate_labels.append(label)
+            candidates = "; ".join(candidate_labels)
             references = "; ".join(value for value in (references, candidates) if value) or "unresolved"
             lines.append(f"| {safe(table.get('part', '?'))} | "
                          f"{safe(', '.join(table.get('story_types', [])) or 'UNKNOWN')} | "

@@ -477,7 +477,7 @@ def test_linked_default_story_reports_inheritance_candidate_until_overridden(tmp
     assert path.read_bytes() == source_before
 
 
-def test_first_page_header_is_direct_only_without_inheritance_candidate(tmp_path):
+def test_first_page_header_is_not_a_default_inheritance_candidate(tmp_path):
     path = fixture_docx(tmp_path)
     doc = Document(path)
     section = doc.sections[0]
@@ -485,6 +485,16 @@ def test_first_page_header_is_direct_only_without_inheritance_candidate(tmp_path
     section.first_page_header.add_table(rows=1, cols=1, width=Cm(10))
     doc.add_section()
     doc.save(path)
+    with ZipFile(path) as package:
+        document_xml = package.read("word/document.xml")
+    document_root = core._xml(document_xml)
+    sections = document_root.xpath(
+        ".//w:body/w:sectPr | .//w:body//w:pPr/w:sectPr", namespaces=core.NS
+    )
+    assert len(sections) == 2
+    for title_page in sections[1].xpath("./w:titlePg", namespaces=core.NS):
+        sections[1].remove(title_page)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(document_root)})
     source_before = path.read_bytes()
 
     report = audit(path)
@@ -500,6 +510,7 @@ def test_first_page_header_is_direct_only_without_inheritance_candidate(tmp_path
                         "evidence": "SOURCE_XML_ONLY"}},
     ]
     assert first_page["default_inheritance_candidates"] == []
+    assert first_page["first_even_inheritance_candidates"] == []
     assert first_page["status"] == "REVIEW_REQUIRED"
     assert path.read_bytes() == source_before
 
@@ -579,6 +590,83 @@ def test_even_header_reports_source_activation_state(tmp_path, control_mode, exp
     }
     assert even_page["default_inheritance_candidates"] == []
     assert even_page["status"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == source_before
+
+
+@pytest.mark.parametrize(
+    ("story_name", "reference_type"),
+    [("header", "first"), ("footer", "first"),
+     ("header", "even"), ("footer", "even")],
+)
+def test_active_first_even_references_report_possible_inheritance(tmp_path, story_name,
+                                                                  reference_type):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    section = doc.sections[0]
+    if reference_type == "first":
+        section.different_first_page_header_footer = True
+        story = getattr(section, f"first_page_{story_name}")
+    else:
+        story = getattr(section, story_name)
+    story.add_table(rows=1, cols=1, width=Cm(10))
+    doc.add_section()
+    if reference_type == "first":
+        doc.sections[1].different_first_page_header_footer = True
+    doc.save(path)
+
+    with ZipFile(path) as package:
+        document_xml = package.read("word/document.xml")
+        settings_xml = package.read("word/settings.xml")
+    document_root = core._xml(document_xml)
+    sections = document_root.xpath(
+        ".//w:body/w:sectPr | .//w:body//w:pPr/w:sectPr", namespaces=core.NS
+    )
+    assert len(sections) == 2
+    source_section, target_section = sections
+    if reference_type == "even":
+        default_reference = source_section.xpath(
+            f"./w:{story_name}Reference[@w:type='default']", namespaces=core.NS
+        )
+        assert len(default_reference) == 1
+        default_reference[0].set(core.W + "type", "even")
+    source_reference = source_section.xpath(
+        f"./w:{story_name}Reference[@w:type='{reference_type}']", namespaces=core.NS
+    )
+    assert len(source_reference) == 1
+    for reference in target_section.xpath(
+        f"./w:{story_name}Reference[@w:type='{reference_type}']", namespaces=core.NS
+    ):
+        target_section.remove(reference)
+    settings_root = core._xml(settings_xml)
+    if reference_type == "even":
+        controls = settings_root.xpath("./w:evenAndOddHeaders", namespaces=core.NS)
+        for control in controls:
+            settings_root.remove(control)
+        etree.SubElement(settings_root, core.W + "evenAndOddHeaders", {core.W + "val": "1"})
+    replace_docx_parts(path, {
+        "word/document.xml": etree.tostring(document_root),
+        "word/settings.xml": etree.tostring(settings_root),
+    })
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    part = f"word/{story_name}1.xml"
+    entry = next(item for item in report["non_body_story_tables"] if item["part"] == part)
+    control = "w:titlePg" if reference_type == "first" else "w:evenAndOddHeaders"
+    activation = {"status": "ENABLED", "control": control, "evidence": "SOURCE_XML_ONLY"}
+
+    assert entry["section_references"] == [{
+        "section_index": 0, "story_type": story_name,
+        "reference_type": reference_type, "activation": activation,
+    }]
+    assert entry["default_inheritance_candidates"] == []
+    assert entry["first_even_inheritance_candidates"] == [{
+        "section_index": 1, "story_type": story_name,
+        "reference_type": reference_type, "inherited_from_section_index": 0,
+        "activation": activation,
+    }]
+    assert entry["owner_status"] == "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED"
+    assert entry["status"] == "REVIEW_REQUIRED"
     assert path.read_bytes() == source_before
 
 

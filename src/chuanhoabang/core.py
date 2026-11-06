@@ -197,7 +197,7 @@ def _source_on_off_activation(parent, control_name):
 
 def _section_story_references(root, document_rels, story_parts, settings=b""):
     if not document_rels:
-        return {}, {}
+        return {}, {}, {}
     settings_root = _xml(settings) if settings else None
     relationship_root = _xml(document_rels)
     relationships = {}
@@ -225,11 +225,15 @@ def _section_story_references(root, document_rels, story_parts, settings=b""):
 
     owners = {}
     inheritance_candidates = {}
+    first_even_candidates = {}
     active_default = {}
+    active_first_even = {}
     sections = root.xpath(".//w:body/w:sectPr | .//w:body//w:pPr/w:sectPr", namespaces=NS)
     for section_index, section in enumerate(sections):
         references = section.xpath("./w:headerReference | ./w:footerReference", namespaces=NS)
         defaults = {"header": [], "footer": []}
+        special = {story_type: {"first": [], "even": []}
+                   for story_type in ("header", "footer")}
         for reference in references:
             tag_name = reference.tag.rsplit("}", 1)[-1]
             expected_story_type = tag_name.removesuffix("Reference")
@@ -243,6 +247,8 @@ def _section_story_references(root, document_rels, story_parts, settings=b""):
             if reference_type == "default":
                 defaults[expected_story_type].append(relationship)
                 continue
+            if reference_type in ("first", "even"):
+                special[expected_story_type][reference_type].append(relationship)
             if relationship is None:
                 continue
             part, story_type = relationship
@@ -282,16 +288,45 @@ def _section_story_references(root, document_rels, story_parts, settings=b""):
             }
             owners.setdefault(part, []).append(owner)
             active_default[story_type] = (part, section_index)
-    return owners, inheritance_candidates
+
+        for story_type, story_references in special.items():
+            for reference_type, section_references in story_references.items():
+                control_name = "titlePg" if reference_type == "first" else "evenAndOddHeaders"
+                control_parent = section if reference_type == "first" else settings_root
+                activation = _source_on_off_activation(control_parent, control_name)
+                active_key = (story_type, reference_type)
+                if section_references:
+                    if (len(section_references) == 1 and section_references[0] is not None and
+                            activation["status"] == "ENABLED"):
+                        part, _ = section_references[0]
+                        active_first_even[active_key] = (part, section_index)
+                    else:
+                        active_first_even.pop(active_key, None)
+                    continue
+                if activation["status"] != "ENABLED":
+                    active_first_even.pop(active_key, None)
+                    continue
+                active = active_first_even.get(active_key)
+                if active is not None:
+                    part, source_section_index = active
+                    first_even_candidates.setdefault(part, []).append({
+                        "section_index": section_index,
+                        "story_type": story_type,
+                        "reference_type": reference_type,
+                        "inherited_from_section_index": source_section_index,
+                        "activation": activation,
+                    })
+    return owners, inheritance_candidates, first_even_candidates
 
 
 def _non_body_story_tables(story_parts, section_references, inheritance_candidates,
-                           story_part_types):
+                           first_even_candidates, story_part_types):
     inventory = []
     for part, data in sorted(story_parts.items()):
         root = _xml(data)
         owners = section_references.get(part, [])
         candidates = inheritance_candidates.get(part, [])
+        special_candidates = first_even_candidates.get(part, [])
         tables = root.xpath(".//w:tbl", namespaces=NS)
         table_hashes = [digest(etree.tostring(table, method="c14n")) for table in tables]
         table_ids = {
@@ -311,9 +346,11 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "owner_status": ("DIRECT_AND_INHERITED_DEFAULT_CANDIDATES" if owners and candidates else
                                  "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" if owners else
                                  "INHERITED_DEFAULT_CANDIDATES_ONLY" if candidates else
+                                 "FIRST_EVEN_INHERITANCE_CANDIDATES_ONLY" if special_candidates else
                                  "SECTION_RELATIONSHIP_NOT_RESOLVED"),
                 "section_references": owners,
                 "default_inheritance_candidates": candidates,
+                "first_even_inheritance_candidates": special_candidates,
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             })
@@ -827,11 +864,12 @@ def audit(path, profile=None):
         parent_id = table_ids.get(ancestors[-1]) if ancestors else None
         tables.append(_details(table, index, geometry, locks, table_ids[table], parent_id,
                                table_hashes[index], table_styles))
-    section_references, inheritance_candidates = _section_story_references(
+    section_references, inheritance_candidates, first_even_candidates = _section_story_references(
         root, document_rels, story_parts, settings
     )
     story_tables = _non_body_story_tables(
-        story_parts, section_references, inheritance_candidates, story_part_types
+        story_parts, section_references, inheritance_candidates, first_even_candidates,
+        story_part_types
     )
     return {"file": str(Path(path)), "input_sha256": digest(Path(path).read_bytes()),
             "policy": POLICY_VERSION, **profile_context, "geometry": geometry,

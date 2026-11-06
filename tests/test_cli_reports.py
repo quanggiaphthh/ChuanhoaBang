@@ -56,6 +56,16 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                     "story_type": "header",
                     "reference_type": "default",
                 }],
+                "first_even_inheritance_candidates": [{
+                    "section_index": 1,
+                    "story_type": "header",
+                    "reference_type": "even",
+                    "inherited_from_section_index": 0,
+                    "activation": {
+                        "status": "ENABLED", "control": "w:evenAndOddHeaders",
+                        "evidence": "SOURCE_XML_ONLY",
+                    },
+                }],
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             },
@@ -73,6 +83,8 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report
     assert "section 0 header/default" in report
     assert "section 0 header/first (source activation ENABLED; w:titlePg; SOURCE_XML_ONLY)" in report
+    assert "possible inherited section 1 header/even from section 0 " \
+           "(section activation ENABLED; w:evenAndOddHeaders; SOURCE_XML_ONLY)" in report
 
 
 def test_markdown_render_distinguishes_declared_grid_and_word_widths():
