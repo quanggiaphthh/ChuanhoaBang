@@ -97,6 +97,15 @@ blocks width proposals because border spacing is not modeled. An explicit
 zero declaration does not establish effective border geometry; border size,
 style conflicts, and Word rendering remain `NOT_RESOLVED`/`NOT_RUN`.
 
+Rule `TABLE-BORDER-SIZE-GATE-001` reports direct `w:sz` values in eighths of a
+point on table and cell border edges, including source cell coordinates. A
+positive thickness or malformed, duplicate, or unsupported border declaration
+blocks width proposals because border thickness is not modeled. An explicit
+zero declaration does not establish effective border geometry. The field is
+documented as border width by the [Open XML SDK](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordertype.size?view=openxml-3.0.1);
+the audit does not resolve style precedence, effective border selection, or
+Word rendering, which remain `NOT_RESOLVED`/`NOT_RUN`.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

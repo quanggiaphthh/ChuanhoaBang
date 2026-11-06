@@ -31,6 +31,11 @@ def test_policy_machine_readable():
     assert "TABLE-DIRECTION-SOURCE-EVIDENCE-001" in ids
     assert "TABLE-CELL-SPACING-SOURCE-EVIDENCE-001" in ids
     assert "TABLE-BORDER-GEOMETRY-GATE-001" in ids
+    assert "TABLE-BORDER-SIZE-GATE-001" in ids
+    assert (
+        "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing."
+        "bordertype.size?view=openxml-3.0.1"
+    ) in policy["sources"]
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",
                                       "requires_approval", "evidence_level", "postconditions"))

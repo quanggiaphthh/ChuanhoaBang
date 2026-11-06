@@ -101,6 +101,14 @@ def add_table_border_space(table, raw_space):
     return edge
 
 
+def add_table_border_size(table, raw_size):
+    borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
+    edge = etree.SubElement(borders, core.W + "left")
+    edge.set(core.W + "val", "single")
+    edge.set(core.W + "sz", raw_size)
+    return edge
+
+
 def test_audit_read_only_and_header(tmp_path):
     path = fixture_docx(tmp_path)
     before = path.read_bytes()
@@ -165,6 +173,7 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
     bottom = etree.SubElement(borders, core.W + "bottom")
     bottom.set(core.W + "val", "nil")
     bottom.set(core.W + "space", "2.5")
+    bottom.set(core.W + "sz", "4")
     doc.save(path)
 
     entry = audit(path)["non_body_story_tables"][0]
@@ -174,12 +183,18 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
     assert entry["table_cell_spacing_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
     assert entry["border_evidence"]["table_borders"] == [
-        {"edge": "bottom", "attributes": {"val": "nil", "space": "2.5"}},
+        {"edge": "bottom", "attributes": {"val": "nil", "space": "2.5", "sz": "4"}},
     ]
-    assert entry["border_geometry_evidence"]["status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert entry["border_geometry_evidence"]["status"] == "UNMODELED_DIRECT_BORDER_GEOMETRY"
+    assert entry["border_geometry_evidence"]["space_status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert entry["border_geometry_evidence"]["size_status"] == "NONZERO_DIRECT_BORDER_SIZE"
     assert entry["border_geometry_evidence"]["declared_values"] == [{
         "scope": "table", "row_index": None, "cell_index": None,
         "edge": "bottom", "raw_space": "2.5", "space_points": "2.5",
+    }]
+    assert entry["border_geometry_evidence"]["size_declarations"] == [{
+        "scope": "table", "row_index": None, "cell_index": None,
+        "edge": "bottom", "raw_size": "4", "size_points": "0.5",
     }]
     assert entry["status"] == "REVIEW_REQUIRED"
 
@@ -257,7 +272,7 @@ def test_audit_marks_non_element_border_nodes_unresolved(tmp_path):
 
 @pytest.mark.parametrize(("raw_space", "expected_status", "expected_reason"), [
     ("0", "DIRECT_ZERO_ONLY", None),
-    ("2.5", "NONZERO_DIRECT_BORDER_SPACE", "NONZERO_DIRECT_BORDER_SPACE"),
+    ("2.5", "UNMODELED_DIRECT_BORDER_GEOMETRY", "NONZERO_DIRECT_BORDER_SPACE"),
     ("not-a-number", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY"),
     ("-1", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY"),
 ])
@@ -274,6 +289,10 @@ def test_audit_reports_direct_border_space_and_blocks_unmodeled_width_geometry(
     evidence = table_report["border_geometry_evidence"]
 
     assert evidence["status"] == expected_status
+    assert evidence["space_status"] == {
+        "0": "DIRECT_ZERO_ONLY", "2.5": "NONZERO_DIRECT_BORDER_SPACE",
+        "not-a-number": "UNRESOLVED", "-1": "UNRESOLVED",
+    }[raw_space]
     assert evidence["declared_values"] == [{
         "scope": "table", "row_index": None, "cell_index": None,
         "edge": "left", "raw_space": raw_space,
@@ -309,6 +328,50 @@ def test_audit_rejects_duplicate_direct_border_edges_for_width_geometry(tmp_path
     assert table_report["border_geometry_evidence"]["status"] == "UNRESOLVED"
     assert "UNRESOLVED_BORDER_GEOMETRY" in table_report["reasons"]
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+@pytest.mark.parametrize(("raw_size", "expected_status", "expected_reason", "points"), [
+    ("4", "UNMODELED_DIRECT_BORDER_GEOMETRY", "NONZERO_DIRECT_BORDER_SIZE", "0.5"),
+    ("0", "DIRECT_ZERO_ONLY", None, "0"),
+    ("not-a-number", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY", None),
+    ("-1", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY", None),
+    ("4.5", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY", None),
+    ("4294967296", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY", None),
+])
+def test_audit_reports_direct_border_size_and_blocks_unmodeled_width_geometry(
+        tmp_path, raw_size, expected_status, expected_reason, points):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    add_table_border_size(table, raw_size)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+    evidence = table_report["border_geometry_evidence"]
+
+    assert evidence["status"] == expected_status
+    assert evidence["space_status"] == "NO_DIRECT_BORDER_SPACE"
+    assert evidence["size_status"] == ("UNRESOLVED" if points is None else
+                                        "NONZERO_DIRECT_BORDER_SIZE" if points != "0" else
+                                        "DIRECT_ZERO_ONLY")
+    assert evidence["size_declarations"] == [{
+        "scope": "table", "row_index": None, "cell_index": None,
+        "edge": "left", "raw_size": raw_size, "size_points": points,
+    }]
+    assert evidence["effective_border_geometry"] == "NOT_RESOLVED"
+    assert table_report["status"] == ("SUPPORTED" if expected_reason is None else
+                                      "REVIEW_REQUIRED")
+    if expected_reason:
+        assert expected_reason in table_report["reasons"]
+        assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    else:
+        proposal = core.propose_header(path, 0)
+        assert proposal["decision"] == "PROPOSE_APPLY"
+        altered = copy.deepcopy(proposal)
+        altered["border_geometry_evidence"]["size_declarations"][0]["size_points"] = "0.1"
+        with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+            apply(path, altered, tmp_path / "altered-border-size.docx")
 
 
 def test_audit_rejects_duplicate_table_layout_declarations(tmp_path):
@@ -1415,10 +1478,16 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     source_before = path.read_bytes()
     meta = audit(path)["tables"][0]
     border_evidence = meta["border_evidence"]
-    assert meta["border_geometry_evidence"]["status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert meta["border_geometry_evidence"]["status"] == "UNMODELED_DIRECT_BORDER_GEOMETRY"
+    assert meta["border_geometry_evidence"]["space_status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert meta["border_geometry_evidence"]["size_status"] == "NONZERO_DIRECT_BORDER_SIZE"
     assert meta["border_geometry_evidence"]["declared_values"] == [{
         "scope": "cell", "row_index": 0, "cell_index": 0,
         "edge": "left", "raw_space": "2", "space_points": "2",
+    }]
+    assert meta["border_geometry_evidence"]["size_declarations"] == [{
+        "scope": "table", "row_index": None, "cell_index": None,
+        "edge": "top", "raw_size": "8", "size_points": "1",
     }]
     base = meta["grid_twips"]
     candidate = [base[0] + 200, base[1] - 400, base[2] + 200]

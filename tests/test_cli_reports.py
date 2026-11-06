@@ -482,11 +482,16 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "word_render": "NOT_RUN",
             },
             "border_geometry_evidence": {
-                "status": "NONZERO_DIRECT_BORDER_SPACE",
+                "status": "UNMODELED_DIRECT_BORDER_GEOMETRY",
+                "space_status": "NONZERO_DIRECT_BORDER_SPACE",
+                "size_status": "NONZERO_DIRECT_BORDER_SIZE",
                 "declared_values": [{"scope": "cell", "row_index": 0, "cell_index": 1,
                                      "edge": "left", "raw_space": "2.5", "space_points": 2.5}],
+                "size_declarations": [{"scope": "cell", "row_index": 0, "cell_index": 1,
+                                        "edge": "right", "raw_size": "8", "size_points": "1"}],
                 "effective_border_geometry": "NOT_RESOLVED",
-                "issues": ["NONZERO_DIRECT_BORDER_SPACE:table:left:2.5"],
+                "issues": ["NONZERO_DIRECT_BORDER_SPACE:table:left:2.5",
+                           "NONZERO_DIRECT_BORDER_SIZE:cell:0:1:right:8"],
             },
         }],
         "non_body_story_tables": [{
@@ -521,8 +526,11 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "word_render": "NOT_RUN",
             },
             "border_geometry_evidence": {
-                "status": "NO_DIRECT_BORDER_SPACE",
+                "status": "NO_DIRECT_BORDER_GEOMETRY",
+                "space_status": "NO_DIRECT_BORDER_SPACE",
+                "size_status": "NO_DIRECT_BORDER_SIZE",
                 "declared_values": [],
+                "size_declarations": [],
                 "effective_border_geometry": "NOT_RESOLVED",
                 "issues": [],
             },
@@ -536,6 +544,7 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
     assert "RIGHT_TO_LEFT" in report
     assert "120 twips" in report
     assert "row0:cell1:left 2.5 pt" in report
+    assert "row0:cell1:right 1 pt border (w:sz=8)" in report
     assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report

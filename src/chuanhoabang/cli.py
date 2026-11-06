@@ -88,18 +88,27 @@ def render_markdown(result: dict) -> str:
             return "NOT_REPORTED"
         status = evidence.get("status", "UNKNOWN")
         values = evidence.get("declared_values", [])
-        if status == "NO_DIRECT_BORDER_SPACE":
-            label = "NO_DIRECT_BORDER_SPACE"
-        elif values:
-            label = status + ": " + ", ".join(
+        size_values = evidence.get("size_declarations", [])
+        if not values and not size_values:
+            label = ("NO_DIRECT_BORDER_GEOMETRY" if status == "NO_DIRECT_BORDER_GEOMETRY"
+                     else status)
+        else:
+            entries = [
                 (f"row{value.get('row_index', '?')}:cell{value.get('cell_index', '?')}"
                  if value.get("scope") == "cell" else value.get("scope", "unknown"))
                 + f":{value.get('edge', 'unknown')} "
                 f"{value.get('space_points', 'INVALID')} pt"
                 for value in values
+            ]
+            entries.extend(
+                (f"row{value.get('row_index', '?')}:cell{value.get('cell_index', '?')}"
+                 if value.get("scope") == "cell" else value.get("scope", "unknown"))
+                + f":{value.get('edge', 'unknown')} "
+                f"{value.get('size_points', 'INVALID')} pt border "
+                f"(w:sz={value.get('raw_size', '?')})"
+                for value in size_values
             )
-        else:
-            label = status
+            label = status + ": " + ", ".join(entries)
         label += f"; effective={evidence.get('effective_border_geometry', 'NOT_RESOLVED')}"
         issues = evidence.get("issues", [])
         if issues:

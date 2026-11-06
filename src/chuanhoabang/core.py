@@ -1178,41 +1178,75 @@ def _border_evidence(tbl):
 
 
 def _border_geometry_evidence(border_evidence):
-    """Report direct border spacing and flag values the width metric does not model."""
+    """Report direct border spacing and thickness without resolving border geometry."""
     declared_values = []
+    size_declarations = []
     issues = []
-    nonzero = False
+    nonzero_space = False
+    nonzero_size = False
+    invalid_space = False
+    invalid_size = False
 
     def collect(scope, row_index, cell_index, edges):
-        nonlocal nonzero
+        nonlocal nonzero_space, nonzero_size, invalid_space, invalid_size
         for edge in edges:
             attributes = edge.get("attributes", {})
-            if "space" not in attributes:
-                continue
-            raw_space = attributes["space"]
-            value = None
-            try:
-                parsed = Decimal(raw_space)
-                if not parsed.is_finite() or parsed < 0:
-                    raise InvalidOperation
-                value = parsed
-                if parsed > 0:
-                    nonzero = True
+            if "space" in attributes:
+                raw_space = attributes["space"]
+                value = None
+                try:
+                    parsed = Decimal(raw_space)
+                    if not parsed.is_finite() or parsed < 0:
+                        raise InvalidOperation
+                    value = parsed
+                    if parsed > 0:
+                        nonzero_space = True
+                        issues.append(
+                            f"NONZERO_DIRECT_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
+                        )
+                except (InvalidOperation, TypeError, ValueError):
+                    invalid_space = True
                     issues.append(
-                        f"NONZERO_DIRECT_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
+                        f"INVALID_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
                     )
-            except (InvalidOperation, TypeError, ValueError):
-                issues.append(
-                    f"INVALID_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
-                )
-            declared_values.append({
-                "scope": scope,
-                "row_index": row_index,
-                "cell_index": cell_index,
-                "edge": edge.get("edge"),
-                "raw_space": raw_space,
-                "space_points": (str(value) if value is not None else None),
-            })
+                declared_values.append({
+                    "scope": scope,
+                    "row_index": row_index,
+                    "cell_index": cell_index,
+                    "edge": edge.get("edge"),
+                    "raw_space": raw_space,
+                    "space_points": (str(value) if value is not None else None),
+                })
+            if "sz" in attributes:
+                raw_size = attributes["sz"]
+                points = None
+                try:
+                    if not re.fullmatch(r"[0-9]+", raw_size):
+                        raise ValueError
+                    parsed = int(raw_size)
+                    if parsed > 4294967295:
+                        raise ValueError
+                    points = Decimal(parsed) / Decimal(8)
+                    if parsed > 0:
+                        nonzero_size = True
+                        issues.append(
+                            "NONZERO_DIRECT_BORDER_SIZE:"
+                            f"{scope}:{row_index}:{cell_index}:"
+                            f"{edge.get('edge', 'UNKNOWN')}:{raw_size}"
+                        )
+                except (TypeError, ValueError):
+                    invalid_size = True
+                    issues.append(
+                        f"INVALID_BORDER_SIZE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_size}"
+                    )
+                size_declarations.append({
+                    "scope": scope,
+                    "row_index": row_index,
+                    "cell_index": cell_index,
+                    "edge": edge.get("edge"),
+                    "raw_size": raw_size,
+                    "size_points": (str(points) if points is not None else None),
+                })
 
     collect("table", None, None, border_evidence.get("table_borders", []))
     for cell in border_evidence.get("cell_borders", []):
@@ -1223,17 +1257,36 @@ def _border_geometry_evidence(border_evidence):
     if unresolved_source:
         issues.append("UNRESOLVED_DIRECT_BORDER_DECLARATION")
     issues = sorted(set(issues))
-    if unresolved_source or any(issue.startswith("INVALID_BORDER_SPACE:") for issue in issues):
-        status = "UNRESOLVED"
-    elif nonzero:
-        status = "NONZERO_DIRECT_BORDER_SPACE"
+    if unresolved_source or invalid_space:
+        space_status = "UNRESOLVED"
+    elif nonzero_space:
+        space_status = "NONZERO_DIRECT_BORDER_SPACE"
     elif declared_values:
+        space_status = "DIRECT_ZERO_ONLY"
+    else:
+        space_status = "NO_DIRECT_BORDER_SPACE"
+    if unresolved_source or invalid_size:
+        size_status = "UNRESOLVED"
+    elif nonzero_size:
+        size_status = "NONZERO_DIRECT_BORDER_SIZE"
+    elif size_declarations:
+        size_status = "DIRECT_ZERO_ONLY"
+    else:
+        size_status = "NO_DIRECT_BORDER_SIZE"
+    if unresolved_source or invalid_space or invalid_size:
+        status = "UNRESOLVED"
+    elif nonzero_space or nonzero_size:
+        status = "UNMODELED_DIRECT_BORDER_GEOMETRY"
+    elif declared_values or size_declarations:
         status = "DIRECT_ZERO_ONLY"
     else:
-        status = "NO_DIRECT_BORDER_SPACE"
+        status = "NO_DIRECT_BORDER_GEOMETRY"
     return {
         "status": status,
+        "space_status": space_status,
+        "size_status": size_status,
         "declared_values": declared_values,
+        "size_declarations": size_declarations,
         "effective_border_geometry": "NOT_RESOLVED",
         "issues": issues,
     }
@@ -1411,8 +1464,11 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     border_geometry_evidence = _border_geometry_evidence(border_evidence)
     if border_geometry_evidence["status"] == "UNRESOLVED":
         reasons.append("UNRESOLVED_BORDER_GEOMETRY")
-    elif border_geometry_evidence["status"] == "NONZERO_DIRECT_BORDER_SPACE":
-        reasons.append("NONZERO_DIRECT_BORDER_SPACE")
+    elif border_geometry_evidence["status"] == "UNMODELED_DIRECT_BORDER_GEOMETRY":
+        if border_geometry_evidence["space_status"] == "NONZERO_DIRECT_BORDER_SPACE":
+            reasons.append("NONZERO_DIRECT_BORDER_SPACE")
+        if border_geometry_evidence["size_status"] == "NONZERO_DIRECT_BORDER_SIZE":
+            reasons.append("NONZERO_DIRECT_BORDER_SIZE")
     try:
         cell_padding = _cell_padding(tbl, rows, table_styles)
     except TableError as exc:

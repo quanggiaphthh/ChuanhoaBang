@@ -67,6 +67,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - Audit reports direct border `w:space` declarations by table/cell edge. Positive distances and invalid, duplicate, or unsupported border declarations block width proposals; zero values are reported without claiming resolved border geometry. Border size/style conflicts and Word rendering remain unresolved.
 - Added numeric validation, proposal/apply evidence binding, body/story Markdown coverage, and patch-preservation/refusal regressions. Local locked full suite: **204/204 PASS**. GitHub Actions [run 42167790715](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42167790715) passed all six jobs and **204/204 tests** on Ubuntu/Python 3.10–3.13 and Windows/Python 3.12; all five targets passed hash-enforced offline install, CLI/DOCX audit smoke, and wheel smoke. The canonical and same-run rebuilt wheel SHA-256 is `7a3c313502ed9561e06b52f4c4047de429c1a7bd2361dc0ed40359dbf3f64385`. Preview artifact `chuanhoabang-preview-341f6721bfa4aeb29d585bbab618f76c2eb734de` expires 20/11/2026. Microsoft Word rendering remains `NOT_RUN`.
 
+#### 06/11/2026 — Border-thickness geometry gate
+
+- Audit reports direct border `w:sz` in eighths of a point at table/cell edges, with source coordinates. Positive thickness and invalid/ambiguous declarations block width proposals; zero values remain source-only and effective border geometry stays unresolved.
+- Added conversion, malformed/range, proposal/apply evidence-binding, body/story Markdown, and patch-preservation cases. Local locked full suite: **210/210 PASS**; cross-platform verification is pending. Microsoft Word rendering remains `NOT_RUN`.
+
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.
