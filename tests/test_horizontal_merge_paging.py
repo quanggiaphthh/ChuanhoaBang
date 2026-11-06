@@ -64,6 +64,32 @@ def _omit_edge_cells(path, *, before, after):
             z.writestr(info, data)
 
 
+def _mismatch_vertical_merge_ranges(path):
+    document = Document(path)
+    table = document.tables[0]
+    table.cell(1, 0).merge(table.cell(1, 1))
+    table.cell(2, 1).merge(table.cell(2, 2))
+    document.save(path)
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                restart = etree.SubElement(
+                    root.xpath(".//w:body/w:tbl/w:tr[2]/w:tc[1]/w:tcPr", namespaces=core.NS)[0],
+                    core.W + "vMerge",
+                )
+                restart.set(core.W + "val", "restart")
+                continuation = etree.SubElement(
+                    root.xpath(".//w:body/w:tbl/w:tr[3]/w:tc[2]/w:tcPr", namespaces=core.NS)[0],
+                    core.W + "vMerge",
+                )
+                continuation.set(core.W + "val", "continue")
+                data = etree.tostring(root)
+            z.writestr(info, data)
+
+
 def test_hmerge_header_is_safe_but_width_optimizer_stays_blocked(tmp_path):
     path = fixture(tmp_path)
     original_bytes = path.read_bytes()
@@ -76,7 +102,7 @@ def test_hmerge_header_is_safe_but_width_optimizer_stays_blocked(tmp_path):
     ]
     from chuanhoabang.cli import render_markdown
     markdown = render_markdown(audit(path))
-    assert "Cell grid spans / vertical merge markers (source XML)" in markdown
+    assert "Cell spans, merge continuation, omitted columns (source XML)" in markdown
     assert '"start_column":0' in markdown
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
     header = propose_header(path, 0)
@@ -115,6 +141,10 @@ def test_hmerge_height_rule_only_and_preserves_spans(tmp_path):
 def test_vertical_merge_reports_source_markers_but_stays_review_required(tmp_path):
     path = fixture(tmp_path, mode="vertical", exact=True)
     table_info = audit(path)["tables"][0]
+    assert table_info["vertical_merge_chain_validation"] == {
+        "status": "VALID",
+        "issues": [],
+    }
     assert table_info["cell_grid_spans"] == [
         [
             {"start_column": 0, "span": 1},
@@ -136,9 +166,75 @@ def test_vertical_merge_reports_source_markers_but_stays_review_required(tmp_pat
     assert "MERGED_OR_OMITTED_CELLS" in table_info["reasons"]
     from chuanhoabang.cli import render_markdown
     assert '"vertical_merge":"RESTART"' in render_markdown(audit(path))
+    assert '"vertical_merge_chain_validation"' in render_markdown(audit(path))
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose(path, 0)["vertical_merge_chain_validation"] == table_info[
+        "vertical_merge_chain_validation"
+    ]
     assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
-    assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"
+    assert propose_header(path, 0)["vertical_merge_chain_validation"] == table_info[
+        "vertical_merge_chain_validation"
+    ]
+    unclip = propose_unclip_row_height(path, 0)
+    assert unclip["decision"] == "REVIEW_REQUIRED"
+    assert unclip["vertical_merge_chain_validation"] == table_info[
+        "vertical_merge_chain_validation"
+    ]
+    assert "vertical_merge_chain_validation" in render_markdown(propose(path, 0))
+
+
+def test_orphan_vertical_merge_continuation_is_reported(tmp_path):
+    path = fixture(tmp_path, mode="vertical")
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                marker = root.xpath(
+                    ".//w:body/w:tbl/w:tr[2]/w:tc[1]/w:tcPr/w:vMerge",
+                    namespaces=core.NS,
+                )[0]
+                marker.getparent().remove(marker)
+                data = etree.tostring(root)
+            z.writestr(info, data)
+    table_info = audit(path)["tables"][0]
+    assert table_info["vertical_merge_chain_validation"] == {
+        "status": "INVALID",
+        "issues": [{
+            "row_index": 2,
+            "start_column": 0,
+            "span": 1,
+            "reason": "ORPHAN_CONTINUE",
+        }],
+    }
+    assert table_info["status"] == "REVIEW_REQUIRED"
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_vertical_merge_grid_range_mismatch_is_reported(tmp_path):
+    path = fixture(tmp_path, mode="plain")
+    _mismatch_vertical_merge_ranges(path)
+    table_info = audit(path)["tables"][0]
+    assert table_info["cell_grid_spans"][1][0] == {
+        "start_column": 0,
+        "span": 2,
+        "vertical_merge": "RESTART",
+    }
+    assert table_info["cell_grid_spans"][2][1] == {
+        "start_column": 1,
+        "span": 2,
+        "vertical_merge": "CONTINUE",
+    }
+    assert table_info["vertical_merge_chain_validation"] == {
+        "status": "INVALID",
+        "issues": [{
+            "row_index": 2,
+            "start_column": 1,
+            "span": 2,
+            "reason": "GRID_RANGE_MISMATCH",
+        }],
+    }
 
 
 def test_malformed_vertical_merge_marker_does_not_produce_grid_mapping(tmp_path):
@@ -156,7 +252,9 @@ def test_malformed_vertical_merge_marker_does_not_produce_grid_mapping(tmp_path)
                 marker.set(core.W + "val", "join")
                 data = etree.tostring(root)
             z.writestr(info, data)
-    assert audit(path)["tables"][0]["cell_grid_spans"] is None
+    table_info = audit(path)["tables"][0]
+    assert table_info["cell_grid_spans"] is None
+    assert table_info["vertical_merge_chain_validation"]["status"] == "UNRESOLVED"
     assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 

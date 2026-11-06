@@ -47,13 +47,18 @@ measurement.
 Audit reports `cell_grid_spans` as zero-based logical grid starts and span counts
 for each physical cell when the XML mapping is unambiguous. A cell with a direct
 `w:vMerge` marker also reports `vertical_merge: RESTART` or `CONTINUE` (an
-omitted value is the OOXML continue form). This is source-marker evidence only;
-the vertical continuation chain is not validated, and vertical-merge tables
-stay `REVIEW_REQUIRED` for every proposal. Horizontal-merge tables also stay
-`REVIEW_REQUIRED` for width proposals. Only the existing width-neutral
-header-repeat and row-height operations accept valid horizontal spans; omitted
-cells, malformed spans or merge markers, and nested tables remain unsupported.
-The marker semantics follow Microsoft's [VerticalMerge.Val documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge.val?view=openxml-3.0.1); the continuation-chain grid-column rule is not validated here.
+omitted value is the OOXML continue form). `VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001`
+adds a source-only `vertical_merge_chain_validation` status. It checks that each
+direct `CONTINUE` marker follows a marker in the immediately preceding row with
+the same logical grid start and span; orphan continuations and overlapping but
+misaligned ranges are `INVALID`. If cell-to-grid mapping is unresolved, the
+chain result is `UNRESOLVED`. A `VALID` result does not establish Word rendering
+or permit vertical-merge edits; these tables stay `REVIEW_REQUIRED` for every
+proposal. Horizontal-merge tables also stay `REVIEW_REQUIRED` for width
+proposals. Only the existing width-neutral header-repeat and row-height
+operations accept valid horizontal spans; omitted cells, malformed spans or
+merge markers, and nested tables remain unsupported. Marker semantics follow
+Microsoft's [VerticalMerge.Val documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge.val?view=openxml-3.0.1); this check compares local source grid ranges only.
 
 `GRID-OMISSION-SOURCE-MAPPING-001` maps each physical cell after applying a
 row's direct `w:gridBefore` count and verifies that its cells plus

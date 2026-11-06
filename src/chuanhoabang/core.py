@@ -941,6 +941,52 @@ def _cell_grid_mapping(tbl):
     }
 
 
+def _vertical_merge_chain_validation(tbl, grid_mapping):
+    """Validate direct vertical-merge continuation ranges as source XML only."""
+    all_markers = tbl.xpath(".//w:vMerge", namespaces=NS)
+    if not all_markers:
+        return None
+    direct_markers = tbl.xpath("./w:tr/w:tc/w:tcPr/w:vMerge", namespaces=NS)
+    if len(all_markers) != len(direct_markers):
+        return {"status": "UNRESOLVED", "issues": [
+            {"reason": "NON_DIRECT_VMERGE_MARKER"},
+        ]}
+    if grid_mapping is None:
+        return {"status": "UNRESOLVED", "issues": [
+            {"reason": "CELL_GRID_MAPPING_UNRESOLVED"},
+        ]}
+
+    active_ranges = set()
+    issues = []
+    for row_index, row_spans in enumerate(grid_mapping["cell_grid_spans"]):
+        next_ranges = set()
+        for cell_span in row_spans:
+            marker = cell_span.get("vertical_merge")
+            if marker == "RESTART":
+                next_ranges.add((cell_span["start_column"], cell_span["span"]))
+                continue
+            if marker != "CONTINUE":
+                continue
+            span_range = (cell_span["start_column"], cell_span["span"])
+            if span_range in active_ranges:
+                next_ranges.add(span_range)
+                continue
+            start, span = span_range
+            overlaps_active = any(
+                start < active_start + active_span and active_start < start + span
+                for active_start, active_span in active_ranges
+            )
+            issues.append({
+                "row_index": row_index,
+                "start_column": start,
+                "span": span,
+                "reason": ("GRID_RANGE_MISMATCH" if overlaps_active else
+                           "ORPHAN_CONTINUE"),
+            })
+        active_ranges = next_ranges
+    return {"status": "INVALID" if issues else "VALID", "issues": issues}
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -978,6 +1024,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     grid_mapping = _cell_grid_mapping(tbl)
     cell_grid_spans = (None if grid_mapping is None else
                        grid_mapping["cell_grid_spans"])
+    vertical_merge_validation = _vertical_merge_chain_validation(tbl, grid_mapping)
     if tbl.xpath(".//w:gridSpan | .//w:vMerge | .//w:gridBefore | .//w:gridAfter", namespaces=NS):
         reasons.append("MERGED_OR_OMITTED_CELLS")
     if tbl.xpath(".//w:tblpPr | .//w:textDirection", namespaces=NS):
@@ -1026,6 +1073,8 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
                 sum(widths) > geom["available_twips"])}
     if grid_mapping is not None and grid_mapping["row_grid_omissions"] is not None:
         details["row_grid_omissions"] = grid_mapping["row_grid_omissions"]
+    if vertical_merge_validation is not None:
+        details["vertical_merge_chain_validation"] = vertical_merge_validation
     return details
 
 
@@ -1319,6 +1368,10 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "word_render": "NOT_RUN", "content_modified": False}
     if info.get("row_grid_omissions") is not None:
         result["row_grid_omissions"] = info["row_grid_omissions"]
+    if info.get("vertical_merge_chain_validation") is not None:
+        result["vertical_merge_chain_validation"] = info[
+            "vertical_merge_chain_validation"
+        ]
     if profile_constraints is not None:
         result["profile_constraints"] = profile_constraints
     if info["status"] != "SUPPORTED":
@@ -1578,6 +1631,10 @@ def propose_header(path, table_index, profile=None):
               "word_render": "NOT_RUN", "content_modified": False}
     if table.get("row_grid_omissions") is not None:
         result["row_grid_omissions"] = table["row_grid_omissions"]
+    if table.get("vertical_merge_chain_validation") is not None:
+        result["vertical_merge_chain_validation"] = table[
+            "vertical_merge_chain_validation"
+        ]
     if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _, _, _, _ = _package(path)
@@ -1638,6 +1695,10 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if table.get("row_grid_omissions") is not None:
         result["row_grid_omissions"] = table["row_grid_omissions"]
+    if table.get("vertical_merge_chain_validation") is not None:
+        result["vertical_merge_chain_validation"] = table[
+            "vertical_merge_chain_validation"
+        ]
     if not _allow_paging_only(path, table_index, table, result):
         return result
     raw, _, _, _, _, _ = _package(path)

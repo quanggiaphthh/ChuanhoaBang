@@ -32,10 +32,12 @@ def render_markdown(result: dict) -> str:
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
                 "cell_grid_spans", "row_grid_omissions",
+                "vertical_merge_chain_validation",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             value = (json.dumps(result[key], ensure_ascii=False)
-                     if key in ("cell_grid_spans", "row_grid_omissions") else result[key])
+                     if key in ("cell_grid_spans", "row_grid_omissions",
+                                "vertical_merge_chain_validation") else result[key])
             lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
     if isinstance(geometry, dict):
@@ -66,7 +68,7 @@ def render_markdown(result: dict) -> str:
                          f"{safe(', '.join(table.get('reasons', [])))} |")
         if any("width_evidence" in table for table in result["tables"]):
             lines += ["", "## Width evidence (OOXML declarations; not Word measurements)", "",
-                      "| Table ID | Grid and sum | Cell grid spans / vertical merge markers (source XML) | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
+                      "| Table ID | Grid and sum | Cell spans, merge continuation, omitted columns (source XML) | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
                       "|---|---|---|---|---|---|---|"]
             for table in result["tables"]:
                 evidence = table.get("width_evidence", {})
@@ -75,11 +77,17 @@ def render_markdown(result: dict) -> str:
                 grid_label = (f"grid={grid if grid is not None else 'UNKNOWN'} twips; "
                               f"sum={grid_sum if grid_sum is not None else 'UNKNOWN'} twips")
                 span_evidence = table.get("cell_grid_spans")
-                if table.get("row_grid_omissions") is not None:
-                    span_evidence = {
-                        "cell_grid_spans": span_evidence,
-                        "row_grid_omissions": table["row_grid_omissions"],
-                    }
+                if (table.get("row_grid_omissions") is not None or
+                        table.get("vertical_merge_chain_validation") is not None):
+                    span_evidence = {"cell_grid_spans": span_evidence}
+                    if table.get("row_grid_omissions") is not None:
+                        span_evidence["row_grid_omissions"] = table[
+                            "row_grid_omissions"
+                        ]
+                    if table.get("vertical_merge_chain_validation") is not None:
+                        span_evidence["vertical_merge_chain_validation"] = table[
+                            "vertical_merge_chain_validation"
+                        ]
                 span_label = json.dumps(span_evidence, ensure_ascii=False,
                                         separators=(",", ":"))
                 cell_labels = []

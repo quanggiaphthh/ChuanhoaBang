@@ -59,6 +59,12 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 - GitHub Actions [run 42150370005](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42150370005) passed all six jobs and **170/170 tests** across Ubuntu/Python 3.10–3.13 and Windows/Python 3.12. An independent Ubuntu/Python 3.12 rebuild matched canonical wheel SHA-256 `452731c38b1e6c248dfc866bb41188607baa7bd4bdff0228d06210c334fe0636`; artifacts `chuanhoabang-*-4748dff1aa396b3c7f9b0e9df4471f76392c6dba` expire **20/11/2026**.
 - The mapping does not enable omitted-cell edits or establish Word layout. Microsoft Word/WPS, licensed TNR, and original-fixture acceptance remain **NOT_RUN** or unavailable.
 
+#### 06/11/2026 — Source-only vertical-merge chain checks
+
+- Audit and all proposal reports expose `vertical_merge_chain_validation` for tables with `vMerge` markers. It reports `VALID`, `INVALID` with orphan/misaligned continuation details, or `UNRESOLVED` when the logical cell-grid mapping cannot be trusted.
+- This checks direct source markers against immediately adjacent rows and exact grid start/span ranges. It does not verify Word-effective merge rendering or enable vertical-merge edits; all vertical-merge proposals remain `REVIEW_REQUIRED`.
+- Focused regression file: **12 passed**; local full suite: **172 passed**. Cross-platform CI verification is pending for the current change.
+
 - Cung cấp CLI/API offline để audit, lập proposal và apply có xác nhận cho tập bảng DOCX giới hạn; ND30/HD05 được ghi nhận là `REFERENCE_ONLY`, chưa áp dụng preset pháp lý đầy đủ.
 - Audit JSON/Markdown tách độ rộng `tblW`/`tcW` khai báo khỏi tổng lưới `tblGrid`; khai báo width lỗi chuyển sang `REVIEW_REQUIRED`. Section nhiều cột đều có spacing tường minh dùng bound dưới cho từng cột. Cột tùy biến chỉ được dùng khi `equalWidth=0`, `col` count/width/spacing được khai báo đủ và hình học nằm trong vùng chữ; optimizer dùng width cột hẹp nhất khi vị trí bảng chưa xác định. `AlternateContent`, permission ranges, protection, signed OPC package parts and macro parts fail closed; line estimate does not break NBSP/figure-space glue. Microsoft Word rendering remains `NOT_RUN`.
 - Audit gán ID xác định theo phạm vi/chỉ số/hash và liên kết bảng lồng với ID của bảng cha trong body lẫn header/footer story; liên kết section mặc định cùng loại được báo thêm dưới dạng ứng viên kế thừa read-only. Các chỉ số body dùng cho `--table` vẫn giữ nguyên.
