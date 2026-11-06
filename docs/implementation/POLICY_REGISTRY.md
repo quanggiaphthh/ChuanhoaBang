@@ -37,6 +37,14 @@ establish that the instrument has not since been changed or withdrawn. Both
 profile records therefore remain `currentness: NOT_ASSESSED`,
 `verified_legal_presets: false`, and `profile_status: REFERENCE_ONLY`.
 
+Rule `TABLE-ROLE-SOURCE-CLASSIFICATION-001` adds source-only role candidates to
+body-table audits and proposals: `NESTED`, `OFFICIAL_FORM_CANDIDATE`,
+`LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`. Each label carries evidence
+codes, `authority: NOT_ESTABLISHED`, and `edit_gate: TABLE_STATUS_AND_OPERATION_RULES`.
+Text markers can suggest a layout or official-form candidate, but do not verify
+legal status. The role field does not grant edit permission; existing table
+status, proposal decision, and operation-specific checks still govern changes.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

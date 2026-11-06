@@ -31,12 +31,12 @@ def render_markdown(result: dict) -> str:
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
-                "cell_grid_spans", "row_grid_omissions",
+                "role_classification", "cell_grid_spans", "row_grid_omissions",
                 "vertical_merge_chain_validation",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
             value = (json.dumps(result[key], ensure_ascii=False)
-                     if key in ("cell_grid_spans", "row_grid_omissions",
+                     if key in ("role_classification", "cell_grid_spans", "row_grid_omissions",
                                 "vertical_merge_chain_validation") else result[key])
             lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
@@ -57,12 +57,19 @@ def render_markdown(result: dict) -> str:
         lines.append(f"| word_rendered_width | {safe(result.get('word_render', 'NOT_RUN'))} |")
     if isinstance(result.get("tables"), list):
         lines += ["", "## Bảng được phát hiện", "",
-                  "| Table ID | Parent table ID | STT | Trạng thái | Hàng | Cột | Lý do |",
-                  "|---|---|---:|---|---:|---:|---|"]
+                  "| Table ID | Parent table ID | Role candidate / evidence | STT | Trạng thái | Hàng | Cột | Lý do |",
+                  "|---|---|---|---:|---|---:|---:|---|"]
         for table in result["tables"]:
             parent_id = table.get("parent_table_id") or "—"
+            role = table.get("role_classification") or {}
+            role_label = (
+                f"{role.get('classification', 'UNKNOWN')}; "
+                f"{', '.join(role.get('evidence', [])) or 'NO_EVIDENCE'}; "
+                f"authority={role.get('authority', 'NOT_ESTABLISHED')}"
+            )
             lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
-                         f"`{safe(parent_id)}` | {table.get('index', '?')} | "
+                         f"`{safe(parent_id)}` | {safe(role_label)} | "
+                         f"{table.get('index', '?')} | "
                          f"{safe(table.get('status', 'UNKNOWN'))} | "
                          f"{table.get('rows', '?')} | {table.get('columns', '?')} | "
                          f"{safe(', '.join(table.get('reasons', [])))} |")

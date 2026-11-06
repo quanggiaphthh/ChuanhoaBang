@@ -69,6 +69,98 @@ def test_audit_read_only_and_header(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tmp_path):
+    path = fixture_docx(tmp_path)
+
+    table = audit(path)["tables"][0]
+    role = table["role_classification"]
+
+    assert role["classification"] == "DATA_CANDIDATE"
+    assert set(role["evidence"]) == {
+        "MULTIROW_TABLE", "AT_LEAST_TWO_NONEMPTY_HEADER_CELLS", "RECOGNIZED_HEADER_HINT",
+    }
+    assert role["evidence_level"] == "SOURCE_XML_TEXT_AND_TOPOLOGY"
+    assert role["authority"] == "NOT_ESTABLISHED"
+
+
+def test_audit_labels_official_heading_text_as_a_review_only_form_candidate(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(1, 0).text = "Cộng hòa xã hội chủ nghĩa Việt Nam"
+    doc.tables[0].cell(2, 0).text = "Độc lập – Tự do – Hạnh phúc"
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+
+    assert table["role_classification"]["classification"] == "OFFICIAL_FORM_CANDIDATE"
+    assert "OFFICIAL_FORM_TEXT_MARKER" in table["role_classification"]["evidence"]
+    assert table["status"] == "REVIEW_REQUIRED"
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_audit_labels_non_form_layout_text_as_a_layout_candidate(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(2, 2).text = "Nơi nhận: Lưu hồ sơ"
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+
+    assert table["role_classification"]["classification"] == "LAYOUT_CANDIDATE"
+    assert table["role_classification"]["evidence"] == ["LAYOUT_TEXT_HINT"]
+    assert table["status"] == "REVIEW_REQUIRED"
+
+
+def test_audit_recognizes_common_vietnamese_layout_spelling_variant(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(2, 2).text = "Đảng uỷ Bộ Nội vụ"
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+
+    assert table["role_classification"]["classification"] == "LAYOUT_CANDIDATE"
+    assert "POSSIBLE_LAYOUT_TABLE" in table["reasons"]
+
+
+def test_audit_labels_unclear_table_role_as_unknown(tmp_path):
+    path = fixture_docx(tmp_path, header=False)
+
+    table = audit(path)["tables"][0]
+
+    assert table["role_classification"]["classification"] == "UNKNOWN"
+    assert table["role_classification"]["authority"] == "NOT_ESTABLISHED"
+    assert table["status"] == "REVIEW_REQUIRED"
+
+
+def test_party_header_marker_is_an_official_form_candidate_and_forces_review(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.tables[0].cell(2, 0).text = "ĐẢNG CỘNG SẢN VIỆT NAM"
+    doc.save(path)
+
+    table = audit(path)["tables"][0]
+
+    assert table["role_classification"]["classification"] == "OFFICIAL_FORM_CANDIDATE"
+    assert "POSSIBLE_LAYOUT_TABLE" in table["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_role_evidence_is_bound_to_header_proposal_and_reported_after_apply(tmp_path):
+    path = fixture_docx(tmp_path)
+    proposal = core.propose_header(path, 0)
+    assert proposal["decision"] == "PROPOSE_APPLY"
+    assert proposal["role_classification"]["classification"] == "DATA_CANDIDATE"
+
+    altered = copy.deepcopy(proposal)
+    altered["role_classification"]["classification"] = "OFFICIAL_FORM_CANDIDATE"
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(path, altered, tmp_path / "altered-role.docx")
+
+    applied = apply(path, proposal, tmp_path / "header-role.docx")
+    assert applied["role_classification"]["classification"] == "DATA_CANDIDATE"
+
+
 def test_audit_separates_declared_widths_from_grid_and_word_measurement(tmp_path):
     path = fixture_docx(tmp_path)
     with ZipFile(path) as package:
@@ -742,6 +834,8 @@ def test_table_inventory_ids_and_parent_links_are_stable_and_read_only(tmp_path,
         assert child["parent_table_id"] == parent_id
         assert "CONTAINS_NESTED_TABLE" in entries[0]["reasons"]
         assert "NESTED_OR_CONTENT_CONTROL_TABLE" in child["reasons"]
+        assert entries[0]["role_classification"]["classification"] == "NESTED"
+        assert child["role_classification"]["classification"] == "NESTED"
     else:
         entries = report["non_body_story_tables"]
         parent_id = entries[0]["table_id"]
@@ -831,7 +925,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert min(candidate) > 0
     proposal = {"input_sha256": audit(path)["input_sha256"], "table_sha256": meta["table_sha256"],
                 "table_index": 0, "policy": core.POLICY_VERSION, "decision": "PROPOSE_APPLY",
-                "candidate_twips": candidate, "evidence": "MOCK_TEST_ONLY"}
+                "candidate_twips": candidate, "evidence": "MOCK_TEST_ONLY",
+                "role_classification": meta["role_classification"]}
     # Isolate the patch/invariant writer from actual font shaping in this test.
     monkeypatch.setattr(core, "propose", lambda *a, **k: proposal)
     source_hash = core.digest(path.read_bytes())
@@ -954,7 +1049,8 @@ def test_proposal_modification_and_invalid_zip_are_rejected(tmp_path, monkeypatc
     meta = audit(path)["tables"][0]
     fake = {"input_sha256": audit(path)["input_sha256"], "table_sha256": meta["table_sha256"],
             "table_index": 0, "policy": core.POLICY_VERSION, "decision": "PROPOSE_APPLY",
-            "candidate_twips": meta["grid_twips"], "evidence": "MOCK_TEST_ONLY"}
+            "candidate_twips": meta["grid_twips"], "evidence": "MOCK_TEST_ONLY",
+            "role_classification": meta["role_classification"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: fake)
     tampered = copy.deepcopy(fake)
     tampered["candidate_twips"][0] += 10
@@ -982,7 +1078,8 @@ def test_orientation_preserved_on_patch(tmp_path, monkeypatch):
     base = audit(path)["tables"][0]
     prop = {"input_sha256": audit(path)["input_sha256"], "table_sha256": base["table_sha256"],
             "table_index": 0, "policy": core.POLICY_VERSION,
-            "decision": "PROPOSE_APPLY", "candidate_twips": list(base["grid_twips"]), "evidence": "MOCK_TEST_ONLY"}
+            "decision": "PROPOSE_APPLY", "candidate_twips": list(base["grid_twips"]),
+            "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: prop)
     result_file = tmp_path / "new.docx"
     apply(path, prop, result_file)

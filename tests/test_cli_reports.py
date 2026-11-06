@@ -18,6 +18,31 @@ def test_markdown_render_has_real_line_breaks():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_non_authoritative_table_role_evidence():
+    report = render_markdown({
+        "decision": "AUDIT_ONLY",
+        "tables": [{
+            "table_id": "body:0:abc",
+            "parent_table_id": None,
+            "index": 0,
+            "status": "SUPPORTED",
+            "rows": 3,
+            "columns": 3,
+            "reasons": [],
+            "role_classification": {
+                "classification": "DATA_CANDIDATE",
+                "evidence": ["MULTIROW_TABLE", "RECOGNIZED_HEADER_HINT"],
+                "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
+                "authority": "NOT_ESTABLISHED",
+            },
+        }],
+    })
+
+    assert "DATA_CANDIDATE" in report
+    assert "MULTIROW_TABLE" in report
+    assert "NOT_ESTABLISHED" in report
+
+
 def test_markdown_render_exposes_profile_source_locator():
     report = render_markdown({
         "profile": "HD05",

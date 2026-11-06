@@ -78,6 +78,10 @@ chuanhoabang apply INPUT.docx --proposal unclip.json --output INPUT_UNCLIPPED.do
 - Xem `docs/verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md` và `ROW_HEIGHT_LO_SMOKE_2026-11-05.md`.
 
 
+## Table role candidate evidence
+
+Audit and proposal JSON/Markdown include `role_classification` for body tables. It labels only the source evidence as `NESTED`, `OFFICIAL_FORM_CANDIDATE`, `LAYOUT_CANDIDATE`, `DATA_CANDIDATE`, or `UNKNOWN`; `authority` remains `NOT_ESTABLISHED`. A text candidate is not a legal classification and does not grant edit permission. Existing table status and operation checks continue to control proposals and `apply`.
+
 ## Báo cáo Markdown và giới hạn
 
 - `--report-md PATH.md` tạo báo cáo đọc được cho `audit`, `propose`, `propose-header`, `propose-unclip` và `apply`.

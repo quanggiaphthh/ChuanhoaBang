@@ -40,7 +40,10 @@ MAX_RATIO = 150
 HEADER_HINTS = ("stt", "họ tên", "họ và tên", "nội dung", "nhiệm vụ", "đơn vị", "chỉ tiêu",
                 "kết quả", "thời gian", "ngày", "số", "kinh phí", "ghi chú", "trách nhiệm",
                 "tiến độ", "sản phẩm", "chủ trì", "phối hợp", "tên", "thành tiền")
-LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng ủy", "đảng bộ", "nơi nhận", "người ký", "tổng giám đốc")
+LAYOUT_HINTS = ("cộng hòa xã hội", "độc lập - tự do", "đảng cộng sản việt nam",
+                "đảng ủy", "đảng uỷ", "đảng bộ", "nơi nhận", "người ký", "tổng giám đốc")
+OFFICIAL_FORM_HINTS = ("cộng hòa xã hội chủ nghĩa việt nam",
+                       "độc lập - tự do - hạnh phúc", "đảng cộng sản việt nam")
 NO_BREAK_SPACE_CHARACTERS = frozenset(("\u00a0", "\u180e", "\u2007", "\u202f"))
 LAYOUT_DASH_TRANSLATION = str.maketrans({
     char: "-" for char in "\u2010\u2011\u2012\u2013\u2014\u2212"
@@ -987,6 +990,47 @@ def _vertical_merge_chain_validation(tbl, grid_mapping):
     return {"status": "INVALID" if issues else "VALID", "issues": issues}
 
 
+def _role_classification(tbl, rows, header, header_str, table_text):
+    """Return source-only role candidates without asserting legal authority."""
+    if tbl.xpath("ancestor::w:tbl | .//w:tbl", namespaces=NS):
+        classification = "NESTED"
+        evidence = ["NESTING_RELATIONSHIP"]
+        marker_count = 0
+    else:
+        official_markers = [hint for hint in OFFICIAL_FORM_HINTS if hint in table_text]
+        layout_markers = [hint for hint in LAYOUT_HINTS if hint in table_text]
+        data_shape = (
+            len(rows) >= 2
+            and sum(bool(value) for value in header) >= 2
+            and any(hint in header_str for hint in HEADER_HINTS)
+        )
+        if official_markers:
+            classification = "OFFICIAL_FORM_CANDIDATE"
+            evidence = ["OFFICIAL_FORM_TEXT_MARKER"]
+            marker_count = len(official_markers)
+        elif layout_markers:
+            classification = "LAYOUT_CANDIDATE"
+            evidence = ["LAYOUT_TEXT_HINT"]
+            marker_count = len(layout_markers)
+        elif data_shape:
+            classification = "DATA_CANDIDATE"
+            evidence = ["MULTIROW_TABLE", "AT_LEAST_TWO_NONEMPTY_HEADER_CELLS",
+                        "RECOGNIZED_HEADER_HINT"]
+            marker_count = 0
+        else:
+            classification = "UNKNOWN"
+            evidence = ["INSUFFICIENT_ROLE_MARKERS"]
+            marker_count = 0
+    return {
+        "classification": classification,
+        "evidence": evidence,
+        "markers_matched": marker_count,
+        "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
+        "authority": "NOT_ESTABLISHED",
+        "edit_gate": "TABLE_STATUS_AND_OPERATION_RULES",
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -1041,6 +1085,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     table_text = _normalize_layout_text(" ".join(
         _text(cell) for row in rows for cell in row.xpath("./w:tc", namespaces=NS)
     ))
+    role_classification = _role_classification(tbl, rows, header, header_str, table_text)
     if any(x in table_text for x in LAYOUT_HINTS):
         reasons.append("POSSIBLE_LAYOUT_TABLE")
     elif len(rows) < 2 or sum(bool(x) for x in header) < 2 or not any(x in header_str for x in HEADER_HINTS):
@@ -1059,6 +1104,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     details = {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
+            "role_classification": role_classification,
             "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
             "width_evidence": {
@@ -1362,6 +1408,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
               "profile": base["profile"], "profile_status": base["profile_status"],
               "profile_rules_applied": base["profile_rules_applied"],
+              "role_classification": info["role_classification"],
               "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
@@ -1627,6 +1674,7 @@ def propose_header(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "role_classification": table["role_classification"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
     if table.get("row_grid_omissions") is not None:
@@ -1691,6 +1739,7 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": table["table_sha256"], "decision": "REVIEW_REQUIRED",
               "reasons": list(table["reasons"]), "evidence": "SOURCE_XML",
+              "role_classification": table["role_classification"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if table.get("row_grid_omissions") is not None:
@@ -1786,7 +1835,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
     else:
         actual = propose(src, proposal.get("table_index"), font_regular, font_bold,
                          profile=selected_profile)
-    compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons")
+    compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons",
+               "role_classification")
     if header_operation:
         compare += ("operation",)
     elif height_operation:
@@ -1844,6 +1894,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             **profile_context,
             **({"profile_constraints": actual["profile_constraints"]}
                if "profile_constraints" in actual else {}),
+            "role_classification": actual["role_classification"],
             "operation": operation,
             "reasons": (["OUTPUT_MATCHES_VALIDATED_PROPOSAL"]
                         if decision == "NO_OP_VALID" else []),

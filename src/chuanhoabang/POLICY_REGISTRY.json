@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -174,6 +174,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_AND_OUTPUT_BYTES",
       "postconditions": ["identical output is left untouched and reported as NO_OP_VALID", "different, non-regular, or symlink destinations are never overwritten and return OUTPUT_MUST_BE_NEW_PATH"]
+    },
+    {
+      "id": "TABLE-ROLE-SOURCE-CLASSIFICATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "read-only source role candidates for body tables",
+      "preconditions": ["table text and nesting topology are available", "text markers are not treated as legal authority"],
+      "severity": "HARD",
+      "safe_action": "REPORT_ROLE_CANDIDATE_AND_KEEP_EXISTING_EDIT_GATES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
+      "postconditions": ["report NESTED, OFFICIAL_FORM_CANDIDATE, LAYOUT_CANDIDATE, DATA_CANDIDATE, or UNKNOWN with evidence codes", "classification does not establish legal authority or edit permission", "existing table status and operation-specific gates continue to control edits"]
     },
     {
       "id": "TABLE-SCOPE-001",
