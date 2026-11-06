@@ -177,9 +177,28 @@ def _tables(root):
     return root.xpath(".//w:body//w:tbl", namespaces=NS)
 
 
-def _section_story_references(root, document_rels, story_parts):
+def _source_on_off_activation(parent, control_name):
+    status = "UNKNOWN"
+    control = f"w:{control_name}"
+    if parent is None:
+        status = "DISABLED"
+    else:
+        nodes = parent.xpath(f"./w:{control_name}", namespaces=NS)
+        if not nodes:
+            status = "DISABLED"
+        elif len(nodes) == 1:
+            value = nodes[0].get(W + "val")
+            if value is None or value.casefold() in ("1", "true", "on"):
+                status = "ENABLED"
+            elif value.casefold() in ("0", "false", "off"):
+                status = "DISABLED"
+    return {"status": status, "control": control, "evidence": "SOURCE_XML_ONLY"}
+
+
+def _section_story_references(root, document_rels, story_parts, settings=b""):
     if not document_rels:
         return {}, {}
+    settings_root = _xml(settings) if settings else None
     relationship_root = _xml(document_rels)
     relationships = {}
     ambiguous_ids = set()
@@ -227,11 +246,18 @@ def _section_story_references(root, document_rels, story_parts):
             if relationship is None:
                 continue
             part, story_type = relationship
-            owners.setdefault(part, []).append({
+            owner = {
                 "section_index": section_index,
                 "story_type": story_type,
                 "reference_type": reference_type,
-            })
+            }
+            if reference_type == "first":
+                owner["activation"] = _source_on_off_activation(section, "titlePg")
+            elif reference_type == "even":
+                owner["activation"] = _source_on_off_activation(
+                    settings_root, "evenAndOddHeaders"
+                )
+            owners.setdefault(part, []).append(owner)
 
         for story_type, section_defaults in defaults.items():
             if not section_defaults:
@@ -802,7 +828,7 @@ def audit(path, profile=None):
         tables.append(_details(table, index, geometry, locks, table_ids[table], parent_id,
                                table_hashes[index], table_styles))
     section_references, inheritance_candidates = _section_story_references(
-        root, document_rels, story_parts
+        root, document_rels, story_parts, settings
     )
     story_tables = _non_body_story_tables(
         story_parts, section_references, inheritance_candidates, story_part_types

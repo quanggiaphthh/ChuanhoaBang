@@ -49,6 +49,15 @@ def fixture_docx(tmp_path, *, merged=False, header=True, protected=False, multi_
     return p
 
 
+def replace_docx_parts(path, replacements):
+    with ZipFile(path) as source:
+        entries = [(item, replacements.get(item.filename, source.read(item.filename)))
+                   for item in source.infolist()]
+    with ZipFile(path, "w") as target:
+        for item, content in entries:
+            target.writestr(item, content)
+
+
 def test_audit_read_only_and_header(tmp_path):
     path = fixture_docx(tmp_path)
     before = path.read_bytes()
@@ -486,10 +495,90 @@ def test_first_page_header_is_direct_only_without_inheritance_candidate(tmp_path
     )
 
     assert first_page["section_references"] == [
-        {"section_index": 0, "story_type": "header", "reference_type": "first"},
+        {"section_index": 0, "story_type": "header", "reference_type": "first",
+         "activation": {"status": "ENABLED", "control": "w:titlePg",
+                        "evidence": "SOURCE_XML_ONLY"}},
     ]
     assert first_page["default_inheritance_candidates"] == []
     assert first_page["status"] == "REVIEW_REQUIRED"
+    assert path.read_bytes() == source_before
+
+
+def test_first_page_header_reports_disabled_source_activation_without_title_page_control(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    section = doc.sections[0]
+    section.different_first_page_header_footer = True
+    section.first_page_header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    with ZipFile(path) as package:
+        document_xml = package.read("word/document.xml")
+    root = core._xml(document_xml)
+    title_page = root.xpath(".//w:sectPr/w:titlePg", namespaces=core.NS)
+    assert len(title_page) == 1
+    title_page[0].getparent().remove(title_page[0])
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    first_page = next(
+        entry for entry in report["non_body_story_tables"]
+        if any(reference["reference_type"] == "first"
+               for reference in entry["section_references"])
+    )
+
+    assert first_page["section_references"][0]["activation"] == {
+        "status": "DISABLED", "control": "w:titlePg", "evidence": "SOURCE_XML_ONLY",
+    }
+    assert first_page["default_inheritance_candidates"] == []
+    assert path.read_bytes() == source_before
+
+
+@pytest.mark.parametrize(
+    ("control_mode", "expected_status"),
+    [("missing", "DISABLED"), ("off", "DISABLED"), ("on", "ENABLED"),
+     ("invalid", "UNKNOWN"), ("duplicate", "UNKNOWN")],
+)
+def test_even_header_reports_source_activation_state(tmp_path, control_mode, expected_status):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    doc.save(path)
+    with ZipFile(path) as package:
+        document_xml = package.read("word/document.xml")
+        settings_xml = package.read("word/settings.xml")
+    document_root = core._xml(document_xml)
+    reference = document_root.xpath(".//w:sectPr/w:headerReference", namespaces=core.NS)[0]
+    reference.set(core.W + "type", "even")
+    settings_root = core._xml(settings_xml)
+    controls = settings_root.xpath("./w:evenAndOddHeaders", namespaces=core.NS)
+    for control in controls:
+        settings_root.remove(control)
+    if control_mode != "missing":
+        value = {"off": "0", "on": "1", "invalid": "sometimes"}.get(control_mode)
+        etree.SubElement(settings_root, core.W + "evenAndOddHeaders",
+                         {} if value is None else {core.W + "val": value})
+        if control_mode == "duplicate":
+            etree.SubElement(settings_root, core.W + "evenAndOddHeaders", {core.W + "val": "1"})
+    replace_docx_parts(path, {
+        "word/document.xml": etree.tostring(document_root),
+        "word/settings.xml": etree.tostring(settings_root),
+    })
+    source_before = path.read_bytes()
+
+    report = audit(path)
+    even_page = next(
+        entry for entry in report["non_body_story_tables"]
+        if any(reference["reference_type"] == "even"
+               for reference in entry["section_references"])
+    )
+
+    assert even_page["section_references"][0]["activation"] == {
+        "status": expected_status, "control": "w:evenAndOddHeaders",
+        "evidence": "SOURCE_XML_ONLY",
+    }
+    assert even_page["default_inheritance_candidates"] == []
+    assert even_page["status"] == "REVIEW_REQUIRED"
     assert path.read_bytes() == source_before
 
 

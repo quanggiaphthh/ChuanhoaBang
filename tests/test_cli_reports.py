@@ -34,7 +34,11 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
                 "section_references": [{
                     "section_index": 0,
                     "story_type": "header",
-                    "reference_type": "default",
+                    "reference_type": "first",
+                    "activation": {
+                        "status": "ENABLED", "control": "w:titlePg",
+                        "evidence": "SOURCE_XML_ONLY",
+                    },
                 }],
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
@@ -68,6 +72,7 @@ def test_markdown_render_exposes_non_body_story_table_inventory():
     assert "a" * 64 in report
     assert "DIRECT_REFERENCES_FOUND_INHERITANCE_UNRESOLVED" in report
     assert "section 0 header/default" in report
+    assert "section 0 header/first (source activation ENABLED; w:titlePg; SOURCE_XML_ONLY)" in report
 
 
 def test_markdown_render_distinguishes_declared_grid_and_word_widths():

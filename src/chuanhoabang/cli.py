@@ -132,7 +132,12 @@ def render_markdown(result: dict) -> str:
         for table in result["non_body_story_tables"]:
             references = "; ".join(
                 f"section {ref.get('section_index', '?')} "
-                f"{ref.get('story_type', '?')}/{ref.get('reference_type', '?')}"
+                f"{ref.get('story_type', '?')}/{ref.get('reference_type', '?')}" +
+                (" (source activation "
+                 f"{ref['activation'].get('status', 'UNKNOWN')}; "
+                 f"{ref['activation'].get('control', 'UNKNOWN')}; "
+                 f"{ref['activation'].get('evidence', 'UNKNOWN')})"
+                 if ref.get("activation") else "")
                 for ref in table.get("section_references", [])
             )
             candidates = "; ".join(
