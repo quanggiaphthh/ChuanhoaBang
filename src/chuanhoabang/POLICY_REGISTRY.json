@@ -1,0 +1,373 @@
+{
+  "schema": "chuanhoabang.policy.v0.1",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001+TABLE-DIRECTION-SOURCE-EVIDENCE-001+TABLE-CELL-SPACING-SOURCE-EVIDENCE-001+TABLE-BORDER-GEOMETRY-GATE-001+TABLE-BORDER-SIZE-GATE-001+TABLE-BORDER-STYLE-VALIDATION-001+TABLE-BORDER-SIZE-PRESENCE-GATE-001",
+  "sources": [
+    "AGENTS.md",
+    "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
+    "docs/spec/AI_TABLE_FORMATTING_NO_RENDER_V16.md",
+    "docs/research/V17_5_1/V17_5_1_ADMIN_TABLES_USER_CONTROLLED_ORIENTATION_SPEC.md",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ef7027d4-e05d-473b-8777-dcc2aee91935",
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/ec34035b-0da9-4849-a064-e4e57d1e7245",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permstart?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.permend?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/e12d2773-e2d0-45bf-b1c2-b8f0548e156d",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.verticalmerge?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridbefore?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridafter?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bidivisual?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tablecellspacing?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.border?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordertype.size?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bordervalues?view=openxml-3.0.1",
+    "https://unicode.org/reports/tr14/"
+  ],
+  "rules": [
+    {
+      "id": "USER-ORIENTATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "existing DOCX section orientation",
+      "preconditions": ["existing_docx", "no_explicit_user_orientation_request"],
+      "severity": "HARD",
+      "safe_action": "KEEP_EXISTING_ORIENTATION",
+      "requires_approval": true,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["all sectPr/pgSz unchanged"]
+    },
+    {
+      "id": "DATA-INTEGRITY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "target table and all OPC package parts",
+      "preconditions": ["explicit_apply", "source_fingerprint_matches"],
+      "severity": "HARD",
+      "safe_action": "ONLY_PATCH_TARGET_WIDTH_PROPERTIES",
+      "requires_approval": false,
+      "evidence_level": "STRUCTURAL_DIFF",
+      "postconditions": ["text and topology unchanged", "non-target XML content unchanged", "OPC members unchanged"]
+    },
+    {
+      "id": "MARKUP-COMPATIBILITY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "DOCX document parts containing mc:AlternateContent",
+      "preconditions": ["table audit or formatting proposal requested", "markup compatibility alternatives are not resolved by the runtime"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["body tables remain REVIEW_REQUIRED", "no Choice/Fallback branch is silently selected or discarded"]
+    },
+    {
+      "id": "PROTECTION-STATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables in documents with range permissions or unresolved document-protection state",
+      "preconditions": ["target permission scope cannot be resolved against the caller's editing identity", "protection declarations must be unambiguous to permit edits"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["any permStart/permEnd markers block body-table proposals", "enabled documentProtection blocks proposals", "invalid or duplicate documentProtection declarations block proposals"]
+    },
+    {
+      "id": "UNSUPPORTED-PACKAGE-CONTENT-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables in OPC packages containing digital signature or VBA macro parts",
+      "preconditions": ["package member names are inspected before proposing a body-table change", "runtime does not validate signature cryptography or execute macros"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_ALL_BODY_TABLES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_PACKAGE_PART_NAMES",
+      "postconditions": ["members under _xmlsignatures/ block body-table proposals", "word/vbaProject.bin blocks body-table proposals", "signature and macro behavior are not validated"]
+    },
+    {
+      "id": "UNICODE-LINEBREAK-001",
+      "authority": "UNICODE_STANDARD",
+      "scope": "offline width-estimate tokenization for nonbreaking Unicode spaces",
+      "preconditions": ["metric-based width proposal", "synthetic or local font metrics are used for a line-count estimate"],
+      "severity": "HARD",
+      "safe_action": "KEEP_GLUE_SPACES_WITH_ADJACENT_TEXT_OR_REVIEW",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_AND_UNICODE_LINE_BREAK_CLASS",
+      "postconditions": ["U+00A0, U+180E, U+2007, and U+202F are not treated as line-break opportunities", "partial tokenization does not claim full UAX #14 or Word-rendered layout"]
+    },
+    {
+      "id": "FONT-PROFILE-001",
+      "authority": "PROJECT_PROFILE_NOT_GENERAL_LAW",
+      "scope": "supported content table runs",
+      "preconditions": ["effective Times New Roman font properties are resolved", "profile-specific measurement scope permits the declared size", "licensed local font face provided"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_UNRESOLVED",
+      "requires_approval": false,
+      "evidence_level": "RESOLVED_EXPLICIT_RUN_FONT_OR_UNKNOWN",
+      "postconditions": ["font properties not modified"]
+    },
+    {
+      "id": "PROFILE-METRIC-SIZE-001",
+      "authority": "PROJECT_PROFILE_SUBSET",
+      "scope": "font-size eligibility for table width measurement only",
+      "preconditions": ["profile explicitly selected", "declared effective run size is listed in that profile table_width_measurement"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_OUTSIDE_PROFILE_METRIC_SCOPE",
+      "requires_approval": false,
+      "evidence_level": "DECLARED_EFFECTIVE_RUN_SIZE",
+      "postconditions": ["font properties not modified", "no legal compliance conclusion"]
+    },
+    {
+      "id": "TEXT-COLUMN-GEOMETRY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "available width for body tables in sections with source-defined text-column geometry",
+      "preconditions": ["width optimization requested", "single section with default single column, equal-width columns and explicit nonnegative spacing, or explicit unequal columns with validated widths and spacing"],
+      "severity": "HARD",
+      "safe_action": "CALCULATE_CONSERVATIVE_COLUMN_LOWER_BOUND_OR_REVIEW",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["optimizer uses the minimum source-derived column width as a conservative bound when column placement is unresolved", "unknown or malformed column geometry stays REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
+    },
+    {
+      "id": "CELL-MARGIN-GEOMETRY-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "body tables with explicit table-level or cell-level horizontal margins",
+      "preconditions": ["width optimization requested", "direct table/cell margins are limited to resolved left/right dxa declarations"],
+      "severity": "HARD",
+      "safe_action": "RESOLVE_SIMPLE_DXA_OR_REVIEW_TARGET",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["valid left/right dxa margins feed per-cell width estimates", "unsupported, partial, duplicate, or malformed declarations keep the target REVIEW_REQUIRED", "Word-rendered fit is not inferred"]
+    },
+    {
+      "id": "CELL-MARGIN-STYLE-CASCADE-001",
+      "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
+      "scope": "unsupported table-style-derived cell margins in width audit evidence",
+      "preconditions": ["table references w:tblStyle", "conditional margins, style-level tcMar, partial margins, or the basedOn chain are unresolved"],
+      "severity": "HARD",
+      "safe_action": "REPORT_MARGIN_GEOMETRY_UNRESOLVED",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["audit reports unresolved padding without an effective per-cell matrix", "width proposal remains review-only", "non-width proposals retain their operation-specific gates"]
+    },
+    {
+      "id": "CELL-MARGIN-TABLE-STYLE-BASIC-001",
+      "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
+      "scope": "simple table-style cell margins in body-table width audit evidence",
+      "preconditions": ["table references one table style with an unambiguous table-style basedOn chain", "style margins are complete left/right dxa pairs", "no conditional table-style margins or style-level tcMar declarations"],
+      "severity": "HARD",
+      "safe_action": "REPORT_BOUNDED_SOURCE_STYLE_MARGIN_CHAIN_OR_REVIEW",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["audit reports the table style id, basedOn chain, margin source, use status, and per-cell margin matrix", "direct table and cell margins override the supported style baseline", "conditional, malformed, partial, cyclic, or unknown style margins remain unresolved", "width proposals continue to refuse table styles while typography cascade is unsupported", "Word-rendered fit is not inferred"]
+    },
+    {
+      "id": "CELL-MARGIN-DEFAULT-BUDGET-001",
+      "authority": "PROJECT_POLICY_NOT_GENERAL_LAW",
+      "scope": "fallback horizontal cell-padding budget for width metrics without resolved direct margins",
+      "preconditions": ["metric width estimate", "no resolved direct left/right dxa margin pair for the cell"],
+      "severity": "HARD",
+      "safe_action": "USE_RECORDED_ESTIMATOR_ASSUMPTION",
+      "requires_approval": false,
+      "evidence_level": "PROJECT_ESTIMATOR_ASSUMPTION",
+      "default_padding_twips": 240,
+      "rationale": "Rounded above V15's internal 2 mm-per-side horizontal-padding suggestion; not a Word default or verified rendered margin.",
+      "postconditions": ["the assumed budget is reported in audit/proposal evidence", "Word-effective margins and rendered fit are not claimed"]
+    },
+    {
+      "id": "APPLY-OUTPUT-IDEMPOTENT-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "repeated explicit apply to an existing output path",
+      "preconditions": ["proposal is revalidated against the current source", "existing destination is a regular non-symlink file byte-identical to the validated candidate"],
+      "severity": "HARD",
+      "safe_action": "RETURN_NO_OP_VALID_OR_REFUSE",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_AND_OUTPUT_BYTES",
+      "postconditions": ["identical output is left untouched and reported as NO_OP_VALID", "different, non-regular, or symlink destinations are never overwritten and return OUTPUT_MUST_BE_NEW_PATH"]
+    },
+    {
+      "id": "TABLE-ROLE-SOURCE-CLASSIFICATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "read-only source role candidates for body tables",
+      "preconditions": ["table text and nesting topology are available", "text markers are not treated as legal authority"],
+      "severity": "HARD",
+      "safe_action": "REPORT_ROLE_CANDIDATE_AND_KEEP_EXISTING_EDIT_GATES",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
+      "postconditions": ["report NESTED, OFFICIAL_FORM_CANDIDATE, LAYOUT_CANDIDATE, DATA_CANDIDATE, or UNKNOWN with evidence codes and matched markers from the fixed hint vocabulary", "classification does not establish legal authority or edit permission", "existing table status and operation-specific gates continue to control edits"]
+    },
+    {
+      "id": "TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "read-only source role candidates for non-body story tables",
+      "preconditions": ["story part table text and nesting topology are available", "story ownership remains unresolved or source-derived", "text markers are not treated as legal authority"],
+      "severity": "HARD",
+      "safe_action": "REPORT_ROLE_CANDIDATE_AND_KEEP_STORY_READ_ONLY",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TEXT_AND_TOPOLOGY",
+      "postconditions": ["report NESTED, OFFICIAL_FORM_CANDIDATE, LAYOUT_CANDIDATE, DATA_CANDIDATE, or UNKNOWN with evidence codes and matched markers from the fixed hint vocabulary", "classification does not establish legal authority, effective story ownership, or edit permission", "non-body story tables remain REVIEW_REQUIRED and outside body table indices"]
+    },
+    {
+      "id": "NESTED-PARENT-CELL-SOURCE-LOCATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "source XML locator for the immediate parent cell of a nested table",
+      "preconditions": ["a parent table and containing cell can be followed through direct table-row-cell topology"],
+      "severity": "HARD",
+      "safe_action": "REPORT_SOURCE_CELL_LOCATOR_AND_KEEP_REVIEW_STATUS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TOPOLOGY",
+      "postconditions": ["report zero-based parent table row and cell indexes only when directly resolved", "otherwise report UNRESOLVED with a reason code", "body proposals carry the parent table and cell location in metadata rechecked by apply", "source location does not establish effective ownership or grant edit permission"]
+    },
+    {
+      "id": "TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "matched token evidence for source role candidates",
+      "preconditions": ["a source role candidate is produced from the fixed classifier hint vocabulary"],
+      "severity": "HARD",
+      "safe_action": "REPORT_FIXED_HINT_TOKENS_ONLY",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML_TEXT_MATCHED_TO_FIXED_HINTS",
+      "postconditions": ["reports list matched values from the fixed hint vocabulary and recognized header hints", "reports do not copy arbitrary cell text into matched marker evidence", "matched markers do not establish legal authority or edit permission"]
+    },
+    {
+      "id": "TABLE-BORDER-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct table and cell border declarations in body and non-body table audits",
+      "preconditions": ["a direct w:tblBorders or w:tcBorders element is present in the table source XML"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_DECLARATIONS_AND_KEEP_EFFECTIVE_RENDERING_UNRESOLVED",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["report direct table edges and direct cell edges with zero-based source row and cell indexes", "unsupported attributes, edges, or duplicate declarations produce UNRESOLVED evidence", "style/theme inheritance remains NOT_RESOLVED", "Microsoft Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-LAYOUT-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:tblLayout declarations in body and non-body story table audits and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_LAYOUT_TYPE_AND_BLOCK_UNRESOLVED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["fixed and autofit direct values are reported without inferring effective layout", "absence of a direct declaration does not infer a Word default", "duplicate table properties, duplicate tblLayout declarations, unsupported values, attributes, or content produce UNRESOLVED evidence", "unresolved evidence makes width proposals REVIEW_REQUIRED", "effective layout remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-DIRECTION-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:bidiVisual declarations in body and non-body story table audits and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_VISUAL_ORDER_AND_BLOCK_RIGHT_TO_LEFT_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["direct w:bidiVisual source state is reported without inferring effective document direction", "right-to-left visual order makes width proposals REVIEW_REQUIRED", "duplicate properties/declarations or unsupported values, attributes, or content produce UNRESOLVED evidence", "unresolved evidence makes width proposals REVIEW_REQUIRED", "audit does not reorder source cells and Microsoft Word rendering remains NOT_RUN"]
+    },
+    {
+      "id": "TABLE-CELL-SPACING-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:tblCellSpacing declarations in body and non-body story table audits and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_SPACING_AND_BLOCK_UNMODELED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["direct spacing declarations are reported with type and source width", "only a single explicit dxa zero declaration is in the width-metric supported subset", "nonzero spacing and duplicate or unsupported declarations make width proposals REVIEW_REQUIRED", "effective spacing remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-GEOMETRY-GATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:space attributes on table and cell borders in body and non-body story tables and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_BORDER_SPACE_AND_BLOCK_UNMODELED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["direct table and cell border space values are reported with edge and source location", "nonzero border space and invalid or ambiguous direct border declarations make width proposals REVIEW_REQUIRED", "explicit zero border space does not establish effective border geometry", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-SIZE-GATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:sz attributes on table and cell borders in body and non-body story tables and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_BORDER_SIZE_AND_BLOCK_UNMODELED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["direct table and cell border sizes are reported in eighth-points with edge and source location", "nonzero, missing, or malformed sizes on visible direct border styles make width proposals REVIEW_REQUIRED", "explicit zero border size does not establish effective border geometry", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-STYLE-VALIDATION-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "w:val on direct table and cell border edges in body and non-body story tables",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_MISSING_OR_UNSUPPORTED_BORDER_STYLE_AND_BLOCK_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["a direct border edge without required w:val is UNRESOLVED", "border styles outside the supported line and no-border subset are UNRESOLVED", "effective style precedence remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-BORDER-SIZE-PRESENCE-GATE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "missing direct w:sz on visible table and cell border edges in body and non-body story tables and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_MISSING_SIZE_AND_BLOCK_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["visible direct border styles without w:sz are listed with source location", "missing size makes border geometry UNRESOLVED and width proposals REVIEW_REQUIRED", "nil and none styles do not require a direct size for this gate", "effective border geometry remains NOT_RESOLVED and Word rendering remains NOT_RUN"]
+    },
+    {
+      "id": "TABLE-SCOPE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "simple unmerged data table only in v0.1",
+      "preconditions": ["no document lock/signature", "single known section", "rectangular grid", "plausible data header"],
+      "severity": "HARD",
+      "safe_action": "REVIEW_IF_UNSUPPORTED",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_XML",
+      "postconditions": ["layout and official-form tables not autoformatted"]
+    }
+  ],
+  "profiles": {
+    "ND30": {
+      "type": "policy-binding",
+      "verified_legal_presets": false,
+      "table_width_measurement": {
+        "scope": "WIDTH_METRIC_ELIGIBILITY",
+        "rule_id": "V16-FONT-01",
+        "font_sizes_pt": [13, 14],
+        "selection_basis": "Project policy V16-FONT-01 permits 13 or 14 pt for content-table runs; the official ND30 source gives 13–14 pt for document text.",
+        "official_sources": [{
+          "instrument": "Nghị định 30/2020/NĐ-CP",
+          "catalog_url": "https://vanban.chinhphu.vn/default.aspx?docid=199378&pageid=27160",
+          "text_url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2020/03/30.signed.pdf",
+          "gazette_url": "https://congbao.chinhphu.vn/tai-ve-van-ban-so-30-2020-nd-cp-30858-30246?format=pdf",
+          "locator": "Phụ lục I, Phần I, mục II, khoản 6 điểm e (nội dung văn bản: cỡ chữ 13–14 pt).",
+          "source_review": {
+            "status": "PRIMARY_SOURCE_EXCERPT_CHECKED",
+            "checked_on": "2026-11-06",
+            "currentness": "NOT_ASSESSED"
+          }
+        }]
+      }
+    },
+    "HD05": {
+      "type": "policy-binding",
+      "verified_legal_presets": false,
+      "table_width_measurement": {
+        "scope": "WIDTH_METRIC_ELIGIBILITY",
+        "rule_id": "V16-FONT-02",
+        "font_sizes_pt": [14],
+        "selection_basis": "The official HD05 source lists 14–15 pt for document text; project policy V16-FONT-02 selects 14 pt for table measurement and does not lower it automatically.",
+        "official_sources": [{
+          "instrument": "Hướng dẫn 05-HD/VPTW ngày 27/05/2026",
+          "catalog_url": "https://dangcongsan.vn/vanphongtrunguong/van-ban-cua-dang/huong-dan-so-05-hd-vptw-ngay-27-5-2026-cua-van-phong-trung-uong-dang-ve-the-thuc-va-ky-thuat-trinh-bay-van-ban-cua-dang.html?categoryId=3000525",
+          "text_url": "https://tulieuvankien.dangcongsan.vn/upload/2006988/20260529/HD_05_VPTW_e1550.pdf",
+          "locator": "Phụ lục 2, hàng 6 “Nội dung văn bản” (14–15 pt); V16-FONT-02 selects 14 pt for this project measurement scope.",
+          "source_review": {
+            "status": "PRIMARY_SOURCE_EXCERPT_CHECKED",
+            "checked_on": "2026-11-06",
+            "currentness": "NOT_ASSESSED"
+          }
+        }]
+      }
+    }
+  },
+  "limitations": ["Policy registry is reference data; the runtime implements only the enumerated safety subset.", "Profile-specific font sizes gate width-metric eligibility only; they do not apply formatting or establish legal compliance.", "Vertical merge markers and continuation range checks are source-only; Word-effective rendering and merge behavior are not validated, and vertical-merge operations remain unsupported.", "gridBefore/gridAfter source mappings do not enable edits; rows with omitted grid cells remain review-required."]
+}

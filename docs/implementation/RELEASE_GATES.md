@@ -1,0 +1,45 @@
+# Kiểm soát phát hành và những việc chưa nghiệm thu
+
+## Trạng thái tại nhánh kỹ thuật v0.1
+
+- **Đã chạy:** kiểm thử đọc/sửa/ghi DOCX tổng hợp (pytest) với mock/synthetic width metrics, đối chiếu cấu trúc và giữ nguồn nguyên bản.
+- **Chưa chạy:** TNR thực dưới font fingerprint đã cấp phép, WPS/Microsoft Word Print Layout, corpus F01–F08 gốc, WordVN adapter.
+- **Không tuyên bố:** v1.0, tương thích đầy đủ ND30/HD05, Word layout PASS, 128/152 kịch bản đã PASS.
+
+## Gates
+
+| Gate | Yêu cầu để v1.0 | Trạng thái ở technical preview |
+|---|---|---|
+| DATA | Bảo toàn số liệu, text, topology theo supported types | PASS synthetic subset in [run 42175255868](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42175255868): **221 tests PASS** on Ubuntu/Python 3.10–3.13; Windows/Python 3.12 **220 PASS, 1 POSIX-only sync test SKIP**; not Word acceptance |
+| OPC | Non-target parts và target non-width properties giữ nguyên | PASS synthetic subset in [run 42175255868](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42175255868); validation-failure cleanup, exact-repeat apply no-op, different-output preservation, concurrent-destination no-overwrite, stale-source change refusal, snapshot-based archive write, source-preservation checks, and file-sync-before-publication PASS. POSIX parent-directory sync status after output publication is covered; Windows reports `NOT_SUPPORTED`. These syscall tests do not verify actual power-loss survival |
+| AUTH | Bảng layout, locked/unknown bị loại; policy V17.5.1 | PASS synthetic subset in the 217-test suite across five environments; `mc:AlternateContent`, permission-range markers, enforced/invalid/duplicate document protection, signed-package and macro-part markers, preferred-width declarations, direct unsupported/duplicate table layout/direction/cell-spacing/border-space/border-size declarations, missing/unsupported border style values, and visible borders without explicit size fail closed. Complete legal-profile coverage PARTIAL |
+| GEO | Width candidate không vượt vùng có thể, không tự landscape | PASS synthetic subset in [run 42173328569](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42173328569): explicit equal/custom columns use conservative source-derived lower bounds; direct left/right `dxa` table/cell margins feed per-cell estimates; direct `w:tblLayout`, `w:bidiVisual`, `w:tblCellSpacing`, border `w:space`, `w:sz`, and supported `w:val` values are reported without claiming effective layout, direction, spacing, or border geometry; active right-to-left visual order, nonzero/ambiguous cell spacing, nonzero/ambiguous border space/thickness, missing/unsupported style values, and visible styles without size block width proposals. A bounded table-style `basedOn` chain resolves complete left/right `dxa` baseline pairs in audit and reports provenance; undeclared margins use the 240-twip estimator assumption only when needed. Conditional margins, style-level `tcMar`, partial/malformed/cyclic/unknown chains stay unresolved; width proposals refuse all table styles while typography cascade is unsupported. Floating tables and nonzero indents remain review-only. Actual table-column placement and Word-rendered page position remain NOT_RUN |
+| FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |
+| LINE BREAK | Unicode line-break behavior in metric estimates | PARTIAL: NBSP, MVS, figure space, and narrow NBSP remain grouped by a conservative token guard; full UAX #14, shaping fidelity, and Word rendering NOT_RUN |
+| PAGING | Header repeat/row split/trHeight xử lý theo quyền | First-row repeat + exact→atLeast row height opt-in structural PASS; row split DIAGNOSTICS_ONLY; Word NOT_RUN |
+| COMPLEX | Merged/nested controlled support | PARTIAL: audit exposes source-only logical cell-to-grid mapping, local `vMerge` markers, `gridBefore`/`gridAfter` omission counts, and a narrow continuation-to-restart range check. Word-effective merge rendering remains unverified. Valid horizontal gridSpan is allowed only for width-neutral header-repeat / exact→atLeast. Width optimization, omitted-cell edits, and vertical-merge edits remain blocked pending licensed TNR and Word geometry gates; nested tables stay PRESERVE |
+| L2-WORD | Print Layout Word không tràn/cắt | NOT_RUN; [manual protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) is ready. Current executor has no Microsoft Word |
+| WPS/LO | Renderer đối chứng | LibreOffice secondary smoke PASS on synthetic pagination/row-height fixtures ([header](../verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md), [row height](../verification/ROW_HEIGHT_LO_SMOKE_2026-11-05.md)); WPS NOT_RUN. Neither establishes Word acceptance |
+| WORDVN | Adapter, preview, Undo | Source repo `quanggiaphthh/WordVN` hiện chỉ có README (05/11/2026); editor/API/Undo NOT_IMPLEMENTED, adapter BLOCKED |
+| RELEASE | Clean install, pin dependencies, reproducible binary + rollback | PARTIAL: `uv.lock` pins runtime/test dependencies; exact setuptools/wheel build pins. [Run 42175255868](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42175255868) passed all six jobs; Linux targets passed 221 tests each, Windows passed 220 with one POSIX-only skip, and each target installed its wheelhouse with `pip --no-index --require-hashes`. Canonical and independent-runner wheel SHA-256 match at `c2f0b6cc8227d17a8935749523b4609c451222c6a9530a906856be3d5df55a83`. Preview artifact `chuanhoabang-preview-d39e5cfad10026326b552ddc11c06c050219fb1e` expires 20/11/2026. Offline hash-checked install and repeat-build gates PASS for tested targets. Release/update rollback, actual power-loss behavior, Word/WPS, licensed TNR, and original-fixture acceptance remain NOT_RUN |
+
+**Update 06/11/2026:** Run 42175255868 passed all six jobs, including **221 tests** on Ubuntu/Python 3.10–3.13 and **220 tests plus one POSIX-only skip** on Windows/Python 3.12. It verifies that apply builds from the hash-validated source snapshot, rechecks the source before publication, syncs the candidate file before publication, and reports parent-directory sync after publication. Candidate-sync failure prevents publication; directory-sync failure is reported as `UNVERIFIED` after the output exists. This is syscall evidence only and does not establish physical power-loss durability. Direct border/layout/direction/spacing evidence remains source-only; effective geometry and Microsoft Word rendering are `NOT_RESOLVED`/`NOT_RUN`.
+
+**Nguyên tắc:** Có thể dùng CLI thử nghiệm cho phạm vi đã chứng minh; không đóng issue #7, #8, #11–#16 khi thiếu acceptance theo body issue. Không đóng những issue chỉ có tài liệu một phần.
+
+
+## Tiến độ kiểm thử bổ sung 05/11/2026
+
+- CI Python 3.11 chạy đủ thư mục `tests/`: **33 PASS** tại commit `138f709663fa21e62b8d5b067158c62958ba951b` (và commit mới nhất phải được đối chiếu CI riêng).
+- Tăng fail-closed cho `fldSimple`, comment markers, `customXml`, `smartTag`, bookmark/permission, content part: **7 case regression**.
+- CLI đã hỗ trợ Markdown report và kiểm tra xung đột đường dẫn để không ghi đè DOCX/JSON.
+- Các ca này là kiểm thử OOXML/source integrity trên dữ liệu tổng hợp, không phải nghiệm thu Word hay TNR bản quyền.
+- WordVN kiểm tra bằng GitHub connector: `main` hiện chỉ chứa README greenfield, **không có editor API hoặc Undo để tích hợp thực tế**. Không tự tạo adapter dựa trên API giả định.
+
+
+## Bổ sung CI và giới hạn 05/11/2026 — kiểm tra scope chính xác
+
+- [CI run 42042985209](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42042985209), commit `c518e5070d115806bf42003ffe8d36fcf4f45c3d`: **43/43 PASS**.
+- 6 ca kiểm tra mỗi operation chỉ được sửa whitelist thuộc tính riêng, thêm 4 ca `gridSpan` ngang/vertical/malformed.
+- Không thay đổi orientation/font/dữ liệu/merge topology; các trường hợp Word layout và ảnh hưởng in vẫn NOT_RUN.
+- Bằng chứng pass CI của code **không** thay thế việc nhập fixture F01–F08 gốc, font TNR thật, Microsoft Word hoặc WPS.
