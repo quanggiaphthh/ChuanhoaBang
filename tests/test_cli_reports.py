@@ -443,3 +443,43 @@ def test_markdown_report_cannot_overwrite_docx_or_proposal(tmp_path, capsys):
                  "--output", str(target), "--report-md", str(target)]) == 2
     assert not target.exists()
     assert proposal_file.read_bytes() == proposal_before
+
+
+def test_markdown_reports_direct_border_declarations_for_body_and_story_tables():
+    report = render_markdown({
+        "table_count": 1,
+        "tables": [{
+            "table_id": "body:0:abc123",
+            "border_evidence": {
+                "status": "SOURCE_DECLARATIONS_REPORTED",
+                "table_borders": [{"edge": "top", "attributes": {"val": "single"}}],
+                "cell_borders": [{
+                    "row_index": 0,
+                    "cell_index": 1,
+                    "edges": [{"edge": "right", "attributes": {"sz": "8"}}],
+                }],
+                "style_inheritance": "NOT_RESOLVED",
+                "word_render": "NOT_RUN",
+            },
+        }],
+        "non_body_story_tables": [{
+            "part": "word/header1.xml",
+            "table_id": "word/header1.xml#table=0:abc123",
+            "story_types": ["header"],
+            "border_evidence": {
+                "status": "NO_DIRECT_DECLARATIONS",
+                "table_borders": [],
+                "cell_borders": [],
+                "style_inheritance": "NOT_RESOLVED",
+                "word_render": "NOT_RUN",
+            },
+        }],
+    })
+
+    assert "## Direct border declarations (OOXML source; style inheritance unresolved)" in report
+    assert "body:0:abc123" in report
+    assert '"edge":"top"' in report
+    assert '"row_index":0,"cell_index":1' in report
+    assert "word/header1.xml#table=0:abc123" in report
+    assert "NOT_RESOLVED" in report
+    assert "NOT_RUN" in report

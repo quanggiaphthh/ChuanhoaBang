@@ -69,6 +69,116 @@ def test_audit_read_only_and_header(tmp_path):
     assert path.read_bytes() == before
 
 
+def test_audit_reports_direct_table_and_cell_border_declarations(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    table_borders = etree.SubElement(table_pr, core.W + "tblBorders")
+    top = etree.SubElement(table_borders, core.W + "top")
+    top.set(core.W + "val", "single")
+    top.set(core.W + "sz", "8")
+    top.set(core.W + "color", "FF0000")
+    inside_h = etree.SubElement(table_borders, core.W + "insideH")
+    inside_h.set(core.W + "val", "single")
+    first_cell = table.find("./" + core.W + "tr/" + core.W + "tc")
+    cell_pr = first_cell.find(core.W + "tcPr")
+    cell_borders = etree.SubElement(cell_pr, core.W + "tcBorders")
+    left = etree.SubElement(cell_borders, core.W + "left")
+    left.set(core.W + "val", "single")
+    left.set(core.W + "themeColor", "accent1")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+    source_before = path.read_bytes()
+
+    evidence = audit(path)["tables"][0]["border_evidence"]
+
+    assert evidence["status"] == "SOURCE_DECLARATIONS_REPORTED"
+    assert evidence["table_borders"] == [
+        {"edge": "top", "attributes": {"val": "single", "sz": "8", "color": "FF0000"}},
+        {"edge": "insideH", "attributes": {"val": "single"}},
+    ]
+    assert evidence["cell_borders"] == [{
+        "row_index": 0,
+        "cell_index": 0,
+        "edges": [{"edge": "left", "attributes": {"val": "single", "themeColor": "accent1"}}],
+    }]
+    assert evidence["style_inheritance"] == "NOT_RESOLVED"
+    assert evidence["word_render"] == "NOT_RUN"
+    assert path.read_bytes() == source_before
+
+
+def test_audit_reports_direct_story_table_borders(tmp_path):
+    path = fixture_docx(tmp_path)
+    doc = Document(path)
+    table = doc.sections[0].header.add_table(rows=1, cols=1, width=Cm(10))
+    borders = etree.SubElement(table._tbl.tblPr, core.W + "tblBorders")
+    bottom = etree.SubElement(borders, core.W + "bottom")
+    bottom.set(core.W + "val", "nil")
+    doc.save(path)
+
+    entry = audit(path)["non_body_story_tables"][0]
+
+    assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
+    assert entry["border_evidence"]["table_borders"] == [
+        {"edge": "bottom", "attributes": {"val": "nil"}},
+    ]
+    assert entry["status"] == "REVIEW_REQUIRED"
+
+
+def test_audit_marks_unsupported_border_markup_unresolved(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    borders = etree.SubElement(table_pr, core.W + "tblBorders")
+    unknown_edge = etree.SubElement(borders, core.W + "diagonalInside")
+    unknown_edge.set(core.W + "val", "single")
+    top = etree.SubElement(borders, core.W + "top")
+    top.set(core.W + "custom", "value")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    evidence = audit(path)["tables"][0]["border_evidence"]
+
+    assert evidence["status"] == "UNRESOLVED"
+    assert "UNSUPPORTED_BORDER_EDGE:table:diagonalInside" in evidence["issues"]
+    assert "UNSUPPORTED_BORDER_ATTRIBUTE:table:top:custom" in evidence["issues"]
+
+
+def test_audit_marks_non_element_border_nodes_unresolved(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
+    borders.append(etree.Comment("unexpected metadata inside border declarations"))
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    evidence = audit(path)["tables"][0]["border_evidence"]
+
+    assert evidence["status"] == "UNRESOLVED"
+    assert "UNSUPPORTED_BORDER_EDGE:table:NON_ELEMENT_NODE" in evidence["issues"]
+
+
 def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tmp_path):
     path = fixture_docx(tmp_path)
 
@@ -80,6 +190,7 @@ def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tm
         "MULTIROW_TABLE", "AT_LEAST_TWO_NONEMPTY_HEADER_CELLS", "RECOGNIZED_HEADER_HINT",
     }
     assert {"stt", "nội dung", "ghi chú"}.issubset(role["matched_markers"])
+    assert role["markers_matched"] == len(role["matched_markers"])
     assert role["evidence_level"] == "SOURCE_XML_TEXT_AND_TOPOLOGY"
     assert role["authority"] == "NOT_ESTABLISHED"
 
@@ -98,6 +209,7 @@ def test_audit_labels_official_heading_text_as_a_review_only_form_candidate(tmp_
     assert set(table["role_classification"]["matched_markers"]) == {
         "cộng hòa xã hội chủ nghĩa việt nam", "độc lập - tự do - hạnh phúc",
     }
+    assert table["role_classification"]["markers_matched"] == 2
     assert table["status"] == "REVIEW_REQUIRED"
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
@@ -165,6 +277,11 @@ def test_role_evidence_is_bound_to_header_proposal_and_reported_after_apply(tmp_
     altered["role_classification"]["classification"] = "OFFICIAL_FORM_CANDIDATE"
     with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
         apply(path, altered, tmp_path / "altered-role.docx")
+
+    altered_marker = copy.deepcopy(proposal)
+    altered_marker["role_classification"]["matched_markers"] = []
+    with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+        apply(path, altered_marker, tmp_path / "altered-marker.docx")
 
     altered_scope = copy.deepcopy(proposal)
     altered_scope["parent_table_id"] = "body:9:forged-parent"

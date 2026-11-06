@@ -47,6 +47,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 
 - Role-candidate reports now list the exact generic terms matched from the fixed hint vocabulary or recognized header hints. They do not copy arbitrary cell text into the marker list.
 
+#### 06/11/2026 — Source-only table and cell border inventory
+
+- Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.
+- Local full suite: **189/189 PASS**. GitHub Actions verification for this border inventory is pending.
+
 #### 06/11/2026 — Nested table parent-cell locator
 
 - Body and story inventories report the zero-based parent row/cell for nested tables when direct source XML topology resolves, and report `UNRESOLVED` with a reason otherwise. Body proposals carry this scope metadata and `apply` rechecks it. The locator does not grant edit permission.

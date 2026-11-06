@@ -239,6 +239,32 @@ def render_markdown(result: dict) -> str:
                          f"{safe(table.get('reason', 'UNKNOWN'))} |")
         if not result["non_body_story_tables"]:
             lines.append("| — | — | — | — | — | — | — | — | — | — | — | Không phát hiện bảng ngoài body |")
+    border_tables = [
+        (scope, table)
+        for scope, entries in (("body", result.get("tables", [])),
+                               ("story", result.get("non_body_story_tables", [])))
+        for table in entries
+        if isinstance(table.get("border_evidence"), dict)
+    ]
+    if border_tables:
+        lines += ["", "## Direct border declarations (OOXML source; style inheritance unresolved)", "",
+                  "This inventory reports direct `tblBorders` and `tcBorders` declarations. "
+                  "Style/theme inheritance is not resolved; Word rendering is `NOT_RUN`.", "",
+                  "| Scope | Table ID | Status | Table edges | Cell edges | Style inheritance | Word render | Issues |",
+                  "|---|---|---|---|---|---|---|---|"]
+        for scope, table in border_tables:
+            evidence = table["border_evidence"]
+            table_edges = json.dumps(evidence.get("table_borders", []), ensure_ascii=False,
+                                     separators=(",", ":"))
+            cell_edges = json.dumps(evidence.get("cell_borders", []), ensure_ascii=False,
+                                    separators=(",", ":"))
+            issues = ", ".join(evidence.get("issues", [])) or "—"
+            lines.append(
+                f"| {scope} | `{safe(table.get('table_id', '?'))}` | "
+                f"`{safe(evidence.get('status', 'UNKNOWN'))}` | {safe(table_edges)} | "
+                f"{safe(cell_edges)} | `{safe(evidence.get('style_inheritance', 'UNKNOWN'))}` | "
+                f"`{safe(evidence.get('word_render', 'NOT_RUN'))}` | {safe(issues)} |"
+            )
     if result.get("reasons"):
         lines += ["", "## Lý do / cảnh báo", ""]
         lines.extend(f"- {safe(reason)}" for reason in result["reasons"])

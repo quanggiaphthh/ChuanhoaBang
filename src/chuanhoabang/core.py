@@ -458,6 +458,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "role_classification": _role_classification(
                     table, rows, header, header_str, table_text,
                 ),
+                "border_evidence": _border_evidence(table),
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             }
@@ -1071,6 +1072,105 @@ def _parent_cell_location(tbl, parent_table_id):
     }
 
 
+_BORDER_EDGES = frozenset((
+    "top", "left", "bottom", "right", "start", "end", "insideH", "insideV",
+    "tl2br", "tr2bl",
+))
+_BORDER_ATTRIBUTES = frozenset((
+    "val", "sz", "space", "color", "themeColor", "themeTint", "themeShade",
+    "frame", "shadow",
+))
+
+
+def _border_evidence(tbl):
+    """Report direct table and cell borders without resolving style or theme."""
+    issues = []
+    declaration_count = 0
+
+    def collect_edges(containers, scope):
+        nonlocal declaration_count
+        edges = []
+        seen_edges = set()
+        for container in containers:
+            declaration_count += 1
+            for child in container:
+                if not isinstance(child.tag, str):
+                    issues.append(f"UNSUPPORTED_BORDER_EDGE:{scope}:NON_ELEMENT_NODE")
+                    continue
+                name = etree.QName(child)
+                edge = name.localname
+                if name.namespace != NS["w"] or edge not in _BORDER_EDGES:
+                    issues.append(f"UNSUPPORTED_BORDER_EDGE:{scope}:{edge}")
+                if edge in seen_edges:
+                    issues.append(f"DUPLICATE_BORDER_EDGE:{scope}:{edge}")
+                seen_edges.add(edge)
+                attributes = {}
+                unresolved_attributes = {}
+                for raw_name, value in child.attrib.items():
+                    attribute = etree.QName(raw_name)
+                    if (attribute.namespace == NS["w"] and
+                            attribute.localname in _BORDER_ATTRIBUTES):
+                        attributes[attribute.localname] = value
+                    else:
+                        unresolved_name = (
+                            f"{{{attribute.namespace}}}{attribute.localname}"
+                            if attribute.namespace else attribute.localname
+                        )
+                        unresolved_attributes[unresolved_name] = value
+                        issues.append(
+                            f"UNSUPPORTED_BORDER_ATTRIBUTE:{scope}:{edge}:{attribute.localname}"
+                        )
+                evidence = {"edge": edge, "attributes": attributes}
+                if unresolved_attributes:
+                    evidence["unresolved_attributes"] = unresolved_attributes
+                edges.append(evidence)
+        return edges
+
+    table_containers = [
+        borders
+        for properties in tbl.xpath("./w:tblPr", namespaces=NS)
+        for borders in properties.xpath("./w:tblBorders", namespaces=NS)
+    ]
+    if len(table_containers) > 1:
+        issues.append("DUPLICATE_BORDER_CONTAINER:table")
+    table_borders = collect_edges(table_containers, "table")
+
+    cell_borders = []
+    for row_index, row in enumerate(tbl.xpath("./w:tr", namespaces=NS)):
+        for cell_index, cell in enumerate(row.xpath("./w:tc", namespaces=NS)):
+            containers = [
+                borders
+                for properties in cell.xpath("./w:tcPr", namespaces=NS)
+                for borders in properties.xpath("./w:tcBorders", namespaces=NS)
+            ]
+            scope = f"row{row_index}:cell{cell_index}"
+            if len(containers) > 1:
+                issues.append(f"DUPLICATE_BORDER_CONTAINER:{scope}")
+            edges = collect_edges(containers, scope)
+            if containers:
+                cell_borders.append({
+                    "row_index": row_index,
+                    "cell_index": cell_index,
+                    "edges": edges,
+                })
+
+    issues = sorted(set(issues))
+    if issues:
+        status = "UNRESOLVED"
+    elif declaration_count:
+        status = "SOURCE_DECLARATIONS_REPORTED"
+    else:
+        status = "NO_DIRECT_DECLARATIONS"
+    return {
+        "status": status,
+        "table_borders": table_borders,
+        "cell_borders": cell_borders,
+        "issues": issues,
+        "style_inheritance": "NOT_RESOLVED",
+        "word_render": "NOT_RUN",
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -1146,6 +1246,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
             "role_classification": role_classification,
+            "border_evidence": _border_evidence(tbl),
             "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
             "width_evidence": {

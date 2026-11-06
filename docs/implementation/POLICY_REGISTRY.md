@@ -63,6 +63,13 @@ not an effective ownership determination and grants no edit permission. Body
 proposals carry the parent table/cell metadata, and `apply` checks it against a
 fresh proposal before changing the DOCX.
 
+Rule `TABLE-BORDER-SOURCE-EVIDENCE-001` inventories direct `w:tblBorders` and
+`w:tcBorders` declarations for body and non-body tables, including zero-based
+cell locations. Unsupported or duplicate edges, attributes, or containers
+produce `UNRESOLVED` evidence. Style/theme inheritance remains
+`NOT_RESOLVED`, Microsoft Word rendering remains `NOT_RUN`, and the audit does
+not change the DOCX.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.
