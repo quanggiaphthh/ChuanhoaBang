@@ -45,11 +45,14 @@ spacing. Missing or malformed values and ambiguous sections remain
 measurement.
 
 Audit reports `cell_grid_spans` as zero-based logical grid starts and span counts
-for each physical cell when the XML mapping is unambiguous. This remains
-source-only evidence: horizontal-merge tables stay `REVIEW_REQUIRED` for width
-proposals. Only the existing width-neutral header-repeat and row-height
-operations accept valid horizontal spans; `vMerge`, omitted cells, malformed
-spans, and nested tables remain unsupported.
+for each physical cell when the XML mapping is unambiguous. A cell with a direct
+`w:vMerge` marker also reports `vertical_merge: RESTART` or `CONTINUE` (an
+omitted value is the OOXML continue form). This is source-marker evidence only;
+the vertical continuation chain is not validated, and vertical-merge tables
+stay `REVIEW_REQUIRED` for every proposal. Horizontal-merge tables also stay
+`REVIEW_REQUIRED` for width proposals. Only the existing width-neutral
+header-repeat and row-height operations accept valid horizontal spans; omitted
+cells, malformed spans or merge markers, and nested tables remain unsupported.
 
 The custom-column interpretation follows Microsoft's
 [equalWidth](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1)

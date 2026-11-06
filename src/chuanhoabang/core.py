@@ -860,13 +860,19 @@ def _cell_padding(tbl, rows, table_styles=None):
 
 
 def _cell_grid_spans(tbl):
-    """Map physical cells to logical grid spans when source XML is unambiguous."""
+    """Map physical cells to logical grid spans when source XML is unambiguous.
+
+    A vertical-merge value is reported as a source marker only; this mapping
+    does not validate continuation chains or make vertical merges editable.
+    """
     grid_count = len(tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS))
     rows = tbl.xpath("./w:tr", namespaces=NS)
     direct_spans = tbl.xpath("./w:tr/w:tc/w:tcPr/w:gridSpan", namespaces=NS)
+    direct_vertical_merges = tbl.xpath("./w:tr/w:tc/w:tcPr/w:vMerge", namespaces=NS)
     if (grid_count < 1 or not rows or tbl.xpath(
-            ".//w:vMerge | .//w:gridBefore | .//w:gridAfter | .//w:tbl", namespaces=NS) or
-            len(tbl.xpath(".//w:gridSpan", namespaces=NS)) != len(direct_spans)):
+            ".//w:gridBefore | .//w:gridAfter | .//w:tbl", namespaces=NS) or
+            len(tbl.xpath(".//w:gridSpan", namespaces=NS)) != len(direct_spans) or
+            len(tbl.xpath(".//w:vMerge", namespaces=NS)) != len(direct_vertical_merges)):
         return None
     result = []
     for row in rows:
@@ -888,7 +894,16 @@ def _cell_grid_spans(tbl):
                 span = 1
             if span < 1 or cursor + span > grid_count:
                 return None
-            row_spans.append({"start_column": cursor, "span": span})
+            cell_span = {"start_column": cursor, "span": span}
+            vertical_merges = cell.xpath("./w:tcPr/w:vMerge", namespaces=NS)
+            if len(vertical_merges) > 1:
+                return None
+            if vertical_merges:
+                value = vertical_merges[0].get(W + "val", "continue")
+                if value not in ("restart", "continue"):
+                    return None
+                cell_span["vertical_merge"] = value.upper()
+            row_spans.append(cell_span)
             cursor += span
         if cursor != grid_count:
             return None

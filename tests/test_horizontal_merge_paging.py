@@ -87,12 +87,52 @@ def test_hmerge_height_rule_only_and_preserves_spans(tmp_path):
     assert table.xpath("./w:tr[2]/w:tc[1]/w:tcPr/w:gridSpan/@w:val", namespaces=core.NS) == ["2"]
 
 
-def test_vertical_merge_remains_not_supported(tmp_path):
+def test_vertical_merge_reports_source_markers_but_stays_review_required(tmp_path):
     path = fixture(tmp_path, mode="vertical", exact=True)
-    assert audit(path)["tables"][0]["cell_grid_spans"] is None
+    table_info = audit(path)["tables"][0]
+    assert table_info["cell_grid_spans"] == [
+        [
+            {"start_column": 0, "span": 1},
+            {"start_column": 1, "span": 1},
+            {"start_column": 2, "span": 1},
+        ],
+        [
+            {"start_column": 0, "span": 1, "vertical_merge": "RESTART"},
+            {"start_column": 1, "span": 1},
+            {"start_column": 2, "span": 1},
+        ],
+        [
+            {"start_column": 0, "span": 1, "vertical_merge": "CONTINUE"},
+            {"start_column": 1, "span": 1},
+            {"start_column": 2, "span": 1},
+        ],
+    ]
+    assert table_info["status"] == "REVIEW_REQUIRED"
+    assert "MERGED_OR_OMITTED_CELLS" in table_info["reasons"]
+    from chuanhoabang.cli import render_markdown
+    assert '"vertical_merge":"RESTART"' in render_markdown(audit(path))
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_malformed_vertical_merge_marker_does_not_produce_grid_mapping(tmp_path):
+    path = fixture(tmp_path, mode="vertical")
+    with ZipFile(path) as z:
+        parts = [(info, z.read(info.filename)) for info in z.infolist()]
+    with ZipFile(path, "w") as z:
+        for info, data in parts:
+            if info.filename == "word/document.xml":
+                root = core._xml(data)
+                marker = root.xpath(
+                    ".//w:body/w:tbl/w:tr[2]/w:tc[1]/w:tcPr/w:vMerge",
+                    namespaces=core.NS,
+                )[0]
+                marker.set(core.W + "val", "join")
+                data = etree.tostring(root)
+            z.writestr(info, data)
+    assert audit(path)["tables"][0]["cell_grid_spans"] is None
+    assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
 def test_invalid_horizontal_grid_span_fails_closed(tmp_path):
