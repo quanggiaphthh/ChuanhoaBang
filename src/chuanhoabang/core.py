@@ -74,6 +74,17 @@ def _profile_context(profile):
     return {"profile": profile, "profile_status": "REFERENCE_ONLY", "profile_rules_applied": False}
 
 
+def _profile_metric_constraints(profile):
+    metric_policy = POLICY_REGISTRY["profiles"][profile]["table_width_measurement"]
+    return {
+        "scope": metric_policy["scope"],
+        "rule_id": metric_policy["rule_id"],
+        "font_sizes_pt": list(metric_policy["font_sizes_pt"]),
+        "selection_basis": metric_policy["selection_basis"],
+        "official_sources": copy.deepcopy(metric_policy["official_sources"]),
+    }
+
+
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -1208,10 +1219,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
     info = base["tables"][table_index]
     profile_constraints = None
     if profile is not None:
-        metric_policy = POLICY_REGISTRY["profiles"][profile]["table_width_measurement"]
-        profile_constraints = {"scope": metric_policy["scope"],
-                               "rule_id": metric_policy["rule_id"],
-                               "font_sizes_pt": metric_policy["font_sizes_pt"]}
+        profile_constraints = _profile_metric_constraints(profile)
     result = {"input_sha256": base["input_sha256"], "table_index": table_index,
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
               "profile": base["profile"], "profile_status": base["profile_status"],

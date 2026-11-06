@@ -97,8 +97,15 @@ def test_tampered_profile_metric_constraints_are_rejected_on_apply(tmp_path, mon
         "policy": core.POLICY_VERSION, "decision": "PROPOSE_APPLY", "reasons": [],
         "candidate_twips": [1000, 1000], "profile": "HD05",
         "profile_status": "REFERENCE_ONLY", "profile_rules_applied": False,
-        "profile_constraints": {"scope": "WIDTH_METRIC_ELIGIBILITY",
-                                "rule_id": "V16-FONT-02", "font_sizes_pt": [14]},
+        "profile_constraints": {
+            "scope": "WIDTH_METRIC_ELIGIBILITY",
+            "rule_id": "V16-FONT-02",
+            "font_sizes_pt": [14],
+            "selection_basis": core.POLICY_REGISTRY["profiles"]["HD05"][
+                "table_width_measurement"]["selection_basis"],
+            "official_sources": json.loads(json.dumps(core.POLICY_REGISTRY["profiles"]["HD05"][
+                "table_width_measurement"]["official_sources"])),
+        },
     }
     monkeypatch.setattr(core, "propose", lambda *_args, **_kwargs: actual)
     altered = {**actual, "profile_constraints": {**actual["profile_constraints"],
@@ -135,7 +142,16 @@ def test_width_measurement_size_gate_is_profile_specific(
     assert proposal["profile_constraints"] == {
         "scope": "WIDTH_METRIC_ELIGIBILITY", "rule_id": rule_id,
         "font_sizes_pt": font_sizes,
+        "selection_basis": core.POLICY_REGISTRY["profiles"][profile][
+            "table_width_measurement"]["selection_basis"],
+        "official_sources": core.POLICY_REGISTRY["profiles"][profile][
+            "table_width_measurement"]["official_sources"],
     }
+    original_source = core.POLICY_REGISTRY["profiles"][profile][
+        "table_width_measurement"]["official_sources"][0]
+    original_locator = original_source["locator"]
+    proposal["profile_constraints"]["official_sources"][0]["locator"] = "tampered"
+    assert original_source["locator"] == original_locator
     if supported:
         assert "FONT_SIZE_OUTSIDE_PROFILE_METRIC_SCOPE" not in proposal["reasons"]
         assert proposal["decision"] in ("NO_OP_VALID", "PROPOSE_APPLY")

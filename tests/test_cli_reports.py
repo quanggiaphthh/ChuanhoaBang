@@ -18,6 +18,31 @@ def test_markdown_render_has_real_line_breaks():
     assert "NOT_RUN" in report
 
 
+def test_markdown_render_exposes_profile_source_locator():
+    report = render_markdown({
+        "profile": "HD05",
+        "profile_status": "REFERENCE_ONLY",
+        "profile_rules_applied": False,
+        "profile_constraints": {
+            "scope": "WIDTH_METRIC_ELIGIBILITY",
+            "rule_id": "V16-FONT-02",
+            "font_sizes_pt": [14],
+            "selection_basis": "HD05 lists 14–15 pt; project uses 14 pt for width measurement.",
+            "official_sources": [{
+                "instrument": "Hướng dẫn 05-HD/VPTW",
+                "text_url": "https://tulieuvankien.dangcongsan.vn/upload/2006988/20260529/HD_05_VPTW_e1550.pdf",
+                "locator": "Phụ lục 2, hàng 6",
+            }],
+        },
+    })
+
+    assert "REFERENCE_ONLY" in report
+    assert "WIDTH_METRIC_ELIGIBILITY" in report
+    assert "HD05 lists 14–15 pt" in report
+    assert "https://tulieuvankien.dangcongsan.vn/upload/2006988/20260529/HD_05_VPTW_e1550.pdf" in report
+    assert "Phụ lục 2, hàng 6" in report
+
+
 def test_markdown_render_exposes_non_body_story_table_inventory():
     report = render_markdown({
         "table_count": 1,
