@@ -458,6 +458,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "role_classification": _role_classification(
                     table, rows, header, header_str, table_text,
                 ),
+                "table_layout_evidence": _table_layout_evidence(table),
                 "border_evidence": _border_evidence(table),
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
@@ -1171,6 +1172,44 @@ def _border_evidence(tbl):
     }
 
 
+def _table_layout_evidence(tbl):
+    """Report direct tblLayout values without claiming Word's effective layout."""
+    properties = tbl.xpath("./w:tblPr", namespaces=NS)
+    layouts = [layout for table_properties in properties
+               for layout in table_properties.xpath("./w:tblLayout", namespaces=NS)]
+    issues = []
+    if len(properties) > 1:
+        issues.append("DUPLICATE_TABLE_PROPERTIES")
+    if len(layouts) > 1:
+        issues.append("DUPLICATE_TBL_LAYOUT_DECLARATION")
+
+    declared_types = []
+    for layout in layouts:
+        value = layout.get(W + "type")
+        declared_types.append(value)
+        if value not in ("fixed", "autofit"):
+            issues.append(f"UNSUPPORTED_TBL_LAYOUT_TYPE:{value or 'MISSING'}")
+        for raw_name in layout.attrib:
+            if raw_name != W + "type":
+                issues.append(
+                    f"UNSUPPORTED_TBL_LAYOUT_ATTRIBUTE:{etree.QName(raw_name).localname}"
+                )
+        for child in layout:
+            name = etree.QName(child).localname if isinstance(child.tag, str) else "NON_ELEMENT_NODE"
+            issues.append(f"UNSUPPORTED_TBL_LAYOUT_CONTENT:{name}")
+
+    issues = sorted(set(issues))
+    status = ("UNRESOLVED" if issues else
+              "DIRECT_DECLARATION_REPORTED" if layouts else
+              "NO_DIRECT_DECLARATION")
+    return {
+        "status": status,
+        "declared_types": declared_types,
+        "effective_type": "NOT_RESOLVED",
+        "issues": issues,
+    }
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -1185,6 +1224,9 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     reasons = list(locks)
     if geom["status"] != "STRUCTURAL":
         reasons.append(geom["reason"])
+    table_layout_evidence = _table_layout_evidence(tbl)
+    if table_layout_evidence["status"] == "UNRESOLVED":
+        reasons.append("UNRESOLVED_TABLE_LAYOUT_DECLARATION")
     try:
         cell_padding = _cell_padding(tbl, rows, table_styles)
     except TableError as exc:
@@ -1246,6 +1288,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
             "role_classification": role_classification,
+            "table_layout_evidence": table_layout_evidence,
             "border_evidence": _border_evidence(tbl),
             "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
@@ -1553,6 +1596,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "parent_table_id": info["parent_table_id"],
               "parent_cell_location": info["parent_cell_location"],
               "role_classification": info["role_classification"],
+              "table_layout_evidence": info["table_layout_evidence"],
               "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
@@ -1821,6 +1865,7 @@ def propose_header(path, table_index, profile=None):
               "parent_table_id": table["parent_table_id"],
               "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
+              "table_layout_evidence": table["table_layout_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
     if table.get("row_grid_omissions") is not None:
@@ -1888,6 +1933,7 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "parent_table_id": table["parent_table_id"],
               "parent_cell_location": table["parent_cell_location"],
               "role_classification": table["role_classification"],
+              "table_layout_evidence": table["table_layout_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if table.get("row_grid_omissions") is not None:
@@ -1984,7 +2030,8 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
         actual = propose(src, proposal.get("table_index"), font_regular, font_bold,
                          profile=selected_profile)
     compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons",
-               "parent_table_id", "parent_cell_location", "role_classification")
+               "parent_table_id", "parent_cell_location", "role_classification",
+               "table_layout_evidence")
     if header_operation:
         compare += ("operation",)
     elif height_operation:
@@ -2043,6 +2090,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             **({"profile_constraints": actual["profile_constraints"]}
                if "profile_constraints" in actual else {}),
             "role_classification": actual["role_classification"],
+            "table_layout_evidence": actual["table_layout_evidence"],
             "parent_table_id": actual.get("parent_table_id"),
             "parent_cell_location": actual.get("parent_cell_location"),
             "operation": operation,

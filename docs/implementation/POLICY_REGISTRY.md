@@ -70,6 +70,13 @@ produce `UNRESOLVED` evidence. Style/theme inheritance remains
 `NOT_RESOLVED`, Microsoft Word rendering remains `NOT_RUN`, and the audit does
 not change the DOCX.
 
+Rule `TABLE-LAYOUT-SOURCE-EVIDENCE-001` reports direct `w:tblLayout` values for
+body and non-body tables. `fixed` and `autofit` are source declarations only;
+the effective Word layout remains `NOT_RESOLVED`, and an absent declaration is
+not treated as a known default. Duplicate table-property/layout declarations
+and unsupported values or markup produce `UNRESOLVED` evidence and block width
+proposals.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

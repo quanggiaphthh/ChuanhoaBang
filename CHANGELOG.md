@@ -47,6 +47,11 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 
 - Role-candidate reports now list the exact generic terms matched from the fixed hint vocabulary or recognized header hints. They do not copy arbitrary cell text into the marker list.
 
+#### 06/11/2026 — Direct table-layout source evidence
+
+- Audit, proposals and Markdown reports expose direct `w:tblLayout` declarations for body and story tables. `fixed`/`autofit` remain source values; effective Word layout is `NOT_RESOLVED`, and missing declarations do not imply a default. Duplicate table properties/layout elements and unsupported types or markup force width proposals to `REVIEW_REQUIRED`.
+- `apply` binds the layout evidence into the proposal check. Local full suite: **192/192 PASS**; GitHub Actions verification is pending for this change. Microsoft Word rendering remains `NOT_RUN`.
+
 #### 06/11/2026 — Source-only table and cell border inventory
 
 - Audit JSON and Markdown now report direct `w:tblBorders` and `w:tcBorders` declarations for body and non-body story tables. Cell records include zero-based source row/cell positions. Unknown or repeated edges, attributes, or containers stay `UNRESOLVED`; inherited style/theme borders are not calculated and Word rendering remains `NOT_RUN`.

@@ -125,11 +125,36 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
 
     entry = audit(path)["non_body_story_tables"][0]
 
+    assert entry["table_layout_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
     assert entry["border_evidence"]["table_borders"] == [
         {"edge": "bottom", "attributes": {"val": "nil"}},
     ]
     assert entry["status"] == "REVIEW_REQUIRED"
+
+
+def test_audit_reports_direct_table_layout_without_resolving_effective_type(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    layouts = table.xpath("./w:tblPr/w:tblLayout", namespaces=core.NS)
+    if layouts:
+        layout = layouts[0]
+    else:
+        layout = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblLayout")
+    layout.set(core.W + "type", "fixed")
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    evidence = audit(path)["tables"][0]["table_layout_evidence"]
+
+    assert evidence == {
+        "status": "DIRECT_DECLARATION_REPORTED",
+        "declared_types": ["fixed"],
+        "effective_type": "NOT_RESOLVED",
+        "issues": [],
+    }
+    assert propose(path, 0)["table_layout_evidence"] == evidence
 
 
 def test_audit_marks_unsupported_border_markup_unresolved(tmp_path):
@@ -177,6 +202,59 @@ def test_audit_marks_non_element_border_nodes_unresolved(tmp_path):
 
     assert evidence["status"] == "UNRESOLVED"
     assert "UNSUPPORTED_BORDER_EDGE:table:NON_ELEMENT_NODE" in evidence["issues"]
+
+
+def test_audit_rejects_duplicate_table_layout_declarations(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    for previous in table_pr.findall(core.W + "tblLayout"):
+        table_pr.remove(previous)
+    for value in ("fixed", "autofit"):
+        layout = etree.SubElement(table_pr, core.W + "tblLayout")
+        layout.set(core.W + "type", value)
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["table_layout_evidence"]["status"] == "UNRESOLVED"
+    assert "DUPLICATE_TBL_LAYOUT_DECLARATION" in table_report["table_layout_evidence"]["issues"]
+    assert "UNRESOLVED_TABLE_LAYOUT_DECLARATION" in table_report["reasons"]
+    proposal = propose(path, 0)
+    assert proposal["decision"] == "REVIEW_REQUIRED"
+    assert proposal["table_layout_evidence"] == table_report["table_layout_evidence"]
+
+
+def test_audit_rejects_unsupported_table_layout_type(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        data = {item.filename: (item, package.read(item.filename))
+                for item in package.infolist()}
+    info, document_xml = data["word/document.xml"]
+    root = core._xml(document_xml)
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    for previous in table_pr.findall(core.W + "tblLayout"):
+        table_pr.remove(previous)
+    layout = etree.SubElement(table_pr, core.W + "tblLayout")
+    layout.set(core.W + "type", "auto")
+    data["word/document.xml"] = (info, etree.tostring(root))
+    with ZipFile(path, "w") as package:
+        for item, content in data.values():
+            package.writestr(item, content)
+
+    evidence = audit(path)["tables"][0]["table_layout_evidence"]
+
+    assert evidence["status"] == "UNRESOLVED"
+    assert "UNSUPPORTED_TBL_LAYOUT_TYPE:auto" in evidence["issues"]
 
 
 def test_audit_labels_a_plausible_data_table_as_a_non_authoritative_candidate(tmp_path):
@@ -1133,7 +1211,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     proposal = {"input_sha256": audit(path)["input_sha256"], "table_sha256": meta["table_sha256"],
                 "table_index": 0, "policy": core.POLICY_VERSION, "decision": "PROPOSE_APPLY",
                 "candidate_twips": candidate, "evidence": "MOCK_TEST_ONLY",
-                "role_classification": meta["role_classification"]}
+                "role_classification": meta["role_classification"],
+                "table_layout_evidence": meta["table_layout_evidence"]}
     # Isolate the patch/invariant writer from actual font shaping in this test.
     monkeypatch.setattr(core, "propose", lambda *a, **k: proposal)
     source_hash = core.digest(path.read_bytes())
@@ -1287,7 +1366,8 @@ def test_orientation_preserved_on_patch(tmp_path, monkeypatch):
     prop = {"input_sha256": audit(path)["input_sha256"], "table_sha256": base["table_sha256"],
             "table_index": 0, "policy": core.POLICY_VERSION,
             "decision": "PROPOSE_APPLY", "candidate_twips": list(base["grid_twips"]),
-            "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"]}
+            "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"],
+            "table_layout_evidence": base["table_layout_evidence"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: prop)
     result_file = tmp_path / "new.docx"
     apply(path, prop, result_file)

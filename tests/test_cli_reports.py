@@ -450,6 +450,12 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
         "table_count": 1,
         "tables": [{
             "table_id": "body:0:abc123",
+            "table_layout_evidence": {
+                "status": "DIRECT_DECLARATION_REPORTED",
+                "declared_types": ["autofit"],
+                "effective_type": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "SOURCE_DECLARATIONS_REPORTED",
                 "table_borders": [{"edge": "top", "attributes": {"val": "single"}}],
@@ -466,6 +472,12 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
             "part": "word/header1.xml",
             "table_id": "word/header1.xml#table=0:abc123",
             "story_types": ["header"],
+            "table_layout_evidence": {
+                "status": "NO_DIRECT_DECLARATION",
+                "declared_types": [],
+                "effective_type": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "NO_DIRECT_DECLARATIONS",
                 "table_borders": [],
@@ -478,6 +490,9 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
 
     assert "## Direct border declarations (OOXML source; style inheritance unresolved)" in report
     assert "body:0:abc123" in report
+    assert "DIRECT_DECLARATION_REPORTED: autofit" in report
+    assert "NO_DIRECT_DECLARATION: no direct declaration" in report
+    assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report
     assert "word/header1.xml#table=0:abc123" in report

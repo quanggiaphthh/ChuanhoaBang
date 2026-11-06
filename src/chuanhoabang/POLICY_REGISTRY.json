@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -229,6 +229,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_OOXML",
       "postconditions": ["report direct table edges and direct cell edges with zero-based source row and cell indexes", "unsupported attributes, edges, or duplicate declarations produce UNRESOLVED evidence", "style/theme inheritance remains NOT_RESOLVED", "Microsoft Word rendering remains NOT_RUN", "audit does not modify the source document"]
+    },
+    {
+      "id": "TABLE-LAYOUT-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:tblLayout declarations in body and non-body story table audits and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_LAYOUT_TYPE_AND_BLOCK_UNRESOLVED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["fixed and autofit direct values are reported without inferring effective layout", "absence of a direct declaration does not infer a Word default", "duplicate table properties, duplicate tblLayout declarations, unsupported values, attributes, or content produce UNRESOLVED evidence", "unresolved evidence makes width proposals REVIEW_REQUIRED", "effective layout remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
     },
     {
       "id": "TABLE-SCOPE-001",
