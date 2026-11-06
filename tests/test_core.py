@@ -93,6 +93,14 @@ def add_table_cell_spacing(table_properties, width=None, spacing_type="dxa"):
     return node
 
 
+def add_table_border_space(table, raw_space):
+    borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
+    edge = etree.SubElement(borders, core.W + "left")
+    edge.set(core.W + "val", "single")
+    edge.set(core.W + "space", raw_space)
+    return edge
+
+
 def test_audit_read_only_and_header(tmp_path):
     path = fixture_docx(tmp_path)
     before = path.read_bytes()
@@ -156,6 +164,7 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
     borders = etree.SubElement(table._tbl.tblPr, core.W + "tblBorders")
     bottom = etree.SubElement(borders, core.W + "bottom")
     bottom.set(core.W + "val", "nil")
+    bottom.set(core.W + "space", "2.5")
     doc.save(path)
 
     entry = audit(path)["non_body_story_tables"][0]
@@ -165,8 +174,13 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
     assert entry["table_cell_spacing_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
     assert entry["border_evidence"]["table_borders"] == [
-        {"edge": "bottom", "attributes": {"val": "nil"}},
+        {"edge": "bottom", "attributes": {"val": "nil", "space": "2.5"}},
     ]
+    assert entry["border_geometry_evidence"]["status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert entry["border_geometry_evidence"]["declared_values"] == [{
+        "scope": "table", "row_index": None, "cell_index": None,
+        "edge": "bottom", "raw_space": "2.5", "space_points": "2.5",
+    }]
     assert entry["status"] == "REVIEW_REQUIRED"
 
 
@@ -239,6 +253,62 @@ def test_audit_marks_non_element_border_nodes_unresolved(tmp_path):
 
     assert evidence["status"] == "UNRESOLVED"
     assert "UNSUPPORTED_BORDER_EDGE:table:NON_ELEMENT_NODE" in evidence["issues"]
+
+
+@pytest.mark.parametrize(("raw_space", "expected_status", "expected_reason"), [
+    ("0", "DIRECT_ZERO_ONLY", None),
+    ("2.5", "NONZERO_DIRECT_BORDER_SPACE", "NONZERO_DIRECT_BORDER_SPACE"),
+    ("not-a-number", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY"),
+    ("-1", "UNRESOLVED", "UNRESOLVED_BORDER_GEOMETRY"),
+])
+def test_audit_reports_direct_border_space_and_blocks_unmodeled_width_geometry(
+        tmp_path, raw_space, expected_status, expected_reason):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    add_table_border_space(table, raw_space)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+    evidence = table_report["border_geometry_evidence"]
+
+    assert evidence["status"] == expected_status
+    assert evidence["declared_values"] == [{
+        "scope": "table", "row_index": None, "cell_index": None,
+        "edge": "left", "raw_space": raw_space,
+        "space_points": None if raw_space in ("not-a-number", "-1") else raw_space,
+    }]
+    assert evidence["effective_border_geometry"] == "NOT_RESOLVED"
+    assert table_report["status"] == ("SUPPORTED" if expected_reason is None else
+                                      "REVIEW_REQUIRED")
+    assert propose(path, 0)["border_geometry_evidence"] == evidence
+    if expected_reason:
+        assert expected_reason in table_report["reasons"]
+        assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+    else:
+        header_proposal = core.propose_header(path, 0)
+        assert header_proposal["decision"] == "PROPOSE_APPLY"
+        altered = copy.deepcopy(header_proposal)
+        altered["border_geometry_evidence"]["declared_values"][0]["space_points"] = "0.1"
+        with pytest.raises(TableError, match="STALE_OR_MODIFIED_PROPOSAL"):
+            apply(path, altered, tmp_path / "altered-border-space.docx")
+
+
+def test_audit_rejects_duplicate_direct_border_edges_for_width_geometry(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    add_table_border_space(table, "0")
+    add_table_border_space(table, "0")
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["border_geometry_evidence"]["status"] == "UNRESOLVED"
+    assert "UNRESOLVED_BORDER_GEOMETRY" in table_report["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
 def test_audit_rejects_duplicate_table_layout_declarations(tmp_path):
@@ -1345,6 +1415,11 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     source_before = path.read_bytes()
     meta = audit(path)["tables"][0]
     border_evidence = meta["border_evidence"]
+    assert meta["border_geometry_evidence"]["status"] == "NONZERO_DIRECT_BORDER_SPACE"
+    assert meta["border_geometry_evidence"]["declared_values"] == [{
+        "scope": "cell", "row_index": 0, "cell_index": 0,
+        "edge": "left", "raw_space": "2", "space_points": "2",
+    }]
     base = meta["grid_twips"]
     candidate = [base[0] + 200, base[1] - 400, base[2] + 200]
     assert min(candidate) > 0
@@ -1354,7 +1429,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
                 "role_classification": meta["role_classification"],
                 "table_layout_evidence": meta["table_layout_evidence"],
                 "table_direction_evidence": meta["table_direction_evidence"],
-                "table_cell_spacing_evidence": meta["table_cell_spacing_evidence"]}
+                "table_cell_spacing_evidence": meta["table_cell_spacing_evidence"],
+                "border_geometry_evidence": meta["border_geometry_evidence"]}
     # Isolate the patch/invariant writer from actual font shaping in this test.
     monkeypatch.setattr(core, "propose", lambda *a, **k: proposal)
     source_hash = core.digest(path.read_bytes())
@@ -1369,6 +1445,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert report["table_direction_evidence"]["right_to_left_visual_order"] is False
     assert report["table_cell_spacing_evidence"] == meta["table_cell_spacing_evidence"]
     assert report["table_cell_spacing_evidence"]["spacing_twips"] == 0
+    assert report["border_geometry_evidence"] == meta["border_geometry_evidence"]
     assert "tblLayout" in report["changed_properties"]
     assert path.read_bytes() == source_before
     assert core.digest(path.read_bytes()) == source_hash
@@ -1389,6 +1466,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     }
     assert applied_table["table_direction_evidence"] == meta["table_direction_evidence"]
     assert applied_table["table_cell_spacing_evidence"] == meta["table_cell_spacing_evidence"]
+    assert applied_table["border_geometry_evidence"] == meta["border_geometry_evidence"]
     repeated = apply(path, proposal, target)
     assert repeated["decision"] == "NO_OP_VALID"
 
@@ -1528,7 +1606,8 @@ def test_orientation_preserved_on_patch(tmp_path, monkeypatch):
             "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"],
             "table_layout_evidence": base["table_layout_evidence"],
             "table_direction_evidence": base["table_direction_evidence"],
-            "table_cell_spacing_evidence": base["table_cell_spacing_evidence"]}
+            "table_cell_spacing_evidence": base["table_cell_spacing_evidence"],
+            "border_geometry_evidence": base["border_geometry_evidence"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: prop)
     result_file = tmp_path / "new.docx"
     apply(path, prop, result_file)

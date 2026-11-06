@@ -90,6 +90,13 @@ type and width values. The width-metric subset accepts only one explicit
 unsupported declarations block width proposals because cell gaps are not in
 the geometry model; effective spacing remains `NOT_RESOLVED`.
 
+Rule `TABLE-BORDER-GEOMETRY-GATE-001` reports explicit `w:space` values on
+direct table and cell border edges, including source cell coordinates. A
+positive distance or malformed, duplicate, or unsupported border declaration
+blocks width proposals because border spacing is not modeled. An explicit
+zero declaration does not establish effective border geometry; border size,
+style conflicts, and Word rendering remain `NOT_RESOLVED`/`NOT_RUN`.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

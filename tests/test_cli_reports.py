@@ -481,6 +481,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "style_inheritance": "NOT_RESOLVED",
                 "word_render": "NOT_RUN",
             },
+            "border_geometry_evidence": {
+                "status": "NONZERO_DIRECT_BORDER_SPACE",
+                "declared_values": [{"scope": "cell", "row_index": 0, "cell_index": 1,
+                                     "edge": "left", "raw_space": "2.5", "space_points": 2.5}],
+                "effective_border_geometry": "NOT_RESOLVED",
+                "issues": ["NONZERO_DIRECT_BORDER_SPACE:table:left:2.5"],
+            },
         }],
         "non_body_story_tables": [{
             "part": "word/header1.xml",
@@ -513,6 +520,12 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "style_inheritance": "NOT_RESOLVED",
                 "word_render": "NOT_RUN",
             },
+            "border_geometry_evidence": {
+                "status": "NO_DIRECT_BORDER_SPACE",
+                "declared_values": [],
+                "effective_border_geometry": "NOT_RESOLVED",
+                "issues": [],
+            },
         }],
     })
 
@@ -522,6 +535,7 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
     assert "NO_DIRECT_DECLARATION: no direct declaration" in report
     assert "RIGHT_TO_LEFT" in report
     assert "120 twips" in report
+    assert "row0:cell1:left 2.5 pt" in report
     assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report

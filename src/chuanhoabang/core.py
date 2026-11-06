@@ -6,6 +6,7 @@ A structural pass does not imply Microsoft Word layout acceptance.
 from __future__ import annotations
 
 import copy
+from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import math
@@ -439,6 +440,7 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
             table_text = _normalize_layout_text(" ".join(
                 _text(cell) for row in rows for cell in row.xpath("./w:tc", namespaces=NS)
             ))
+            border_evidence = _border_evidence(table)
             entry = {
                 "part": part,
                 "story_types": list(story_part_types.get(part, ())),
@@ -461,7 +463,8 @@ def _non_body_story_tables(story_parts, section_references, inheritance_candidat
                 "table_layout_evidence": _table_layout_evidence(table),
                 "table_direction_evidence": _table_direction_evidence(table),
                 "table_cell_spacing_evidence": _table_cell_spacing_evidence(table),
-                "border_evidence": _border_evidence(table),
+                "border_evidence": border_evidence,
+                "border_geometry_evidence": _border_geometry_evidence(border_evidence),
                 "status": "REVIEW_REQUIRED",
                 "reason": "NON_BODY_STORY_NOT_IN_EDITABLE_TABLE_INDEX",
             }
@@ -1174,6 +1177,68 @@ def _border_evidence(tbl):
     }
 
 
+def _border_geometry_evidence(border_evidence):
+    """Report direct border spacing and flag values the width metric does not model."""
+    declared_values = []
+    issues = []
+    nonzero = False
+
+    def collect(scope, row_index, cell_index, edges):
+        nonlocal nonzero
+        for edge in edges:
+            attributes = edge.get("attributes", {})
+            if "space" not in attributes:
+                continue
+            raw_space = attributes["space"]
+            value = None
+            try:
+                parsed = Decimal(raw_space)
+                if not parsed.is_finite() or parsed < 0:
+                    raise InvalidOperation
+                value = parsed
+                if parsed > 0:
+                    nonzero = True
+                    issues.append(
+                        f"NONZERO_DIRECT_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
+                    )
+            except (InvalidOperation, TypeError, ValueError):
+                issues.append(
+                    f"INVALID_BORDER_SPACE:{scope}:{edge.get('edge', 'UNKNOWN')}:{raw_space}"
+                )
+            declared_values.append({
+                "scope": scope,
+                "row_index": row_index,
+                "cell_index": cell_index,
+                "edge": edge.get("edge"),
+                "raw_space": raw_space,
+                "space_points": (str(value) if value is not None else None),
+            })
+
+    collect("table", None, None, border_evidence.get("table_borders", []))
+    for cell in border_evidence.get("cell_borders", []):
+        collect("cell", cell.get("row_index"), cell.get("cell_index"),
+                cell.get("edges", []))
+
+    unresolved_source = border_evidence.get("status") == "UNRESOLVED"
+    if unresolved_source:
+        issues.append("UNRESOLVED_DIRECT_BORDER_DECLARATION")
+    issues = sorted(set(issues))
+    if unresolved_source or any(issue.startswith("INVALID_BORDER_SPACE:") for issue in issues):
+        status = "UNRESOLVED"
+    elif nonzero:
+        status = "NONZERO_DIRECT_BORDER_SPACE"
+    elif declared_values:
+        status = "DIRECT_ZERO_ONLY"
+    else:
+        status = "NO_DIRECT_BORDER_SPACE"
+    return {
+        "status": status,
+        "declared_values": declared_values,
+        "effective_border_geometry": "NOT_RESOLVED",
+        "issues": issues,
+    }
+
+
 def _table_layout_evidence(tbl):
     """Report direct tblLayout values without claiming Word's effective layout."""
     properties = tbl.xpath("./w:tblPr", namespaces=NS)
@@ -1342,6 +1407,12 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
         reasons.append("UNRESOLVED_TABLE_CELL_SPACING")
     elif table_cell_spacing_evidence["spacing_twips"] not in (None, 0):
         reasons.append("NONZERO_TABLE_CELL_SPACING")
+    border_evidence = _border_evidence(tbl)
+    border_geometry_evidence = _border_geometry_evidence(border_evidence)
+    if border_geometry_evidence["status"] == "UNRESOLVED":
+        reasons.append("UNRESOLVED_BORDER_GEOMETRY")
+    elif border_geometry_evidence["status"] == "NONZERO_DIRECT_BORDER_SPACE":
+        reasons.append("NONZERO_DIRECT_BORDER_SPACE")
     try:
         cell_padding = _cell_padding(tbl, rows, table_styles)
     except TableError as exc:
@@ -1406,7 +1477,8 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
             "table_layout_evidence": table_layout_evidence,
             "table_direction_evidence": table_direction_evidence,
             "table_cell_spacing_evidence": table_cell_spacing_evidence,
-            "border_evidence": _border_evidence(tbl),
+            "border_evidence": border_evidence,
+            "border_geometry_evidence": border_geometry_evidence,
             "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
             "width_evidence": {
@@ -1716,6 +1788,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "table_layout_evidence": info["table_layout_evidence"],
               "table_direction_evidence": info["table_direction_evidence"],
               "table_cell_spacing_evidence": info["table_cell_spacing_evidence"],
+              "border_geometry_evidence": info["border_geometry_evidence"],
               "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
@@ -1987,6 +2060,7 @@ def propose_header(path, table_index, profile=None):
               "table_layout_evidence": table["table_layout_evidence"],
               "table_direction_evidence": table["table_direction_evidence"],
               "table_cell_spacing_evidence": table["table_cell_spacing_evidence"],
+              "border_geometry_evidence": table["border_geometry_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False}
     if table.get("row_grid_omissions") is not None:
@@ -2057,6 +2131,7 @@ def propose_unclip_row_height(path, table_index, profile=None):
               "table_layout_evidence": table["table_layout_evidence"],
               "table_direction_evidence": table["table_direction_evidence"],
               "table_cell_spacing_evidence": table["table_cell_spacing_evidence"],
+              "border_geometry_evidence": table["border_geometry_evidence"],
               "cell_grid_spans": table.get("cell_grid_spans"),
               "word_render": "NOT_RUN", "content_modified": False, "row_indices": []}
     if table.get("row_grid_omissions") is not None:
@@ -2155,7 +2230,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
     compare = ("input_sha256", "table_sha256", "table_index", "policy", "decision", "reasons",
                "parent_table_id", "parent_cell_location", "role_classification",
                "table_layout_evidence", "table_direction_evidence",
-               "table_cell_spacing_evidence")
+               "table_cell_spacing_evidence", "border_geometry_evidence")
     if header_operation:
         compare += ("operation",)
     elif height_operation:
@@ -2217,6 +2292,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
             "table_layout_evidence": actual["table_layout_evidence"],
             "table_direction_evidence": actual["table_direction_evidence"],
             "table_cell_spacing_evidence": actual["table_cell_spacing_evidence"],
+            "border_geometry_evidence": actual["border_geometry_evidence"],
             "parent_table_id": actual.get("parent_table_id"),
             "parent_cell_location": actual.get("parent_cell_location"),
             "operation": operation,
