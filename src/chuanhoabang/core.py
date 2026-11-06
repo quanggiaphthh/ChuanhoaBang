@@ -859,6 +859,43 @@ def _cell_padding(tbl, rows, table_styles=None):
     return result
 
 
+def _cell_grid_spans(tbl):
+    """Map physical cells to logical grid spans when source XML is unambiguous."""
+    grid_count = len(tbl.xpath("./w:tblGrid/w:gridCol", namespaces=NS))
+    rows = tbl.xpath("./w:tr", namespaces=NS)
+    direct_spans = tbl.xpath("./w:tr/w:tc/w:tcPr/w:gridSpan", namespaces=NS)
+    if (grid_count < 1 or not rows or tbl.xpath(
+            ".//w:vMerge | .//w:gridBefore | .//w:gridAfter | .//w:tbl", namespaces=NS) or
+            len(tbl.xpath(".//w:gridSpan", namespaces=NS)) != len(direct_spans)):
+        return None
+    result = []
+    for row in rows:
+        cells = row.xpath("./w:tc", namespaces=NS)
+        if not cells:
+            return None
+        cursor = 0
+        row_spans = []
+        for cell in cells:
+            spans = cell.xpath("./w:tcPr/w:gridSpan", namespaces=NS)
+            if len(spans) > 1:
+                return None
+            if spans:
+                value = spans[0].get(W + "val")
+                if not value or not re.fullmatch(r"[0-9]+", value):
+                    return None
+                span = int(value)
+            else:
+                span = 1
+            if span < 1 or cursor + span > grid_count:
+                return None
+            row_spans.append({"start_column": cursor, "span": span})
+            cursor += span
+        if cursor != grid_count:
+            return None
+        result.append(row_spans)
+    return result
+
+
 def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
              table_styles=None):
     rows = tbl.xpath("./w:tr", namespaces=NS)
@@ -893,6 +930,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
         reasons.append("NESTED_OR_CONTENT_CONTROL_TABLE")
     if tbl.xpath(".//w:tbl", namespaces=NS):
         reasons.append("CONTAINS_NESTED_TABLE")
+    cell_grid_spans = _cell_grid_spans(tbl)
     if tbl.xpath(".//w:gridSpan | .//w:vMerge | .//w:gridBefore | .//w:gridAfter", namespaces=NS):
         reasons.append("MERGED_OR_OMITTED_CELLS")
     if tbl.xpath(".//w:tblpPr | .//w:textDirection", namespaces=NS):
@@ -927,6 +965,7 @@ def _details(tbl, idx, geom, locks, table_id, parent_table_id, table_hash,
     return {"index": idx, "table_id": table_id, "parent_table_id": parent_table_id,
             "status": status, "reasons": sorted(set(reasons)), "rows": len(rows),
             "columns": len(widths), "grid_twips": widths, "header": header,
+            "cell_grid_spans": cell_grid_spans,
             "table_sha256": table_hash,
             "width_evidence": {
                 "table_preferred": table_preferred,
@@ -1224,6 +1263,7 @@ def propose(path, table_index, font_regular=None, font_bold=None, profile=None):
               "table_sha256": info["table_sha256"], "policy": POLICY_VERSION,
               "profile": base["profile"], "profile_status": base["profile_status"],
               "profile_rules_applied": base["profile_rules_applied"],
+              "cell_grid_spans": info.get("cell_grid_spans"),
               "baseline_twips": info["grid_twips"], "candidate_twips": None,
               "decision": "REVIEW_REQUIRED", "evidence": "SOURCE_XML", "reasons": list(info["reasons"]),
               "word_render": "NOT_RUN", "content_modified": False}
@@ -1633,7 +1673,7 @@ def apply(path, proposal, output, font_regular=None, font_bold=None, profile=Non
     elif height_operation:
         compare += ("operation", "row_indices")
     else:
-        compare += ("candidate_twips",)
+        compare += ("candidate_twips", "cell_grid_spans")
     if "profile" in proposal:
         compare += ("profile", "profile_status", "profile_rules_applied")
         if not header_operation and not height_operation and selected_profile is not None:

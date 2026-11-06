@@ -31,9 +31,12 @@ def render_markdown(result: dict) -> str:
     for key in ("file", "output", "input_sha256", "output_sha256", "policy",
                 "profile", "profile_status", "profile_rules_applied", "profile_constraints",
                 "table_index", "table_count", "non_body_story_table_count", "operation", "evidence",
+                "cell_grid_spans",
                 "content_integrity", "non_target_package_parts"):
         if key in result:
-            lines.append(f"| {safe(key)} | {safe(result[key])} |")
+            value = (json.dumps(result[key], ensure_ascii=False)
+                     if key == "cell_grid_spans" else result[key])
+            lines.append(f"| {safe(key)} | {safe(value)} |")
     geometry = result.get("geometry")
     if isinstance(geometry, dict):
         lines += ["", "## Geometry evidence", "", "| Field | Value |", "|---|---|"]
@@ -63,14 +66,16 @@ def render_markdown(result: dict) -> str:
                          f"{safe(', '.join(table.get('reasons', [])))} |")
         if any("width_evidence" in table for table in result["tables"]):
             lines += ["", "## Width evidence (OOXML declarations; not Word measurements)", "",
-                      "| Table ID | Grid and sum | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
-                      "|---|---|---|---|---|---|"]
+                      "| Table ID | Grid and sum | Cell grid spans (zero-based start/count) | tblW preferred | tcW preferred by row/cell | Cell padding evidence | Word rendered width |",
+                      "|---|---|---|---|---|---|---|"]
             for table in result["tables"]:
                 evidence = table.get("width_evidence", {})
                 grid = table.get("grid_twips")
                 grid_sum = evidence.get("grid_sum_twips")
                 grid_label = (f"grid={grid if grid is not None else 'UNKNOWN'} twips; "
                               f"sum={grid_sum if grid_sum is not None else 'UNKNOWN'} twips")
+                span_label = json.dumps(table.get("cell_grid_spans"), ensure_ascii=False,
+                                        separators=(",", ":"))
                 cell_labels = []
                 for row_index, row in enumerate(evidence.get("cell_preferred", [])):
                     for cell_index, width in enumerate(row):
@@ -117,6 +122,7 @@ def render_markdown(result: dict) -> str:
                     padding_label = "; ".join(padding_parts)
                 lines.append(f"| `{safe(table.get('table_id', '?'))}` | "
                              f"{safe(grid_label)} | "
+                             f"{safe(span_label)} | "
                              f"{safe(width_label(evidence.get('table_preferred', {})))} | "
                              f"{safe(cells_label)} | "
                              f"{safe(padding_label)} | "

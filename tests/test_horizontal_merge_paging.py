@@ -43,7 +43,16 @@ def test_hmerge_header_is_safe_but_width_optimizer_stays_blocked(tmp_path):
     path = fixture(tmp_path)
     original_bytes = path.read_bytes()
     original_text = _table_text(path)
-    assert "MERGED_OR_OMITTED_CELLS" in audit(path)["tables"][0]["reasons"]
+    table_info = audit(path)["tables"][0]
+    assert "MERGED_OR_OMITTED_CELLS" in table_info["reasons"]
+    assert table_info["status"] == "REVIEW_REQUIRED"
+    assert table_info["cell_grid_spans"][1] == [
+        {"start_column": 0, "span": 2}, {"start_column": 2, "span": 1},
+    ]
+    from chuanhoabang.cli import render_markdown
+    markdown = render_markdown(audit(path))
+    assert "Cell grid spans (zero-based start/count)" in markdown
+    assert '"start_column":0' in markdown
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
     header = propose_header(path, 0)
     assert header["decision"] == "PROPOSE_APPLY"
@@ -80,6 +89,7 @@ def test_hmerge_height_rule_only_and_preserves_spans(tmp_path):
 
 def test_vertical_merge_remains_not_supported(tmp_path):
     path = fixture(tmp_path, mode="vertical", exact=True)
+    assert audit(path)["tables"][0]["cell_grid_spans"] is None
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"
@@ -97,5 +107,6 @@ def test_invalid_horizontal_grid_span_fails_closed(tmp_path):
                 span.set(core.W + "val", "7")
                 data = etree.tostring(root)
             z.writestr(info, data)
+    assert audit(path)["tables"][0]["cell_grid_spans"] is None
     assert propose_header(path, 0)["decision"] == "REVIEW_REQUIRED"
     assert propose_unclip_row_height(path, 0)["decision"] == "REVIEW_REQUIRED"

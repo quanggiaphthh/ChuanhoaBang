@@ -38,6 +38,13 @@ spacing. Missing or malformed values and ambiguous sections remain
 `GEOMETRY_UNKNOWN`. None of these source-derived bounds is a Word-rendered
 measurement.
 
+Audit reports `cell_grid_spans` as zero-based logical grid starts and span counts
+for each physical cell when the XML mapping is unambiguous. This remains
+source-only evidence: horizontal-merge tables stay `REVIEW_REQUIRED` for width
+proposals. Only the existing width-neutral header-repeat and row-height
+operations accept valid horizontal spans; `vMerge`, omitted cells, malformed
+spans, and nested tables remain unsupported.
+
 The custom-column interpretation follows Microsoft's
 [equalWidth](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.equalwidth?view=openxml-3.0.1)
 and [column spacing](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.columns.space?view=openxml-3.0.1)

@@ -759,6 +759,9 @@ def test_merged_is_not_auto_formatted(tmp_path):
     path = fixture_docx(tmp_path, merged=True)
     result = audit(path)
     assert "MERGED_OR_OMITTED_CELLS" in result["tables"][0]["reasons"]
+    assert result["tables"][0]["cell_grid_spans"][1][0] == {
+        "start_column": 0, "span": 2,
+    }
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 

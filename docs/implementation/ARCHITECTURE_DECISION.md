@@ -18,7 +18,7 @@
 | Phạm vi | v0.1 | Trạng thái |
 |---|---|---|
 | Đọc và liệt kê body tables, trang đơn section | Implemented | Test synthetic PASS |
-| Khoá, tracked changes, signed, nested, layout heuristics | Detect/decline; gridSpan ngang hỗ trợ riêng paging | Test subset PASS, cần thêm fixture |
+| Khoá, tracked changes, signed, nested, layout heuristics | Detect/decline; audit maps valid horizontal gridSpan cells; paging operations remain width-neutral | Test subset PASS, cần thêm fixture |
 | Hình học từ `sectPr/pgSz/pgMar` | Structural only | Không suy ra Word line breaks |
 | Font TNR hiệu dụng | Explicit `w:rFonts/w:sz` only | Style cascade đầy đủ chưa có |
 | Đo glyph có RAQM qua file TNR người dùng cung cấp | Conditional | Chưa được test bằng TNR thật trong runtime này |
@@ -46,5 +46,5 @@
 
 - Bộ so sánh L0 đã chuyển sang **allowlist riêng cho từng operation**. OPTIMIZE_WIDTH chỉ bỏ qua phép đo width; SET_REPEAT_HEADER_FIRST_ROW chỉ bỏ qua `tblHeader` ở hàng đầu; EXACT_ROW_HEIGHT_TO_AT_LEAST chỉ bỏ qua thuộc tính `hRule` tại đúng `row_indices` đã phê duyệt.
 - Không còn bỏ qua thay đổi `tblGrid/tcW/tblW` khi sửa header/height, hoặc bỏ qua hRule của hàng **không** thuộc đề xuất.
-- Vùng `gridSpan` ngang được kiểm phủ lưới theo mỗi hàng và chỉ cho hai phép phân trang trên; width optimizer vẫn từ chối.
+- Audit exposes source-only `gridSpan` cell-to-grid ranges; valid horizontal spans are allowed only for the two width-neutral paging operations. The width optimizer still refuses merged tables pending licensed TNR and Microsoft Word geometry gates.
 - CI 43/43 PASS theo fixture tổng hợp; chưa có Word Print Layout hoặc TNR bản quyền.

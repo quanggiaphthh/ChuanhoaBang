@@ -17,7 +17,7 @@
 | FONT | Shaping TNR thực và style cascade đầy đủ | PARTIAL, TNR runtime test NOT_RUN |
 | LINE BREAK | Unicode line-break behavior in metric estimates | PARTIAL: NBSP, MVS, figure space, and narrow NBSP remain grouped by a conservative token guard; full UAX #14, shaping fidelity, and Word rendering NOT_RUN |
 | PAGING | Header repeat/row split/trHeight xử lý theo quyền | First-row repeat + exact→atLeast row height opt-in structural PASS; row split DIAGNOSTICS_ONLY; Word NOT_RUN |
-| COMPLEX | Merged/nested controlled support | PARTIAL: gridSpan ngang hợp lệ chỉ được phép header-repeat / exact→atLeast; AutoFit merged, vMerge, nested vẫn PRESERVE |
+| COMPLEX | Merged/nested controlled support | PARTIAL: audit exposes source-only logical cell-to-grid mapping; valid horizontal gridSpan is allowed only for width-neutral header-repeat / exact→atLeast. Width optimization remains blocked pending licensed TNR and Word geometry gates; vMerge, omitted cells, and nested tables stay PRESERVE |
 | L2-WORD | Print Layout Word không tràn/cắt | NOT_RUN; [manual protocol](../verification/WORD_ACCEPTANCE_PROTOCOL.md) is ready. Current executor has no Microsoft Word |
 | WPS/LO | Renderer đối chứng | LibreOffice secondary smoke PASS on synthetic pagination/row-height fixtures ([header](../verification/HEADER_REPEAT_LO_SMOKE_2026-11-05.md), [row height](../verification/ROW_HEIGHT_LO_SMOKE_2026-11-05.md)); WPS NOT_RUN. Neither establishes Word acceptance |
 | WORDVN | Adapter, preview, Undo | Source repo `quanggiaphthh/WordVN` hiện chỉ có README (05/11/2026); editor/API/Undo NOT_IMPLEMENTED, adapter BLOCKED |
