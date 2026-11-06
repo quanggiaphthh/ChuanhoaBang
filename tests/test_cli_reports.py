@@ -463,6 +463,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "effective_direction": "NOT_RESOLVED",
                 "issues": [],
             },
+            "table_cell_spacing_evidence": {
+                "status": "DIRECT_DECLARATION_REPORTED",
+                "declared_values": [{"type": "dxa", "width": "120"}],
+                "spacing_twips": 120,
+                "effective_spacing": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "SOURCE_DECLARATIONS_REPORTED",
                 "table_borders": [{"edge": "top", "attributes": {"val": "single"}}],
@@ -492,6 +499,13 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
                 "effective_direction": "NOT_RESOLVED",
                 "issues": [],
             },
+            "table_cell_spacing_evidence": {
+                "status": "NO_DIRECT_DECLARATION",
+                "declared_values": [],
+                "spacing_twips": None,
+                "effective_spacing": "NOT_RESOLVED",
+                "issues": [],
+            },
             "border_evidence": {
                 "status": "NO_DIRECT_DECLARATIONS",
                 "table_borders": [],
@@ -507,6 +521,7 @@ def test_markdown_reports_direct_border_declarations_for_body_and_story_tables()
     assert "DIRECT_DECLARATION_REPORTED: autofit" in report
     assert "NO_DIRECT_DECLARATION: no direct declaration" in report
     assert "RIGHT_TO_LEFT" in report
+    assert "120 twips" in report
     assert "NOT_RESOLVED" in report
     assert '"edge":"top"' in report
     assert '"row_index":0,"cell_index":1' in report

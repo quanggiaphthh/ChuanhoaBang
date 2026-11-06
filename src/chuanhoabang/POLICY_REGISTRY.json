@@ -1,6 +1,6 @@
 {
   "schema": "chuanhoabang.policy.v0.1",
-  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001+TABLE-DIRECTION-SOURCE-EVIDENCE-001",
+  "version": "V17.5.1/PROFILE-METRIC-SIZE-001+TEXT-COLUMN-GEOMETRY-003+MARKUP-COMPATIBILITY-001+PROTECTION-STATE-001+UNSUPPORTED-PACKAGE-CONTENT-001+UNICODE-LINEBREAK-001+CELL-MARGIN-GEOMETRY-001+CELL-MARGIN-STYLE-CASCADE-001+CELL-MARGIN-DEFAULT-BUDGET-001+CELL-MARGIN-TABLE-STYLE-BASIC-001+APPLY-OUTPUT-IDEMPOTENT-001+PROFILE-SOURCE-EXCERPT-001+VERTICAL-MERGE-SOURCE-MARKER-001+GRID-OMISSION-SOURCE-MAPPING-001+VERTICAL-MERGE-CHAIN-SOURCE-VALIDATION-001+TABLE-ROLE-SOURCE-CLASSIFICATION-001+TABLE-ROLE-STORY-SOURCE-CLASSIFICATION-001+NESTED-PARENT-CELL-SOURCE-LOCATION-001+TABLE-ROLE-MATCHED-MARKER-EVIDENCE-001+TABLE-BORDER-SOURCE-EVIDENCE-001+TABLE-LAYOUT-SOURCE-EVIDENCE-001+TABLE-DIRECTION-SOURCE-EVIDENCE-001+TABLE-CELL-SPACING-SOURCE-EVIDENCE-001",
   "sources": [
     "AGENTS.md",
     "docs/research/Bao_cao_chuan_hoa_va_toi_uu_bang_DOCX_ND30_HD05_V15_2026.md",
@@ -17,6 +17,7 @@
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridbefore?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.gridafter?view=openxml-3.0.1",
     "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bidivisual?view=openxml-3.0.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tablecellspacing?view=openxml-3.0.1",
     "https://unicode.org/reports/tr14/"
   ],
   "rules": [
@@ -252,6 +253,17 @@
       "requires_approval": false,
       "evidence_level": "SOURCE_OOXML",
       "postconditions": ["direct w:bidiVisual source state is reported without inferring effective document direction", "right-to-left visual order makes width proposals REVIEW_REQUIRED", "duplicate properties/declarations or unsupported values, attributes, or content produce UNRESOLVED evidence", "unresolved evidence makes width proposals REVIEW_REQUIRED", "audit does not reorder source cells and Microsoft Word rendering remains NOT_RUN"]
+    },
+    {
+      "id": "TABLE-CELL-SPACING-SOURCE-EVIDENCE-001",
+      "authority": "PROJECT_POLICY",
+      "scope": "direct w:tblCellSpacing declarations in body and non-body story table audits and width proposals",
+      "preconditions": ["a body or non-body story table is inventoried"],
+      "severity": "HARD",
+      "safe_action": "REPORT_DIRECT_SPACING_AND_BLOCK_UNMODELED_WIDTH_PROPOSALS",
+      "requires_approval": false,
+      "evidence_level": "SOURCE_OOXML",
+      "postconditions": ["direct spacing declarations are reported with type and source width", "only a single explicit dxa zero declaration is in the width-metric supported subset", "nonzero spacing and duplicate or unsupported declarations make width proposals REVIEW_REQUIRED", "effective spacing remains NOT_RESOLVED and Word rendering remains NOT_RUN", "audit does not modify the source document"]
     },
     {
       "id": "TABLE-SCOPE-001",

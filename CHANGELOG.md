@@ -55,7 +55,12 @@ Bản chuẩn hiện hành là **[V15 hợp nhất](docs/research/Bao_cao_chuan_
 #### 06/11/2026 — Direct table visual-order diagnostic
 
 - Audit and proposals report direct `w:bidiVisual` source state. Active right-to-left visual order and duplicate/unsupported declarations fail closed for width proposals; explicit off state is reported. No source cells are reordered, and effective direction remains `NOT_RESOLVED`.
-- Added tests for active/default-on/off values, duplicates, unsupported values, proposal refusal, and Markdown body/story reporting. Local full suite: **196/196 PASS**; GitHub Actions verification is pending for this change. Microsoft Word rendering remains `NOT_RUN`.
+- Added tests for active/default-on/off values, duplicates, unsupported values, proposal refusal, and Markdown body/story reporting. Local full suite: **196/196 PASS**. GitHub Actions [run 42164914928](https://github.com/quanggiaphthh/ChuanhoaBang/actions/runs/42164914928) passed all six jobs and 196/196 tests across five targets; wheel SHA-256 `f883c18dbc1a76e9be36000e65a67ebd0eb2fa8b257311161c7617985dadaf5f`, same-run rebuild matched. Artifact `chuanhoabang-preview-db51fa7c3b4c35e792785268619f5ba491467038` expires 20/11/2026. Microsoft Word rendering remains `NOT_RUN`.
+
+#### 06/11/2026 — Table cell-spacing geometry gate
+
+- Audit and proposals report direct `w:tblCellSpacing`; only a single explicit `dxa=0` declaration is supported by the width metric. Nonzero spacing and malformed, unsupported, or duplicate declarations force review; effective spacing is not inferred.
+- Added source evidence and preservation/refusal tests. Local full suite: **199/199 PASS**; GitHub Actions verification is pending for this change. Microsoft Word rendering remains `NOT_RUN`.
 
 #### 06/11/2026 — Source-only table and cell border inventory
 

@@ -29,6 +29,7 @@ def test_policy_machine_readable():
     assert "TABLE-BORDER-SOURCE-EVIDENCE-001" in ids
     assert "TABLE-LAYOUT-SOURCE-EVIDENCE-001" in ids
     assert "TABLE-DIRECTION-SOURCE-EVIDENCE-001" in ids
+    assert "TABLE-CELL-SPACING-SOURCE-EVIDENCE-001" in ids
     for rule in rules:
         assert all(k in rule for k in ("authority", "scope", "preconditions", "severity", "safe_action",
                                       "requires_approval", "evidence_level", "postconditions"))

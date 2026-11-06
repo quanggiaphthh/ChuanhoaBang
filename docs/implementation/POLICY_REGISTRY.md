@@ -84,6 +84,12 @@ reverses visible cell order; unsupported or duplicate declarations remain
 document direction, and leaves Word rendering `NOT_RUN` ([Microsoft Open XML
 `BiDiVisual`](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.bidivisual?view=openxml-3.0.1)).
 
+Rule `TABLE-CELL-SPACING-SOURCE-EVIDENCE-001` reports direct `w:tblCellSpacing`
+type and width values. The width-metric subset accepts only one explicit
+`dxa` zero declaration. Nonzero spacing and duplicate, malformed, or
+unsupported declarations block width proposals because cell gaps are not in
+the geometry model; effective spacing remains `NOT_RESOLVED`.
+
 For a width proposal, JSON and Markdown copy the metric scope, source rule ID,
 allowed sizes, project selection rationale, and the registry's official source
 records (`instrument`, URLs, and exact locator) into `profile_constraints`.

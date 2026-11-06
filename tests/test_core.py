@@ -75,6 +75,24 @@ def add_bidi_visual(table_properties, value=None):
     return node
 
 
+def add_table_cell_spacing(table_properties, width=None, spacing_type="dxa"):
+    node = etree.Element(core.W + "tblCellSpacing")
+    if width is not None:
+        node.set(core.W + "w", width)
+    if spacing_type is not None:
+        node.set(core.W + "type", spacing_type)
+    later_properties = {
+        core.W + name for name in (
+            "tblInd", "tblBorders", "shd", "tblLayout", "tblCellMar",
+            "tblLook", "tblCaption", "tblDescription", "tblPrChange",
+        )
+    }
+    index = next((i for i, child in enumerate(table_properties)
+                  if child.tag in later_properties), len(table_properties))
+    table_properties.insert(index, node)
+    return node
+
+
 def test_audit_read_only_and_header(tmp_path):
     path = fixture_docx(tmp_path)
     before = path.read_bytes()
@@ -144,6 +162,7 @@ def test_audit_reports_direct_story_table_borders(tmp_path):
 
     assert entry["table_layout_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["table_direction_evidence"]["status"] == "NO_DIRECT_DECLARATION"
+    assert entry["table_cell_spacing_evidence"]["status"] == "NO_DIRECT_DECLARATION"
     assert entry["border_evidence"]["status"] == "SOURCE_DECLARATIONS_REPORTED"
     assert entry["border_evidence"]["table_borders"] == [
         {"edge": "bottom", "attributes": {"val": "nil"}},
@@ -320,6 +339,56 @@ def test_audit_rejects_duplicate_and_unsupported_bidi_visual_declarations(tmp_pa
     assert "DUPLICATE_BIDI_VISUAL_DECLARATION" in table_report["table_direction_evidence"]["issues"]
     assert "UNSUPPORTED_BIDI_VISUAL_VALUE:yes" in table_report["table_direction_evidence"]["issues"]
     assert "UNRESOLVED_TABLE_DIRECTION_DECLARATION" in table_report["reasons"]
+    assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+@pytest.mark.parametrize(("raw_width", "expected_status", "expected_reason"), [
+    ("0", "SUPPORTED", None),
+    ("120", "REVIEW_REQUIRED", "NONZERO_TABLE_CELL_SPACING"),
+])
+def test_audit_reports_direct_table_cell_spacing_and_blocks_nonzero_width_proposals(
+        tmp_path, raw_width, expected_status, expected_reason):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    add_table_cell_spacing(table.find(core.W + "tblPr"), raw_width)
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+    evidence = table_report["table_cell_spacing_evidence"]
+
+    assert evidence == {
+        "status": "DIRECT_DECLARATION_REPORTED",
+        "declared_values": [{"type": "dxa", "width": raw_width}],
+        "spacing_twips": int(raw_width),
+        "effective_spacing": "NOT_RESOLVED",
+        "issues": [],
+    }
+    assert table_report["status"] == expected_status
+    if expected_reason:
+        assert expected_reason in table_report["reasons"]
+        assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
+
+
+def test_audit_rejects_ambiguous_and_unsupported_table_cell_spacing(tmp_path):
+    path = fixture_docx(tmp_path)
+    with ZipFile(path) as package:
+        root = core._xml(package.read("word/document.xml"))
+    table = root.xpath("./w:body/w:tbl", namespaces=core.NS)[0]
+    table_pr = table.find(core.W + "tblPr")
+    add_table_cell_spacing(table_pr, "0", "dxa")
+    add_table_cell_spacing(table_pr, "25", "pct")
+    replace_docx_parts(path, {"word/document.xml": etree.tostring(root)})
+
+    table_report = audit(path)["tables"][0]
+
+    assert table_report["table_cell_spacing_evidence"]["status"] == "UNRESOLVED"
+    assert "DUPLICATE_TBL_CELL_SPACING_DECLARATION" in \
+        table_report["table_cell_spacing_evidence"]["issues"]
+    assert "UNSUPPORTED_TBL_CELL_SPACING_TYPE:pct" in \
+        table_report["table_cell_spacing_evidence"]["issues"]
+    assert "UNRESOLVED_TABLE_CELL_SPACING" in table_report["reasons"]
     assert propose(path, 0)["decision"] == "REVIEW_REQUIRED"
 
 
@@ -1258,6 +1327,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     table_layout = table.find("./" + core.W + "tblPr/" + core.W + "tblLayout")
     table_layout.set(core.W + "type", "autofit")
     add_bidi_visual(table.find(core.W + "tblPr"), "0")
+    add_table_cell_spacing(table.find(core.W + "tblPr"), "0")
     table_borders = etree.SubElement(table.find(core.W + "tblPr"), core.W + "tblBorders")
     top = etree.SubElement(table_borders, core.W + "top")
     top.set(core.W + "val", "single")
@@ -1283,7 +1353,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
                 "candidate_twips": candidate, "evidence": "MOCK_TEST_ONLY",
                 "role_classification": meta["role_classification"],
                 "table_layout_evidence": meta["table_layout_evidence"],
-                "table_direction_evidence": meta["table_direction_evidence"]}
+                "table_direction_evidence": meta["table_direction_evidence"],
+                "table_cell_spacing_evidence": meta["table_cell_spacing_evidence"]}
     # Isolate the patch/invariant writer from actual font shaping in this test.
     monkeypatch.setattr(core, "propose", lambda *a, **k: proposal)
     source_hash = core.digest(path.read_bytes())
@@ -1296,6 +1367,8 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
     assert report["table_layout_evidence"]["declared_types"] == ["autofit"]
     assert report["table_direction_evidence"] == meta["table_direction_evidence"]
     assert report["table_direction_evidence"]["right_to_left_visual_order"] is False
+    assert report["table_cell_spacing_evidence"] == meta["table_cell_spacing_evidence"]
+    assert report["table_cell_spacing_evidence"]["spacing_twips"] == 0
     assert "tblLayout" in report["changed_properties"]
     assert path.read_bytes() == source_before
     assert core.digest(path.read_bytes()) == source_hash
@@ -1315,6 +1388,7 @@ def test_width_patch_preserves_whole_document_and_source(tmp_path, monkeypatch):
         "issues": [],
     }
     assert applied_table["table_direction_evidence"] == meta["table_direction_evidence"]
+    assert applied_table["table_cell_spacing_evidence"] == meta["table_cell_spacing_evidence"]
     repeated = apply(path, proposal, target)
     assert repeated["decision"] == "NO_OP_VALID"
 
@@ -1453,7 +1527,8 @@ def test_orientation_preserved_on_patch(tmp_path, monkeypatch):
             "decision": "PROPOSE_APPLY", "candidate_twips": list(base["grid_twips"]),
             "evidence": "MOCK_TEST_ONLY", "role_classification": base["role_classification"],
             "table_layout_evidence": base["table_layout_evidence"],
-            "table_direction_evidence": base["table_direction_evidence"]}
+            "table_direction_evidence": base["table_direction_evidence"],
+            "table_cell_spacing_evidence": base["table_cell_spacing_evidence"]}
     monkeypatch.setattr(core, "propose", lambda *a, **k: prop)
     result_file = tmp_path / "new.docx"
     apply(path, prop, result_file)
